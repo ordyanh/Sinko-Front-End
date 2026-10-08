@@ -72,15 +72,19 @@ export async function getNotificationSettings(): Promise<NotificationSettingsDto
 export async function updateNotificationSettings(
   settings: NotificationSettingsDto,
 ): Promise<void> {
+  const body = {
+    ...settings,
+    settings: [],
+  };
   try {
     await apiRequest<void>("/api/Notifications/settings", {
       method: "PUT",
-      body: JSON.stringify(settings),
+      body: JSON.stringify(body),
     });
   } catch {
     await apiRequest<void>("/api/Notifications/preferences", {
       method: "PUT",
-      body: JSON.stringify(settings),
+      body: JSON.stringify(body),
     });
   }
 }

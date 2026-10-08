@@ -14,24 +14,24 @@ export function BackendEnvironmentBadge() {
       : true;
 
   const authUrl = isLocalTarget
-    ? import.meta.env?.VITE_LOCAL_AUTH_URL || "http://localhost:5273/"
+    ? import.meta.env?.VITE_LOCAL_AUTH_URL || "http://localhost:5273"
     : import.meta.env?.VITE_REMOTE_AUTH_URL || "https://syncoauthservice-f0e9fkaqgyczegas.swedencentral-01.azurewebsites.net";
 
   const coreUrl = isLocalTarget
-    ? import.meta.env?.VITE_LOCAL_CORE_URL || "http://localhost:5206/"
+    ? import.meta.env?.VITE_LOCAL_CORE_URL || "http://localhost:5206"
     : import.meta.env?.VITE_REMOTE_CORE_URL || "https://synco-h4etbseqg4h2ewcw.swedencentral-01.azurewebsites.net";
 
   async function checkHealth() {
     setIsChecking(true);
     try {
-      const resCore = await fetch("/api/Dictionary/units", { signal: AbortSignal.timeout(3000) });
+      const resCore = await fetch(`${coreUrl}/api/Dictionary/units`, { signal: AbortSignal.timeout(3000) });
       setLocalCoreUp(resCore.ok);
     } catch {
       setLocalCoreUp(false);
     }
 
     try {
-      const resAuth = await fetch("/api/Employee/positions", { signal: AbortSignal.timeout(3000) });
+      const resAuth = await fetch(`${authUrl}/api/Employee/positions`, { signal: AbortSignal.timeout(3000) });
       setLocalAuthUp(resAuth.ok);
     } catch {
       setLocalAuthUp(false);

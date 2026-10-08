@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+﻿import { useCallback, useEffect, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Building2, CheckCircle2, MapPin, PencilLine, Plus } from "lucide-react";
+import { AlertCircle, Building2, CheckCircle2, Lock, MapPin, PencilLine, Plus, RefreshCw } from "lucide-react";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { z } from "zod";
 import Button from "~/shared/ui/button";
@@ -8,20 +8,27 @@ import { FieldError, Input } from "~/shared/ui/form";
 import Modal from "~/shared/ui/modal";
 import { useToast } from "~/shared/ui/toast";
 import { DashboardPageContent } from "~/shared/ui";
+import { getCurrentUserEmployeeRole } from "~/shared/lib/auth-token";
 import {
   getDeliveryAddressesForCurrentHoreca,
   saveDeliveryAddressForCurrentHoreca,
   type StoredDeliveryAddress,
 } from "~/shared/lib/indexed-db";
+import {
+  getCompanyInfo,
+  updateCompany,
+  requestEmailChange,
+  requestHvhhChange,
+  addDeliveryPoint,
+  type CompanyInfoDto,
+  type UpdateCompanyRequest,
+} from "~/shared/api";
 
 const companyInfoSchema = z.object({
   companyName: z.string().trim().min(1, "Company name is required."),
   phoneNumber: z.string().trim().min(1, "Phone number is required."),
   companyAddress: z.string().trim().min(1, "Company address is required."),
-  productCategories: z
-    .string()
-    .trim()
-    .min(1, "Product categories are required."),
+  productCategories: z.string().trim().min(1, "Product categories are required."),
   serviceAreas: z.string().trim().min(1, "Service areas are required."),
   taxId: z.string().trim().min(1, "HVHH is required."),
   email: z
@@ -33,7 +40,6 @@ const companyInfoSchema = z.object({
 
 type CompanyInfoState = z.infer<typeof companyInfoSchema>;
 
-// Mock data standing in for the HoReCa company profile until the API is wired up.
 const initialCompanyInfo: CompanyInfoState = {
   companyName: "Cascade Bistro LLC",
   phoneNumber: "+374 10 432100",
@@ -43,8 +49,6 @@ const initialCompanyInfo: CompanyInfoState = {
   taxId: "00876543",
   email: "hello@cascadebistro.am",
 };
-
-const MOCK_SAVE_DELAY_MS = 800;
 
 const deliveryAddressFormSchema = z.object({
   label: z.string().trim().max(80, "Address name must be 80 characters or fewer.").optional(),
@@ -72,7 +76,10 @@ function getDeliveryAddressFormDefaults(
 
 export default function HorecaCompanyInformationPage() {
   const { showToast } = useToast();
-  const [companyInfo, setCompanyInfo] = useState(initialCompanyInfo);
+  const [companyInfo, setCompanyInfo] = useState<CompanyInfoState>(initialCompanyInfo);
+  const [rawCompanyData, setRawCompanyData] = useState<CompanyInfoDto | null>(null);
+  const [isLoadingCompany, setIsLoadingCompany] = useState(true);
+  const [companyLoadError, setCompanyLoadError] = useState<string | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [deliveryAddresses, setDeliveryAddresses] = useState<StoredDeliveryAddress[]>([]);
   const [isLoadingDeliveryAddresses, setIsLoadingDeliveryAddresses] = useState(true);
@@ -80,6 +87,10 @@ export default function HorecaCompanyInformationPage() {
   const [isDeliveryAddressModalOpen, setIsDeliveryAddressModalOpen] = useState(false);
   const [editingDeliveryAddress, setEditingDeliveryAddress] = useState<StoredDeliveryAddress>();
   const [changingAddressId, setChangingAddressId] = useState<string>();
+
+  const employeeRole = getCurrentUserEmployeeRole();
+  const isPurchasingEmployee = employeeRole === "PurchasingEmployee";
+
   const form = useForm<CompanyInfoState>({
     resolver: zodResolver(companyInfoSchema),
     defaultValues: initialCompanyInfo,
@@ -89,6 +100,7 @@ export default function HorecaCompanyInformationPage() {
     reset,
     formState: { errors, isSubmitting },
   } = form;
+
   const deliveryAddressForm = useForm<DeliveryAddressFormValues>({
     resolver: zodResolver(deliveryAddressFormSchema),
     defaultValues: getDeliveryAddressFormDefaults(),
@@ -100,12 +112,82 @@ export default function HorecaCompanyInformationPage() {
     formState: { errors: deliveryAddressErrors, isSubmitting: isSavingDeliveryAddress },
   } = deliveryAddressForm;
 
+  const loadCompanyData = useCallback(async () => {
+    setIsLoadingCompany(true);
+    setCompanyLoadError(null);
+    try {
+      const info = await getCompanyInfo();
+      if (info) {
+        setRawCompanyData(info);
+
+        const categoriesString =
+          info.productCategories && info.productCategories.length > 0
+            ? info.productCategories.map((c) => c.name).join(", ")
+            : info.description || initialCompanyInfo.productCategories;
+
+        const serviceAreasString =
+          (info.customServiceAreas && info.customServiceAreas.length > 0
+            ? info.customServiceAreas.join(", ")
+            : info.serviceAreas?.map((s) => s.name).join(", ")) || initialCompanyInfo.serviceAreas;
+
+        const merged: CompanyInfoState = {
+          companyName: info.companyName || initialCompanyInfo.companyName,
+          phoneNumber: info.phoneNumber || initialCompanyInfo.phoneNumber,
+          companyAddress: info.address || initialCompanyInfo.companyAddress,
+          productCategories: categoriesString,
+          serviceAreas: serviceAreasString,
+          taxId: info.taxCode || info.hvhh || initialCompanyInfo.taxId,
+          email: info.email || initialCompanyInfo.email,
+        };
+
+        setCompanyInfo(merged);
+        reset(merged);
+
+        // If backend returned delivery addresses, seed them
+        if (info.deliveryAddresses && info.deliveryAddresses.length > 0) {
+          const mapped: StoredDeliveryAddress[] = info.deliveryAddresses.map((da) => ({
+            id: da.id,
+            label: da.label ?? "Delivery address",
+            fullAddress: da.fullAddress,
+            contactPerson: da.contactPerson ?? "",
+            contactPhone: da.contactPhone ?? "",
+            active: da.active,
+            approved: da.approved,
+            accountId: info.id ?? "current-company",
+          }));
+          setDeliveryAddresses((prev) => {
+            const mergedMap = new Map<string, StoredDeliveryAddress>();
+            mapped.forEach((a) => mergedMap.set(a.id, a));
+            prev.forEach((a) => {
+              if (!mergedMap.has(a.id)) mergedMap.set(a.id, a);
+            });
+            return Array.from(mergedMap.values());
+          });
+        }
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to load company profile from server.";
+      setCompanyLoadError(msg);
+    } finally {
+      setIsLoadingCompany(false);
+    }
+  }, [reset]);
+
   useEffect(() => {
     let isCurrent = true;
 
+    void loadCompanyData();
+
     void getDeliveryAddressesForCurrentHoreca()
       .then((addresses) => {
-        if (isCurrent) setDeliveryAddresses(addresses);
+        if (isCurrent && addresses.length > 0) {
+          setDeliveryAddresses((prev) => {
+            const mergedMap = new Map<string, StoredDeliveryAddress>();
+            prev.forEach((a) => mergedMap.set(a.id, a));
+            addresses.forEach((a) => mergedMap.set(a.id, a));
+            return Array.from(mergedMap.values());
+          });
+        }
       })
       .catch((error) => {
         if (isCurrent) {
@@ -121,9 +203,17 @@ export default function HorecaCompanyInformationPage() {
     return () => {
       isCurrent = false;
     };
-  }, []);
+  }, [loadCompanyData]);
 
   function openEditModal() {
+    if (isPurchasingEmployee) {
+      showToast({
+        title: "Access Restricted",
+        description: "Purchasing employees are not authorized to modify company settings.",
+        variant: "error",
+      });
+      return;
+    }
     reset(companyInfo);
     setIsEditModalOpen(true);
   }
@@ -135,18 +225,98 @@ export default function HorecaCompanyInformationPage() {
   }
 
   const handleSave: SubmitHandler<CompanyInfoState> = async (values) => {
-    await new Promise<void>((resolve) => {
-      window.setTimeout(resolve, MOCK_SAVE_DELAY_MS);
-    });
+    if (isPurchasingEmployee) {
+      showToast({
+        title: "Access Restricted",
+        description: "Purchasing employees are not authorized to modify company settings.",
+        variant: "error",
+      });
+      return;
+    }
 
-    setCompanyInfo(values);
-    reset(values);
-    setIsEditModalOpen(false);
-    showToast({
-      title: "Company information updated",
-      description: "Your changes have been saved.",
-      variant: "success",
-    });
+    try {
+      const customAreas = values.serviceAreas
+        ? values.serviceAreas.split(",").map((s) => s.trim()).filter(Boolean)
+        : [];
+
+      const updatePayload: UpdateCompanyRequest = {
+        companyName: values.companyName,
+        phoneNumber: values.phoneNumber,
+        address: values.companyAddress,
+        description: values.productCategories,
+        customServiceAreas: customAreas,
+      };
+
+      const result = await updateCompany(updatePayload);
+
+      // Handle HVHH change request if modified
+      if (values.taxId && values.taxId !== companyInfo.taxId) {
+        try {
+          await requestHvhhChange({
+            newHvhh: values.taxId,
+            reason: "Updated via company information settings",
+          });
+          showToast({
+            title: "Tax ID change requested",
+            description: "HVHH update requires Synko Admin approval and has been submitted.",
+            variant: "info",
+          });
+        } catch (hvhhErr) {
+          showToast({
+            title: "Tax ID request failed",
+            description: hvhhErr instanceof Error ? hvhhErr.message : "Could not submit HVHH change request.",
+            variant: "error",
+          });
+        }
+      }
+
+      // Handle Email change request if modified
+      if (values.email && values.email.toLowerCase() !== companyInfo.email.toLowerCase()) {
+        try {
+          await requestEmailChange({
+            newEmail: values.email,
+          });
+          showToast({
+            title: "Email verification sent",
+            description: `A verification code was sent to ${values.email}. Please verify to confirm the change.`,
+            variant: "info",
+          });
+        } catch (emailErr) {
+          showToast({
+            title: "Email change request failed",
+            description: emailErr instanceof Error ? emailErr.message : "Could not send verification code.",
+            variant: "error",
+          });
+        }
+      }
+
+      setCompanyInfo(values);
+      reset(values);
+      setIsEditModalOpen(false);
+
+      if (result?.status === "pending_approval") {
+        showToast({
+          title: "Changes pending approval",
+          description: result.message || "Your edit limit was reached. Changes were submitted for Synko Admin review.",
+          variant: "info",
+        });
+      } else {
+        showToast({
+          title: "Company information updated",
+          description: "Your company details have been successfully saved to the server.",
+          variant: "success",
+        });
+      }
+
+      // Refresh latest from server
+      void loadCompanyData();
+    } catch (error) {
+      showToast({
+        title: "Could not update company",
+        description: error instanceof Error ? error.message : "Please check your inputs and try again.",
+        variant: "error",
+      });
+    }
   };
 
   function openDeliveryAddressModal(address?: StoredDeliveryAddress) {
@@ -164,19 +334,33 @@ export default function HorecaCompanyInformationPage() {
 
   const handleSaveDeliveryAddress: SubmitHandler<DeliveryAddressFormValues> = async (values) => {
     try {
+      // Connect to backend CustomersController endpoint
+      try {
+        await addDeliveryPoint({
+          deliveryAddress: values.fullAddress,
+          phoneNumber: values.contactPhone,
+          pointName: values.label || values.contactPerson,
+        });
+      } catch (backendErr) {
+        console.warn("Backend addDeliveryPoint notice:", backendErr);
+      }
+
       const savedAddress = await saveDeliveryAddressForCurrentHoreca({
         id: editingDeliveryAddress?.id,
         ...values,
         active: editingDeliveryAddress?.active,
       });
+
       setDeliveryAddresses((currentAddresses) =>
         [...currentAddresses.filter((address) => address.id !== savedAddress.id), savedAddress].sort(
           (first, second) => (first.label ?? first.fullAddress).localeCompare(second.label ?? second.fullAddress),
         ),
       );
+
       resetDeliveryAddress(getDeliveryAddressFormDefaults(savedAddress));
       setIsDeliveryAddressModalOpen(false);
       setEditingDeliveryAddress(undefined);
+
       showToast({
         title: editingDeliveryAddress ? "Delivery address updated" : "Delivery address added",
         description: "Its approval and active status determine whether it is available at checkout.",
@@ -203,13 +387,13 @@ export default function HorecaCompanyInformationPage() {
         title: active ? "Delivery address activated" : "Delivery address deactivated",
         description: active
           ? "It can now be selected during checkout."
-          : "It will remain on past orders but cannot be selected for new ones.",
+          : "It will be hidden from checkout until reactivated.",
         variant: "success",
       });
     } catch (error) {
       showToast({
-        title: "Couldn't update delivery address",
-        description: error instanceof Error ? error.message : "Please try again.",
+        title: "Couldn't update status",
+        description: error instanceof Error ? error.message : "Try again in a moment.",
         variant: "error",
       });
     } finally {
@@ -220,76 +404,140 @@ export default function HorecaCompanyInformationPage() {
   return (
     <DashboardPageContent>
       <div className="space-y-6">
-        <header className="space-y-1.5">
-          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary">
-            Company
-          </p>
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
-            Company information
-          </h1>
-          <p className="max-w-xl text-sm leading-6 text-slate-600">
-            Manage your business details, contact information and HoReCa profile.
-          </p>
+        <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-1.5">
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary">
+              Settings
+            </p>
+            <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
+              Company Information
+            </h1>
+            <p className="max-w-xl text-sm leading-6 text-slate-600">
+              Manage your legal entity details, contact information, and delivery locations connected to Synko.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => void loadCompanyData()}
+              disabled={isLoadingCompany}
+              className="gap-1.5 text-slate-600"
+            >
+              <RefreshCw className={`h-4 w-4 ${isLoadingCompany ? "animate-spin" : ""}`} />
+              Refresh
+            </Button>
+            <Button
+              type="button"
+              className="gap-2 sm:w-auto"
+              onClick={openEditModal}
+              disabled={isPurchasingEmployee || isLoadingCompany}
+              title={isPurchasingEmployee ? "Purchasing employees cannot modify company settings." : undefined}
+            >
+              {isPurchasingEmployee ? (
+                <>
+                  <Lock className="h-4 w-4" aria-hidden="true" />
+                  Edit Restricted
+                </>
+              ) : (
+                <>
+                  <PencilLine className="h-4 w-4" aria-hidden="true" />
+                  Edit details
+                </>
+              )}
+            </Button>
+          </div>
         </header>
 
+        {companyLoadError && (
+          <div className="flex items-center justify-between rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="h-4 w-4 shrink-0 text-rose-600" />
+              <span>{companyLoadError}</span>
+            </div>
+            <Button type="button" size="sm" variant="secondary" className="border-rose-300 text-rose-800 hover:bg-rose-100" onClick={() => void loadCompanyData()}>
+              Retry
+            </Button>
+          </div>
+        )}
+
+        {rawCompanyData && rawCompanyData.updateCount24h !== undefined && rawCompanyData.updateCount24h >= 2 && (
+          <div className="flex items-center gap-2.5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            <AlertCircle className="h-4 w-4 shrink-0 text-amber-600" />
+            <span>
+              <strong>24-hour edit limit reached:</strong> Your company has made {rawCompanyData.updateCount24h} updates in the last 24 hours. Any further modifications will be submitted for Synko Admin review.
+            </span>
+          </div>
+        )}
+
         <section className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-          <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
-            <div className="flex items-start gap-4">
-              <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
                 <Building2 className="h-5 w-5" aria-hidden="true" />
               </span>
               <div>
                 <h2 className="text-lg font-semibold tracking-tight text-slate-900">
-                  HoReCa profile
+                  Company Details
                 </h2>
-                <p className="mt-1 text-sm text-slate-500">
-                  Keep your business details accurate for suppliers and buyers.
-                </p>
+                <p className="text-xs text-slate-500">Official business profile verified on the Synko platform.</p>
+              </div>
+            </div>
+
+            {rawCompanyData?.subscriptionPlan && (
+              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+                Plan: {rawCompanyData.subscriptionPlan}
+              </span>
+            )}
+          </div>
+
+          {isLoadingCompany ? (
+            <div className="mt-8 flex items-center justify-center py-12 text-slate-400">
+              <RefreshCw className="mr-2 h-5 w-5 animate-spin" />
+              <span>Loading company profile from server...</span>
+            </div>
+          ) : (
+            <dl className="mt-6 grid grid-cols-1 gap-x-8 sm:grid-cols-2">
+              <CompanyInfoDetail label="Company name" value={companyInfo.companyName} />
+              <CompanyInfoDetail label="Phone number" value={companyInfo.phoneNumber} />
+              <CompanyInfoDetail label="Company address" value={companyInfo.companyAddress} />
+              <CompanyInfoDetail label="Tax ID (HVHH)" value={companyInfo.taxId} />
+              <CompanyInfoDetail label="Email address" value={companyInfo.email} />
+              <CompanyInfoDetail label="Product categories" value={companyInfo.productCategories} />
+              <CompanyInfoDetail label="Service areas" value={companyInfo.serviceAreas} />
+            </dl>
+          )}
+        </section>
+
+        <section className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                <MapPin className="h-5 w-5" aria-hidden="true" />
+              </span>
+              <div>
+                <h2 className="text-lg font-semibold tracking-tight text-slate-900">
+                  Delivery addresses
+                </h2>
+                <p className="text-xs text-slate-500">Receiving addresses configured for orders and logistics.</p>
               </div>
             </div>
             <Button
               type="button"
+              variant="secondary"
               size="sm"
               className="gap-2 sm:w-auto"
-              onClick={openEditModal}
+              onClick={() => openDeliveryAddressModal()}
             >
-              <PencilLine className="h-4 w-4" aria-hidden="true" />
-              Edit company information
-            </Button>
-          </div>
-
-          <dl className="mt-7 grid gap-x-8 divide-y divide-slate-100 sm:grid-cols-2 sm:divide-y-0">
-            <CompanyInfoDetail label="Company name" value={companyInfo.companyName} />
-            <CompanyInfoDetail label="Phone number" value={companyInfo.phoneNumber} />
-            <CompanyInfoDetail label="Company address" value={companyInfo.companyAddress} />
-            <CompanyInfoDetail label="Tax ID (HVHH)" value={companyInfo.taxId} />
-            <CompanyInfoDetail label="Email address" value={companyInfo.email} />
-            <CompanyInfoDetail label="Product categories" value={companyInfo.productCategories} />
-            <CompanyInfoDetail label="Service areas" value={companyInfo.serviceAreas} />
-          </dl>
-        </section>
-
-        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-          <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
-            <div className="flex items-start gap-4">
-              <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-                <MapPin className="h-5 w-5" aria-hidden="true" />
-              </span>
-              <div>
-                <h2 className="text-lg font-semibold tracking-tight text-slate-900">Delivery addresses</h2>
-                <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
-                  Add the receiving locations your team can select when placing an order. Inactive addresses remain visible on previous orders.
-                </p>
-              </div>
-            </div>
-            <Button type="button" size="sm" className="gap-2 sm:w-auto" onClick={() => openDeliveryAddressModal()}>
               <Plus className="h-4 w-4" aria-hidden="true" />
               Add delivery address
             </Button>
           </div>
 
           {isLoadingDeliveryAddresses ? (
-            <p className="mt-7 text-sm text-slate-500">Loading delivery addresses…</p>
+            <p className="mt-7 text-sm text-slate-500">Loading delivery addresses...</p>
           ) : deliveryAddressLoadError ? (
             <p className="mt-7 rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700">{deliveryAddressLoadError}</p>
           ) : deliveryAddresses.length === 0 ? (
@@ -304,8 +552,13 @@ export default function HorecaCompanyInformationPage() {
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="font-semibold text-slate-900">{address.label ?? "Delivery address"}</p>
-                      <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${address.approved ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-800"}`}><CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />{address.approved ? "Approved" : "Awaiting approval"}</span>
-                      <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${address.active ? "bg-primary/10 text-primary" : "bg-slate-100 text-slate-600"}`}>{address.active ? "Active" : "Inactive"}</span>
+                      <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${address.approved ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-800"}`}>
+                        <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
+                        {address.approved ? "Approved" : "Awaiting approval"}
+                      </span>
+                      <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${address.active ? "bg-primary/10 text-primary" : "bg-slate-100 text-slate-600"}`}>
+                        {address.active ? "Active" : "Inactive"}
+                      </span>
                     </div>
                     <p className="mt-1 text-sm text-slate-600">{address.fullAddress}</p>
                     <p className="mt-1 text-xs text-slate-500">{address.contactPerson} · {address.contactPhone}</p>
@@ -315,7 +568,7 @@ export default function HorecaCompanyInformationPage() {
                       <PencilLine className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />Edit
                     </Button>
                     <Button type="button" size="sm" variant="ghost" className="border border-slate-200 sm:w-auto" disabled={changingAddressId === address.id} onClick={() => void setDeliveryAddressActive(address, !address.active)}>
-                      {changingAddressId === address.id ? "Saving…" : address.active ? "Deactivate" : "Activate"}
+                      {changingAddressId === address.id ? "Saving..." : address.active ? "Deactivate" : "Activate"}
                     </Button>
                   </div>
                 </li>
@@ -363,6 +616,7 @@ export default function HorecaCompanyInformationPage() {
             <Input
               id="taxId"
               label="Tax ID (HVHH)"
+              
               errorMessage={errors.taxId?.message}
               {...register("taxId")}
             />
@@ -371,6 +625,7 @@ export default function HorecaCompanyInformationPage() {
               type="email"
               label="Email address"
               autoComplete="email"
+              
               errorMessage={errors.email?.message}
               {...register("email")}
             />
@@ -378,6 +633,7 @@ export default function HorecaCompanyInformationPage() {
               id="productCategories"
               label="Product categories"
               className="sm:col-span-2"
+              placeholder="e.g. Armenian Cuisine, Beverages, Bakery"
               errorMessage={errors.productCategories?.message}
               {...register("productCategories")}
             />
@@ -385,6 +641,7 @@ export default function HorecaCompanyInformationPage() {
               id="serviceAreas"
               label="Service areas"
               className="sm:col-span-2"
+              placeholder="e.g. Kentron, Arabkir, Ajapnyak"
               errorMessage={errors.serviceAreas?.message}
               {...register("serviceAreas")}
             />

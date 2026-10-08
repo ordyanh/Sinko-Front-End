@@ -74,6 +74,7 @@ export type ConfirmEmailRequest = {
 
 export type ChangePasswordRequest = {
   oldPassword?: string | null;
+  currentPassword?: string | null;
   newPassword?: string | null;
 };
 
@@ -187,7 +188,11 @@ export async function logoutUser() {
 export async function changePassword(payload: ChangePasswordRequest) {
   return apiRequest<void>("/api/Auth/change-password", {
     method: "POST",
-    body: JSON.stringify(payload),
+    body: JSON.stringify({
+      oldPassword: payload.oldPassword ?? payload.currentPassword ?? null,
+      currentPassword: payload.currentPassword ?? payload.oldPassword ?? null,
+      newPassword: payload.newPassword ?? null,
+    }),
   });
 }
 
@@ -281,15 +286,3 @@ export async function updateEmployeeById(
     body: JSON.stringify(payload),
   });
 }
-
-export const mockApiRequest = (success = true) => {
-  return new Promise((resolve, reject) => {
-    setTimeout(() => {
-      if (success) {
-        resolve({ success: true });
-      } else {
-        reject({ success: false });
-      }
-    }, 1000);
-  });
-};

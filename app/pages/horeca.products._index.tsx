@@ -53,11 +53,20 @@ function ProductCard({
     <article className="group flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-[0_2px_3px_rgba(15,23,42,0.02)] transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_16px_32px_rgba(15,23,42,0.09)]">
       <div className="relative aspect-[4/3] overflow-hidden bg-[#e9efe6]">
         <Link to={`/horeca/products/${product.id}`} className="block h-full focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-primary" aria-label={`View ${product.title}`}>
-          <img
-            src={product.image}
-            alt={product.title}
-            className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.04]"
-          />
+          {product.image ? (
+            <img
+              src={product.image}
+              alt={product.title}
+              onError={(e) => {
+                e.currentTarget.style.opacity = "0";
+              }}
+              className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.04]"
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-slate-300">
+              <Package className="h-12 w-12" aria-hidden="true" />
+            </div>
+          )}
         </Link>
         {pricePromotion ? (
           <span className="absolute left-3 top-3 rounded-full bg-rose-600 px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.1em] text-white shadow-sm">
@@ -118,9 +127,10 @@ export default function HorecaProductsPage() {
   const [selectedFilters, setSelectedFilters] = useState<SearchFilterValue[]>(
     [],
   );
-  const { cartLines, setCartLineQuantity, promotions, promotionGiftProductIds, setPromotionGiftProductId } = useOutletContext<{
+  const { cartLines, setCartLineQuantity, promotions, catalogProducts, promotionGiftProductIds, setPromotionGiftProductId } = useOutletContext<{
     cartLines: MarketplaceCartLine[];
     promotions: MarketplacePromotion[];
+    catalogProducts?: MarketplaceProduct[];
     promotionGiftProductIds: Record<string, string>;
     setCartLineQuantity: (
       product: MarketplaceProduct,
@@ -136,8 +146,13 @@ export default function HorecaProductsPage() {
   const promotionFromUrl = searchParams.get("promotion");
 
   useEffect(() => {
-    let isCurrent = true;
+    if (catalogProducts && catalogProducts.length > 0) {
+      setProducts(catalogProducts);
+      setIsLoadingProducts(false);
+      return;
+    }
 
+    let isCurrent = true;
     void (async () => {
       const catalog = await getHorecaMarketplaceProducts();
       if (isCurrent) setProducts(catalog);
@@ -152,7 +167,7 @@ export default function HorecaProductsPage() {
     return () => {
       isCurrent = false;
     };
-  }, []);
+  }, [catalogProducts]);
 
   useEffect(() => {
     setSelectedFilters(

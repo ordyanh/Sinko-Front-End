@@ -9,23 +9,25 @@ import {
   ReceiptText,
   Tag,
 } from "lucide-react";
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Link, useParams } from "react-router";
 import {
   formatAmd,
   formatOrderDate,
-  getHorecaOrders,
   horecaOrderStatusClasses,
   horecaOrderStatusLabels,
+  type HorecaOrder,
 } from "~/entities/horeca";
 import {
   formatMarketplacePrice,
+  getHorecaMarketplaceProducts,
   getMarketplaceOptionLabel,
   getMarketplaceProductPrice,
   getMarketplaceSellingOptions,
-  marketplaceProducts,
+  type MarketplaceProduct,
 } from "~/entities/product";
-import { getMarketplaceSupplierById } from "~/entities/supplier";
+import { getMarketplaceSupplierById, type MarketplaceSupplier } from "~/entities/supplier";
+import { getMarketplaceSupplierById as getBackendMarketplaceSupplierById, getHorecaOrders as getBackendHorecaOrders } from "~/shared/api";
 import { getVisibleSupplierPromotions, PromotionCard } from "~/entities/promotion";
 import { DashboardPageContent } from "~/shared/ui";
 
@@ -49,7 +51,64 @@ function DetailLink({
 
 export default function HorecaSupplierDetailsPage() {
   const { supplierId = "" } = useParams();
-  const supplier = getMarketplaceSupplierById(supplierId);
+  const [supplier, setSupplier] = useState<MarketplaceSupplier | null>(null);
+  const [supplierProducts, setSupplierProducts] = useState<MarketplaceProduct[]>([]);
+  const [supplierOrders, setSupplierOrders] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    let isActive = true;
+    setIsLoading(true);
+
+    Promise.all([
+      getBackendMarketplaceSupplierById(supplierId),
+      getHorecaMarketplaceProducts(),
+      getBackendHorecaOrders().catch(() => []),
+    ])
+      .then(([res, catalog, orders]) => {
+        if (!isActive) return;
+        if (res) {
+          const supp: MarketplaceSupplier = {
+            id: res.id,
+            name: res.companyName,
+            initials: res.companyName.slice(0, 2).toUpperCase(),
+            logoClassName: "bg-[#dff0e3] text-[#25633e]",
+            accentClassName: "bg-[#dceede]",
+            categories: ["Produce", "General"],
+            serviceArea: res.address || "Yerevan",
+            description: res.description || `${res.companyName} is available to receive orders.`,
+            contactName: res.companyName,
+            phone: res.phoneNumber || "—",
+            email: res.email || "—",
+            address: res.address || "Yerevan",
+            deliveryWindow: "08:00–14:00",
+            deliveryNote: "Next delivery slot available tomorrow",
+            orderSupplierId: res.id,
+          };
+          setSupplier(supp);
+          const filteredProds = catalog.filter((p) => p.supplier === supp.name || p.supplierId === supp.id).slice(0, 3);
+          setSupplierProducts(filteredProds);
+          const filteredOrders = (orders || []).filter((o: any) => o.supplierId === res.id || o.supplierName === res.companyName).slice(0, 3);
+          setSupplierOrders(filteredOrders);
+        } else {
+          setSupplier(null);
+        }
+      })
+      .catch(() => {
+        if (isActive) setSupplier(null);
+      })
+      .finally(() => {
+        if (isActive) setIsLoading(false);
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [supplierId]);
+
+  if (isLoading) {
+    return null;
+  }
 
   if (!supplier) {
     return (
@@ -73,14 +132,7 @@ export default function HorecaSupplierDetailsPage() {
     );
   }
 
-  const supplierProducts = marketplaceProducts
-    .filter((product) => product.supplier === supplier.name)
-    .slice(0, 3);
-  const supplierOrders = supplier.orderSupplierId
-    ? getHorecaOrders()
-        .filter((order) => order.supplierId === supplier.orderSupplierId)
-        .slice(0, 3)
-    : [];
+
   const supplierPromotions = getVisibleSupplierPromotions(supplier.name);
   const productsHref = `/horeca/products?supplier=${encodeURIComponent(supplier.name)}`;
   const ordersHref = `/horeca/orders?supplier=${encodeURIComponent(supplier.name)}`;
@@ -197,7 +249,13 @@ export default function HorecaSupplierDetailsPage() {
                   to={productsHref}
                   className="group flex min-w-0 gap-3 rounded-2xl border border-slate-200 p-3 transition hover:border-primary/30 hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                 >
-                  <img src={product.image} alt="" className="h-20 w-20 shrink-0 rounded-xl object-cover" />
+                  {product.image ? (
+                    <img src={product.image} onError={(e) => { e.currentTarget.style.display = "none"; }} alt="" className="h-20 w-20 shrink-0 rounded-xl object-cover" />
+                  ) : (
+                    <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-400">
+                      <Package className="h-8 w-8 text-slate-300" aria-hidden="true" />
+                    </div>
+                  )}
                   <div className="min-w-0 py-0.5">
                     <p className="text-sm font-bold leading-5 tracking-tight text-slate-900">
                       {product.title}
@@ -261,11 +319,11 @@ export default function HorecaSupplierDetailsPage() {
                     </p>
                   </div>
                   <div className="flex w-full items-center justify-between gap-3 sm:w-auto sm:justify-start">
-                    <span className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${horecaOrderStatusClasses[order.status]}`}>
-                      {horecaOrderStatusLabels[order.status]}
+                    <span className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${horecaOrderStatusClasses[order.status as keyof typeof horecaOrderStatusClasses] ?? "border-slate-200 bg-slate-50 text-slate-600"}`}>
+                      {horecaOrderStatusLabels[order.status as keyof typeof horecaOrderStatusLabels] ?? String(order.status)}
                     </span>
                     <span className="text-sm font-bold text-slate-950 tabular-nums">
-                      {formatAmd(order.lines.reduce((total, line) => total + line.offeredPrice * line.offeredQuantity, 0))}
+                      {formatAmd((order.lines || []).reduce((total: number, line: any) => total + (line.offeredPrice ?? line.price ?? 0) * (line.offeredQuantity ?? line.quantity ?? 1), 0))}
                     </span>
                     <ArrowRight className="h-4 w-4 text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-primary" aria-hidden="true" />
                   </div>

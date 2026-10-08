@@ -6,14 +6,26 @@ import {
   Gift,
   Mail,
   MapPin,
+  Package,
   Pencil,
   Phone,
+  RotateCcw,
   Send,
   UserRound,
   X,
+  XCircle,
+  CheckCheck,
 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router";
+import { Link, useNavigate, useParams } from "react-router";
+import {
+  acceptOffer as backendAcceptOffer,
+  rejectOffer as backendRejectOffer,
+  cancelOrder as backendCancelOrder,
+  approveOrder as backendApproveOrder,
+  repeatOrder as backendRepeatOrder,
+} from "~/shared/api/orders";
+import { getCurrentUserEmployeeRole } from "~/shared/lib/auth-token";
 import {
   formatAmd,
   formatAmdDelta,
@@ -151,8 +163,12 @@ function FulfilmentProgress({ status }: { status: HorecaOrderStatus }) {
 
 export default function HorecaOrderDetailsPage() {
   const { orderId } = useParams();
+  const navigate = useNavigate();
   const { showToast } = useToast();
+  const employeeRole = getCurrentUserEmployeeRole();
+  const isPurchasingEmployee = employeeRole === "PurchasingEmployee";
   const [order, setOrder] = useState<StoredOrder | null>(null);
+  const [isActionLoading, setIsActionLoading] = useState(false);
   const [isLoadingOrder, setIsLoadingOrder] = useState(true);
 
   const [status, setStatus] = useState<HorecaOrderStatus>(
@@ -248,23 +264,41 @@ export default function HorecaOrderDetailsPage() {
     );
   }
 
-  function acceptOffer() {
-    const nextOrder = {
-      ...activeOrder,
-      status: "Confirmed" as const,
-      history: [...activeOrder.history, { id: `restaurant-confirmed-${Date.now()}`, actor: "restaurant" as const, label: "Offer accepted", date: new Date().toISOString() }],
-    };
-    setOrder(nextOrder);
-    setStatus(nextOrder.status);
-    setIsEditing(false);
-    void saveOrder(nextOrder).catch(() => {
-      showToast({ title: "Couldn't save order", description: "Please try accepting the offer again.", variant: "error" });
-    });
-    showToast({
-      title: "Offer accepted",
-      description: `${activeOrder.supplierName} will start preparing order ${activeOrder.id}.`,
-      variant: "success",
-    });
+  async function handleAcceptOffer() {
+    setIsActionLoading(true);
+    try {
+      await backendAcceptOffer(activeOrder.id);
+      const nextOrder = {
+        ...activeOrder,
+        status: "Confirmed" as const,
+        history: [
+          ...activeOrder.history,
+          {
+            id: `restaurant-confirmed-${Date.now()}`,
+            actor: "restaurant" as const,
+            label: "Offer accepted",
+            date: new Date().toISOString(),
+          },
+        ],
+      };
+      setOrder(nextOrder);
+      setStatus(nextOrder.status);
+      setIsEditing(false);
+      await saveOrder(nextOrder).catch(() => {});
+      showToast({
+        title: "Offer accepted",
+        description: `${activeOrder.supplierName} will start preparing order ${activeOrder.id}.`,
+        variant: "success",
+      });
+    } catch (error) {
+      showToast({
+        title: "Couldn't accept offer",
+        description: error instanceof Error ? error.message : "Please try again.",
+        variant: "error",
+      });
+    } finally {
+      setIsActionLoading(false);
+    }
   }
 
   function cancelEditing() {
@@ -273,24 +307,157 @@ export default function HorecaOrderDetailsPage() {
     setIsEditing(false);
   }
 
-  function sendChanges() {
-    const nextOrder = {
-      ...activeOrder,
-      status: "Rejected" as const,
-      lines,
-      history: [...activeOrder.history, { id: `restaurant-changes-${Date.now()}`, actor: "restaurant" as const, label: "Changes sent back", date: new Date().toISOString(), note: messageToSupplier || undefined }],
-    };
-    setOrder(nextOrder);
-    setStatus(nextOrder.status);
-    setIsEditing(false);
-    void saveOrder(nextOrder).catch(() => {
-      showToast({ title: "Couldn't save order", description: "Please try sending your changes again.", variant: "error" });
-    });
-    showToast({
-      title: "Changes sent",
-      description: `${activeOrder.supplierName} will review your changes and send a revised offer.`,
-      variant: "success",
-    });
+  async function handleSendChanges() {
+    setIsActionLoading(true);
+    try {
+      await backendRejectOffer(activeOrder.id);
+      const nextOrder = {
+        ...activeOrder,
+        status: "Rejected" as const,
+        lines,
+        history: [
+          ...activeOrder.history,
+          {
+            id: `restaurant-changes-${Date.now()}`,
+            actor: "restaurant" as const,
+            label: "Changes sent back",
+            date: new Date().toISOString(),
+            note: messageToSupplier || undefined,
+          },
+        ],
+      };
+      setOrder(nextOrder);
+      setStatus(nextOrder.status);
+      setIsEditing(false);
+      await saveOrder(nextOrder).catch(() => {});
+      showToast({
+        title: "Changes sent",
+        description: `${activeOrder.supplierName} will review your changes and send a revised offer.`,
+        variant: "success",
+      });
+    } catch (error) {
+      showToast({
+        title: "Couldn't send changes",
+        description: error instanceof Error ? error.message : "Please try again.",
+        variant: "error",
+      });
+    } finally {
+      setIsActionLoading(false);
+    }
+  }
+
+  async function handleRepeatOrder() {
+    setIsActionLoading(true);
+    try {
+      const res = await backendRepeatOrder(activeOrder.id);
+      showToast({
+        title: "Order repeated",
+        description: res.message || "New order created successfully.",
+        variant: "success",
+      });
+      if (res.newOrderId) {
+        navigate(`/horeca/orders/${res.newOrderId}`);
+      }
+    } catch (error) {
+      showToast({
+        title: "Couldn't repeat order",
+        description: error instanceof Error ? error.message : "Please try again.",
+        variant: "error",
+      });
+    } finally {
+      setIsActionLoading(false);
+    }
+  }
+
+  async function handleCancelOrder() {
+    if (isPurchasingEmployee) {
+      showToast({
+        title: "Action not permitted",
+        description: "Purchasing employees cannot cancel organization orders.",
+        variant: "error",
+      });
+      return;
+    }
+    if (!confirm("Are you sure you want to cancel this order?")) return;
+
+    setIsActionLoading(true);
+    try {
+      await backendCancelOrder(activeOrder.id);
+      const nextOrder = {
+        ...activeOrder,
+        status: "Cancelled" as const,
+        history: [
+          ...activeOrder.history,
+          {
+            id: `restaurant-cancelled-${Date.now()}`,
+            actor: "restaurant" as const,
+            label: "Order cancelled",
+            date: new Date().toISOString(),
+          },
+        ],
+      };
+      setOrder(nextOrder);
+      setStatus("Cancelled");
+      await saveOrder(nextOrder).catch(() => {});
+      showToast({
+        title: "Order cancelled",
+        description: "This order has been cancelled.",
+        variant: "success",
+      });
+    } catch (error) {
+      showToast({
+        title: "Couldn't cancel order",
+        description: error instanceof Error ? error.message : "Please try again.",
+        variant: "error",
+      });
+    } finally {
+      setIsActionLoading(false);
+    }
+  }
+
+  async function handleApproveOrder() {
+    if (isPurchasingEmployee) {
+      showToast({
+        title: "Action not permitted",
+        description: "Purchasing employees cannot approve organization orders.",
+        variant: "error",
+      });
+      return;
+    }
+
+    setIsActionLoading(true);
+    try {
+      await backendApproveOrder(activeOrder.id);
+      const nextOrder = {
+        ...activeOrder,
+        status: "Confirmed" as const,
+        history: [
+          ...activeOrder.history,
+          {
+            id: `restaurant-approved-${Date.now()}`,
+            actor: "restaurant" as const,
+            label: "Order approved",
+            date: new Date().toISOString(),
+          },
+        ],
+      };
+      setOrder(nextOrder);
+      setStatus("Confirmed");
+      await saveOrder(nextOrder).catch(() => {});
+      showToast({
+        title: "Order approved",
+        description: "This order has been approved.",
+        variant: "success",
+      });
+    } catch (error) {
+      showToast({
+        title: "Couldn't approve order",
+        description: error instanceof Error ? error.message : "Please try again.",
+        variant: "error",
+      });
+    } finally {
+      setIsActionLoading(false);
+    }
   }
 
   return (
@@ -304,49 +471,91 @@ export default function HorecaOrderDetailsPage() {
             <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Back to orders
           </Link>
 
-          {canRespond ? (
-            <div className="flex flex-wrap items-center gap-3">
-              {isEditing ? (
+          <div className="flex flex-wrap items-center gap-3">
+            {canRespond ? (
+              isEditing ? (
                 <>
                   <button
                     type="button"
+                    disabled={isActionLoading}
                     onClick={cancelEditing}
-                    className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                    className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
                   >
                     <X className="h-4 w-4" aria-hidden="true" />
                     Cancel
                   </button>
                   <button
                     type="button"
-                    onClick={sendChanges}
-                    className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-content transition hover:brightness-95"
+                    disabled={isActionLoading}
+                    onClick={handleSendChanges}
+                    className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-content transition hover:brightness-95 disabled:opacity-50"
                   >
                     <Send className="h-4 w-4" aria-hidden="true" />
-                    Send changes to supplier
+                    {isActionLoading ? "Sending..." : "Send changes to supplier"}
                   </button>
                 </>
               ) : (
                 <>
                   <button
                     type="button"
+                    disabled={isActionLoading}
                     onClick={() => setIsEditing(true)}
-                    className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                    className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
                   >
                     <Pencil className="h-4 w-4" aria-hidden="true" />
                     Request changes
                   </button>
                   <button
                     type="button"
-                    onClick={acceptOffer}
-                    className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-content transition hover:brightness-95"
+                    disabled={isActionLoading}
+                    onClick={handleAcceptOffer}
+                    className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-content transition hover:brightness-95 disabled:opacity-50"
                   >
                     <CircleCheck className="h-4 w-4" aria-hidden="true" />
-                    Accept offer
+                    {isActionLoading ? "Accepting..." : "Accept offer"}
                   </button>
                 </>
-              )}
-            </div>
-          ) : null}
+              )
+            ) : null}
+
+            {status === "New" && !canRespond ? (
+              <button
+                type="button"
+                disabled={isActionLoading || isPurchasingEmployee}
+                title={isPurchasingEmployee ? "Purchasing employees cannot approve organization orders." : undefined}
+                onClick={handleApproveOrder}
+                className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-content transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <CheckCheck className="h-4 w-4" aria-hidden="true" />
+                {isActionLoading ? "Approving..." : "Approve order"}
+              </button>
+            ) : null}
+
+            {status !== "Delivered" && status !== "Cancelled" && !isEditing ? (
+              <button
+                type="button"
+                disabled={isActionLoading || isPurchasingEmployee}
+                title={isPurchasingEmployee ? "Purchasing employees cannot cancel organization orders." : undefined}
+                onClick={handleCancelOrder}
+                className="inline-flex items-center gap-2 rounded-lg border border-rose-200 bg-white px-4 py-2.5 text-sm font-semibold text-rose-700 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <XCircle className="h-4 w-4" aria-hidden="true" />
+                Cancel order
+              </button>
+            ) : null}
+
+            {!isEditing ? (
+              <button
+                type="button"
+                disabled={isActionLoading}
+                onClick={handleRepeatOrder}
+                className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
+              >
+                <RotateCcw className="h-4 w-4" aria-hidden="true" />
+                {isActionLoading ? "Repeating..." : "Repeat order"}
+              </button>
+            ) : null}
+          </div>
         </div>
       </DashboardPageHeader>
 
@@ -427,11 +636,17 @@ export default function HorecaOrderDetailsPage() {
                       <tr key={line.id}>
                         <td className="sticky left-0 z-10 border-r border-slate-200 bg-white px-5 py-4 sm:px-6">
                           <div className="flex min-w-44 items-center gap-3">
-                            <img
-                              src={line.image}
-                              alt=""
-                              className="h-10 w-10 shrink-0 rounded-lg object-cover ring-1 ring-slate-200"
-                            />
+                            {line.image ? (
+                              <img
+                                src={line.image}
+                                alt=""
+                                className="h-10 w-10 shrink-0 rounded-lg object-cover ring-1 ring-slate-200"
+                              />
+                            ) : (
+                              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-400 ring-1 ring-slate-200">
+                                <Package className="h-5 w-5 text-slate-400" aria-hidden="true" />
+                              </div>
+                            )}
                             <div className="min-w-0">
                               <p className="truncate font-semibold text-slate-800">
                                 {line.name}

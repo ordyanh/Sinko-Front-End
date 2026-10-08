@@ -57,78 +57,7 @@ export type PromotionCartValidationInput = {
   now?: Date;
 };
 
-/** Demo marketplace promotions. Their shape mirrors the supplier editor fields. */
-export const marketplacePromotions: MarketplacePromotion[] = [
-  {
-    id: "PROMO-1001",
-    supplierName: "Mare & Terra",
-    title: "Olive oil service price",
-    description: "A locked-in price for the bottle used across your service.",
-    type: "FixedPrice",
-    startDate: "2026-09-01T00:00:00Z",
-    endDate: "2026-09-30T23:59:59Z",
-    productIds: ["olive-oil"],
-    benefitLabel: "8,000 դրամ per bottle",
-    conditions: "Applies to 1 L bottles. Cannot combine with another price discount.",
-    display: "both",
-    visualUrl: "https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?auto=format&fit=crop&w=1200&q=85",
-    fixedPrice: 8_000,
-    tone: "gold",
-  },
-  {
-    id: "PROMO-1002",
-    supplierName: "Ararat Harvest",
-    title: "Peak-season prep",
-    description: "Savings on the produce your prep list reaches for most.",
-    type: "Percentage",
-    startDate: "2026-09-01T00:00:00Z",
-    endDate: "2026-09-20T23:59:59Z",
-    productIds: ["vine-tomatoes", "basil"],
-    benefitLabel: "15% off",
-    conditions: "Applies to all available pack sizes while stock lasts.",
-    display: "both",
-    visualUrl: "https://images.unsplash.com/photo-1546094096-0df4bcaaa337?auto=format&fit=crop&w=1200&q=85",
-    discountPercent: 15,
-    tone: "green",
-  },
-  {
-    id: "PROMO-1003",
-    supplierName: "Mare & Terra",
-    title: "Pantry pairing",
-    description: "Restock your olive oil and pick a pantry companion for free.",
-    type: "BuyXGetY",
-    startDate: "2026-09-01T00:00:00Z",
-    endDate: "2026-09-30T23:59:59Z",
-    productIds: ["olive-oil"],
-    benefitLabel: "Buy 2, choose 1 free",
-    conditions: "Buy 2 × 1 L olive oil bottles and choose one free pantry item per order.",
-    display: "both",
-    visualUrl: "https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?auto=format&fit=crop&w=1200&q=85",
-    buyQuantity: 2,
-    triggerOptionId: "bottle",
-    giftQuantity: 1,
-    giftChoices: [
-      { productId: "balsamic-vinegar", optionId: "bottle" },
-      { productId: "castelvetrano-olives", optionId: "jar" },
-    ],
-    tone: "violet",
-  },
-  {
-    id: "PROMO-1004",
-    supplierName: "Masis Bakehouse",
-    title: "Breakfast prep price",
-    description: "A product-price reduction for the loaves your morning prep depends on.",
-    type: "Percentage",
-    startDate: "2026-09-05T00:00:00Z",
-    endDate: "2026-09-18T23:59:59Z",
-    productIds: ["sourdough"],
-    benefitLabel: "10% off",
-    conditions: "Applies to every available sourdough pack size while the offer is active.",
-    display: "home-banner",
-    discountPercent: 10,
-    tone: "coral",
-  },
-];
+export const marketplacePromotions: MarketplacePromotion[] = [];
 
 let currentMarketplacePromotions = marketplacePromotions;
 

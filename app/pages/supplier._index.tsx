@@ -13,54 +13,29 @@ import {
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import {
+  getSupplierDashboard,
+  getDailySummary,
+  getNotifications,
+  type NotificationItemDto,
+  type SupplierDashboardDto,
+} from "~/shared/api";
+import {
   getLoggedInUser,
   getOrdersForSupplier,
   ORDERS_UPDATED_EVENT,
   type StoredOrder,
 } from "~/shared/lib/indexed-db";
 
-const notifications = [
-  {
-    title: "Blue Lagoon Hotel placed a new order",
-    detail: "ORD-9117 · 14 items · $684.00",
-    time: "12 min ago",
-    tone: "bg-sky-100 text-sky-700",
-    icon: ShoppingBag,
-    href: "/supplier/orders?overview=new",
-  },
-  {
-    title: "Delivery confirmed for ORD-9101",
-    detail: "Blue Lagoon Hotel received the order.",
-    time: "1 hr ago",
-    tone: "bg-emerald-100 text-emerald-700",
-    icon: CheckCircle2,
-    href: "/supplier/orders?overview=closed",
-  },
-  {
-    title: "Promotion ending soon",
-    detail: "Summer pantry savings ends tomorrow.",
-    time: "3 hrs ago",
-    tone: "bg-amber-100 text-amber-700",
-    icon: Megaphone,
-    href: "/supplier/promotions",
-  },
-  {
-    title: "Stock review needed",
-    detail: "Three catalogue products need availability updates.",
-    time: "Yesterday",
-    tone: "bg-violet-100 text-violet-700",
-    icon: PackageCheck,
-    href: "/supplier/products",
-  },
-  {
-    title: "New team member added",
-    detail: "Review employee access and contact details.",
-    time: "Yesterday",
-    tone: "bg-slate-100 text-slate-700",
-    icon: UsersRound,
-    href: "/supplier/employees",
-  },
-];
+type DashboardNotificationView = {
+  title: string;
+  detail: string;
+  time: string;
+  tone: string;
+  icon: typeof ShoppingBag;
+  href: string;
+};
+
+const defaultNotifications: DashboardNotificationView[] = [];
 
 const quickActions = [
   {
@@ -120,23 +95,57 @@ export default function SupplierPage() {
     closed: 0,
   });
   const [isLoadingOrders, setIsLoadingOrders] = useState(true);
+  const [notifications, setNotifications] = useState<DashboardNotificationView[]>(defaultNotifications);
+  const [companyName, setCompanyName] = useState<string>("");
+  const [dashboardData, setDashboardData] = useState<SupplierDashboardDto | null>(null);
 
   useEffect(() => {
     let isCurrent = true;
 
-    async function loadOrderCounts() {
+    async function loadData() {
       const user = await getLoggedInUser();
       if (!user || user.role !== "supplier") return;
+      if (user.companyName) setCompanyName(user.companyName);
 
+      // Load orders (fetches backend orders via getSupplierOrders())
       const orders = await getOrdersForSupplier(user.id);
       if (isCurrent) setOrderCounts(countOrdersByStatus(orders));
+
+      // Try loading real backend notifications
+      try {
+        const backendNotifs = await getNotifications();
+        if (Array.isArray(backendNotifs) && backendNotifs.length > 0 && isCurrent) {
+          setNotifications(
+            backendNotifs.slice(0, 5).map((n) => ({
+              title: n.title,
+              detail: n.message,
+              time: new Date(n.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+              tone: n.isRead ? "bg-slate-100 text-slate-700" : "bg-sky-100 text-sky-700",
+              icon: n.title.toLowerCase().includes("order") ? ShoppingBag : BellRing,
+              href: "/supplier/orders",
+            })),
+          );
+        }
+      } catch {
+        // fallback
+      }
+
+      // Try loading real supplier dashboard stats
+      try {
+        const db = await getSupplierDashboard();
+        if (db && isCurrent) {
+          setDashboardData(db);
+        }
+      } catch {
+        // fallback
+      }
     }
 
     function refreshOrderCounts() {
-      void loadOrderCounts();
+      void loadData();
     }
 
-    void loadOrderCounts().finally(() => {
+    void loadData().finally(() => {
       if (isCurrent) setIsLoadingOrders(false);
     });
     window.addEventListener(ORDERS_UPDATED_EVENT, refreshOrderCounts);
@@ -185,7 +194,7 @@ export default function SupplierPage() {
             Supplier workspace
           </p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl">
-            Good morning, Supplier Company
+            Good morning, {companyName}
           </h1>
           <p className="mt-2 text-sm text-slate-600">
             Here&apos;s the pulse of your business today.
@@ -267,40 +276,48 @@ export default function SupplierPage() {
                 Recent notifications
               </h2>
             </div>
-            <span className="rounded-full bg-sky-50 px-2.5 py-1 text-xs font-semibold text-primary">
-              5 recent
-            </span>
+            {notifications.length > 0 ? (
+              <span className="rounded-full bg-sky-50 px-2.5 py-1 text-xs font-semibold text-primary">
+                {notifications.length} recent
+              </span>
+            ) : null}
           </div>
-          <ul className="divide-y divide-slate-100">
-            {notifications.map((notification) => {
-              const Icon = notification.icon;
-              return (
-                <li key={notification.title}>
-                  <Link
-                    to={notification.href}
-                    className="group flex gap-3 px-5 py-4 transition hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary"
-                  >
-                    <span
-                      className={`mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${notification.tone}`}
+          {notifications.length > 0 ? (
+            <ul className="divide-y divide-slate-100">
+              {notifications.map((notification) => {
+                const Icon = notification.icon;
+                return (
+                  <li key={notification.title}>
+                    <Link
+                      to={notification.href}
+                      className="group flex gap-3 px-5 py-4 transition hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary"
                     >
-                      <Icon className="h-4 w-4" aria-hidden="true" />
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold text-slate-800 group-hover:text-primary">
-                        {notification.title}
-                      </p>
-                      <p className="mt-1 text-sm text-slate-500">
-                        {notification.detail}
-                      </p>
-                    </div>
-                    <time className="shrink-0 text-xs font-medium text-slate-400">
-                      {notification.time}
-                    </time>
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
+                      <span
+                        className={`mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${notification.tone}`}
+                      >
+                        <Icon className="h-4 w-4" aria-hidden="true" />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold text-slate-800 group-hover:text-primary">
+                          {notification.title}
+                        </p>
+                        <p className="mt-1 text-sm text-slate-500">
+                          {notification.detail}
+                        </p>
+                      </div>
+                      <time className="shrink-0 text-xs font-medium text-slate-400">
+                        {notification.time}
+                      </time>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <div className="p-8 text-center">
+              <p className="text-sm text-slate-500">No recent notifications</p>
+            </div>
+          )}
         </section>
 
         <section

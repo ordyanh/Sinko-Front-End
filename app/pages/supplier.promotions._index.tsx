@@ -35,65 +35,7 @@ type Promotion = {
   products: PromotionProduct[] | null;
 };
 
-const mockPromotions: Promotion[] = [
-  {
-    id: "PROMO-1001",
-    name: "Spring pantry savings",
-    description: "Save on staple pantry items for seasonal menu refreshes.",
-    type: "Percentage",
-    startDate: "2026-03-20T00:00:00Z",
-    endDate: "2026-04-30T23:59:59Z",
-    status: "Active",
-    products: [
-      { productId: 1001, fixedPrice: null, discountPercent: 15 },
-      { productId: 1002, fixedPrice: null, discountPercent: 15 },
-      { productId: 1003, fixedPrice: null, discountPercent: 15 },
-    ],
-  },
-  {
-    id: "PROMO-1002",
-    name: "Chef's cheese selection",
-    description: "A fixed price on selected artisan cheeses.",
-    type: "FixedPrice",
-    startDate: "2026-04-01T00:00:00Z",
-    endDate: "2026-05-15T23:59:59Z",
-    status: "Scheduled",
-    products: [
-      { productId: 1004, fixedPrice: 24.5, discountPercent: null },
-      { productId: 1005, fixedPrice: 19.75, discountPercent: null },
-    ],
-  },
-  {
-    id: "PROMO-1003",
-    name: "Buy 6, get 1 free",
-    description: "Stock up on citrus boxes and receive one additional box.",
-    type: "BuyXGetY",
-    startDate: "2026-02-01T00:00:00Z",
-    endDate: "2026-02-28T23:59:59Z",
-    status: "Expired",
-    products: [{ productId: 1006, fixedPrice: null, discountPercent: null }],
-  },
-  {
-    id: "PROMO-1004",
-    name: "Summer launch offer",
-    description: "Early draft for the summer produce range.",
-    type: "Percentage",
-    startDate: "2026-06-01T00:00:00Z",
-    endDate: "2026-06-30T23:59:59Z",
-    status: "Draft",
-    products: null,
-  },
-  {
-    id: "PROMO-1005",
-    name: "Olive oil volume price",
-    description: "A fixed-price offer for qualifying olive oil orders.",
-    type: "FixedPrice",
-    startDate: "2026-01-10T00:00:00Z",
-    endDate: "2026-03-10T23:59:59Z",
-    status: "Disabled",
-    products: [{ productId: 1007, fixedPrice: 20, discountPercent: null }],
-  },
-];
+const mockPromotions: Promotion[] = [];
 
 function promotionFromStored(promotion: StoredSupplierPromotion): Promotion {
   return {

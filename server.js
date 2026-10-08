@@ -10,10 +10,12 @@ const __dirname = path.dirname(__filename);
 
 const normalizeUrl = (url) => (url ? url.replace(/\/+$/, "") : "");
 
-const isLocal = (process.env.VITE_BACKEND_TARGET || "local").toLowerCase() === "local";
+const isAzure = Boolean(process.env.WEBSITE_INSTANCE_ID || process.env.WEBSITE_SITE_NAME);
+const defaultTarget = isAzure || process.env.NODE_ENV === "production" ? "remote" : "local";
+const isLocal = (process.env.VITE_BACKEND_TARGET || defaultTarget).toLowerCase() === "local";
 
-const LOCAL_AUTH_DEFAULT = "http://localhost:5273/";
-const LOCAL_CORE_DEFAULT = "http://localhost:5206/";
+const LOCAL_AUTH_DEFAULT = "http://localhost:5273";
+const LOCAL_CORE_DEFAULT = "http://localhost:5206";
 const REMOTE_AUTH_DEFAULT = "https://syncoauthservice-f0e9fkaqgyczegas.swedencentral-01.azurewebsites.net";
 const REMOTE_CORE_DEFAULT = "https://synco-h4etbseqg4h2ewcw.swedencentral-01.azurewebsites.net";
 
@@ -36,7 +38,7 @@ app.use(compression());
 // Proxy Auth Service APIs
 app.use(
   createProxyMiddleware({
-    filter: (pathname) =>
+    pathFilter: (pathname) =>
       /^\/(api\/(auth|company|employee|verification-request|auth\/complete-onboarding|supplier\/(register|verify|resend-code)|me)|me)/i.test(
         pathname
       ),
@@ -50,7 +52,7 @@ app.use(
 // Proxy Core Service APIs
 app.use(
   createProxyMiddleware({
-    filter: (pathname) =>
+    pathFilter: (pathname) =>
       /^\/api\/(dictionary|products|orders|cart|promotions|customers|marketplace|notifications|subscription|admin|supplier|dashboard)/i.test(
         pathname
       ),

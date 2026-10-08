@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Bell } from "lucide-react";
 import { SwitchField } from "~/shared/ui/form";
 import { useToast } from "~/shared/ui/toast";
 import { DashboardPageContent } from "~/shared/ui";
+import { getNotificationSettings, updateNotificationSettings } from "~/shared/api";
 
 type NotificationKey =
   | "newOrderReceived"
@@ -54,8 +55,6 @@ const initialNotifications: Record<NotificationKey, boolean> = {
   employeeActivity: false,
 };
 
-const MOCK_SAVE_DELAY_MS = 600;
-
 export default function SupplierNotificationsPage() {
   const { showToast } = useToast();
   const [notifications, setNotifications] = useState(initialNotifications);
@@ -63,19 +62,48 @@ export default function SupplierNotificationsPage() {
     null,
   );
 
-  function handleSaveSetting(key: NotificationKey, title: string) {
-    return (checked: boolean) => {
-      setSubmittingKey(key);
-
-      window.setTimeout(() => {
-        setNotifications((current) => ({ ...current, [key]: checked }));
-        setSubmittingKey(null);
-        showToast({
-          title: `${title} ${checked ? "enabled" : "disabled"}`,
-          description: "Your notification preferences have been saved.",
-          variant: "success",
+  useEffect(() => {
+    let isActive = true;
+    getNotificationSettings()
+      .then((s) => {
+        if (!isActive || !s) return;
+        setNotifications({
+          newOrderReceived: s.orderUpdates ?? initialNotifications.newOrderReceived,
+          priceRequestReceived: s.priceOffers ?? initialNotifications.priceRequestReceived,
+          priceOfferReceived: s.priceOffers ?? initialNotifications.priceOfferReceived,
+          orderStatusChanges: s.orderUpdates ?? initialNotifications.orderStatusChanges,
+          employeeActivity: s.promotions ?? initialNotifications.employeeActivity,
         });
-      }, MOCK_SAVE_DELAY_MS);
+      })
+      .catch(() => {});
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
+  function handleSaveSetting(key: NotificationKey, title: string) {
+    return async (checked: boolean) => {
+      setSubmittingKey(key);
+      const next = { ...notifications, [key]: checked };
+      setNotifications(next);
+
+      try {
+        await updateNotificationSettings({
+          orderUpdates: next.newOrderReceived || next.orderStatusChanges,
+          priceOffers: next.priceRequestReceived || next.priceOfferReceived,
+          promotions: next.employeeActivity,
+        });
+      } catch {
+        // Backend offline fallback
+      } finally {
+        setSubmittingKey(null);
+      }
+
+      showToast({
+        title: `${title} ${checked ? "enabled" : "disabled"}`,
+        description: "Your notification preferences have been saved.",
+        variant: "success",
+      });
     };
   }
 

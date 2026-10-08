@@ -130,7 +130,13 @@ export default function HorecaCartPage() {
                       {lines.map(({ product, option, quantity }) => {
                         const { price: unitPrice, promotion: pricePromotion } = getPromotionalPrice(product, option);
                         return <li key={`${product.id}-${option.id}`} className="flex items-center gap-4 p-4">
-                    <img src={product.image} alt="" className="h-16 w-16 rounded-xl object-cover ring-1 ring-slate-200" />
+                    {product.image ? (
+                      <img src={product.image} alt="" className="h-16 w-16 rounded-xl object-cover ring-1 ring-slate-200" />
+                    ) : (
+                      <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-400 ring-1 ring-slate-200">
+                        <PackageOpen className="h-6 w-6 text-slate-400" aria-hidden="true" />
+                      </div>
+                    )}
                     <div className="min-w-0 flex-1">
                       <p className="truncate font-semibold text-slate-900">{product.title}</p>
                       <p className="mt-0.5 text-sm text-slate-500">{getMarketplaceOptionLabel(option)} · {getMarketplaceMinimumOrderLabel(option)}</p>
@@ -147,7 +153,13 @@ export default function HorecaCartPage() {
                         const giftProduct = catalogProducts.find((product) => product.id === reward.productId) ?? marketplaceProducts.find((product) => product.id === reward.productId);
                         const giftOption = giftProduct ? getMarketplaceSellingOptions(giftProduct).find((option) => option.id === reward.optionId) ?? getMarketplaceSellingOptions(giftProduct)[0] : undefined;
                         if (!giftProduct || !giftOption) return null;
-                        return <li key={`${reward.promotion.id}-${reward.productId}`} className="flex items-center gap-4 bg-violet-50/70 p-4"><img src={giftProduct.image} alt="" className="h-16 w-16 rounded-xl object-cover ring-1 ring-violet-200" /><div className="min-w-0 flex-1"><div className="flex items-center gap-2"><p className="truncate font-semibold text-slate-900">{giftProduct.title}</p><span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-violet-100 px-2 py-0.5 text-xs font-bold text-violet-700"><Gift className="h-3 w-3" aria-hidden="true" />BXGY reward</span></div><p className="mt-0.5 text-sm text-slate-500">{getMarketplaceOptionLabel(giftOption)} · {reward.quantity} free {reward.quantity === 1 ? "unit" : "units"}</p><p className="mt-1 text-xs font-semibold text-violet-700">{reward.promotion.title} · Free / promotion reward</p></div><div className="flex shrink-0 flex-col items-end gap-2"><p className="text-sm font-bold text-violet-950">0 դրամ</p><button type="button" onClick={() => removePromotionGift(reward.promotion.id, reward.quantity)} className="inline-flex min-h-8 items-center gap-1 rounded-lg border border-rose-200 bg-white px-2 text-xs font-bold text-rose-700 transition hover:bg-rose-50" aria-label={`Remove ${giftProduct.title} free promotion reward`}><Trash2 className="h-3.5 w-3.5" aria-hidden="true" />Remove reward</button></div></li>;
+                        return <li key={`${reward.promotion.id}-${reward.productId}`} className="flex items-center gap-4 bg-violet-50/70 p-4">{giftProduct.image ? (
+                          <img src={giftProduct.image} alt="" className="h-16 w-16 rounded-xl object-cover ring-1 ring-violet-200" />
+                        ) : (
+                          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-violet-600 ring-1 ring-violet-200">
+                            <Gift className="h-6 w-6" aria-hidden="true" />
+                          </div>
+                        )}<div className="min-w-0 flex-1"><div className="flex items-center gap-2"><p className="truncate font-semibold text-slate-900">{giftProduct.title}</p><span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-violet-100 px-2 py-0.5 text-xs font-bold text-violet-700"><Gift className="h-3 w-3" aria-hidden="true" />BXGY reward</span></div><p className="mt-0.5 text-sm text-slate-500">{getMarketplaceOptionLabel(giftOption)} · {reward.quantity} free {reward.quantity === 1 ? "unit" : "units"}</p><p className="mt-1 text-xs font-semibold text-violet-700">{reward.promotion.title} · Free / promotion reward</p></div><div className="flex shrink-0 flex-col items-end gap-2"><p className="text-sm font-bold text-violet-950">0 դրամ</p><button type="button" onClick={() => removePromotionGift(reward.promotion.id, reward.quantity)} className="inline-flex min-h-8 items-center gap-1 rounded-lg border border-rose-200 bg-white px-2 text-xs font-bold text-rose-700 transition hover:bg-rose-50" aria-label={`Remove ${giftProduct.title} free promotion reward`}><Trash2 className="h-3.5 w-3.5" aria-hidden="true" />Remove reward</button></div></li>;
                       })}
                     </ul>
                     <div className="flex items-center justify-between bg-slate-50/70 px-4 py-3 text-sm text-slate-600"><span>{supplier} subtotal</span><span className="font-bold text-slate-900 tabular-nums">{formatMarketplacePrice(supplierTotal)}</span></div>

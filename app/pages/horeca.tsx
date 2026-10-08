@@ -1,7 +1,7 @@
 import { Dialog, DialogBackdrop, DialogPanel, DialogTitle } from "@headlessui/react";
 import { CheckCircle2, Gift, Minus, PackageOpen, Plus, ShoppingBag, ShoppingCart, Tag, Trash2, Truck, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, Outlet, useLocation } from "react-router";
+import { Link, Outlet, useLocation, useNavigate } from "react-router";
 import {
   formatMarketplacePrice,
   getMarketplaceMinimumOrderLabel,
@@ -18,55 +18,28 @@ import { getHorecaMarketplacePromotions, getPromotionalPrice, getPromotionReward
 import { horecaDashboardMenuLinks } from "~/shared/lib/dashboard-nav";
 import DashboardLayout from "~/shared/ui/dashboard-layout";
 import type { DashboardNotification } from "~/shared/ui";
-import { createOrder as createBackendOrder, createMultiSupplierOrder } from "~/shared/api";
+import {
+  createOrder as createBackendOrder,
+  createMultiSupplierOrder,
+  getNotifications,
+  addToCart,
+  updateCartQuantity,
+  removeFromCart,
+  clearCart,
+  ApiError,
+} from "~/shared/api";
 import {
   createOrderId,
   getApprovedActiveDeliveryAddressForOrder,
   getLoggedInUser,
   getSupplierUsers,
   saveOrders,
-  signInAsDefaultUser,
   PROMOTIONS_UPDATED_EVENT,
   type LoggedInUser,
   type StoredOrder,
 } from "~/shared/lib/indexed-db";
 
-const horecaNotifications: DashboardNotification[] = [
-  {
-    id: "delivery-window",
-    title: "Your delivery is on the way",
-    detail: "Ararat Harvest will arrive between 09:30 and 10:00.",
-    time: "18 min ago",
-    icon: Truck,
-    accentClassName: "bg-emerald-100 text-emerald-700",
-    unread: true,
-  },
-  {
-    id: "order-confirmed",
-    title: "Order ORD-9116 was confirmed",
-    detail: "Lori Dairy Co. has started preparing your items.",
-    time: "1 hr ago",
-    icon: CheckCircle2,
-    accentClassName: "bg-sky-100 text-sky-700",
-    unread: true,
-  },
-  {
-    id: "new-promotion",
-    title: "New offer from Mare & Terra",
-    detail: "Save 10% on selected pantry staples this week.",
-    time: "Yesterday",
-    icon: Tag,
-    accentClassName: "bg-amber-100 text-amber-700",
-  },
-  {
-    id: "order-reminder",
-    title: "A supplier has updated their catalogue",
-    detail: "Fresh seasonal produce is now available to order.",
-    time: "Yesterday",
-    icon: ShoppingBag,
-    accentClassName: "bg-violet-100 text-violet-700",
-  },
-];
+const horecaNotifications: DashboardNotification[] = [];
 
 function CartButton({ itemCount, onClick }: { itemCount: number; onClick: () => void }) {
   return (
@@ -79,8 +52,10 @@ function CartButton({ itemCount, onClick }: { itemCount: number; onClick: () => 
 
 export default function HorecaPage() {
   const location = useLocation();
+  const navigate = useNavigate();
   const [isPreparingDashboard, setIsPreparingDashboard] = useState(true);
   const [authUser, setAuthUser] = useState<LoggedInUser | null>(null);
+  const [notifications, setNotifications] = useState<DashboardNotification[]>([]);
   const [cartLines, setCartLines] = useState<MarketplaceCartLine[]>([]);
   const [promotions, setPromotions] = useState<MarketplacePromotion[]>([]);
   const [catalogProducts, setCatalogProducts] = useState<MarketplaceProduct[]>([]);
@@ -95,10 +70,12 @@ export default function HorecaPage() {
 
     async function initHoreca() {
       const existingUser = await getLoggedInUser();
-      const user =
-        existingUser && existingUser.role === "horeca"
-          ? existingUser
-          : await signInAsDefaultUser("horeca");
+      if (!isActive) return;
+      if (!existingUser || existingUser.role !== "horeca") {
+        navigate("/login", { replace: true });
+        return;
+      }
+      const user = existingUser;
 
       const [nextPromotions, nextCatalogProducts] = await Promise.all([
         getHorecaMarketplacePromotions(),
@@ -110,6 +87,25 @@ export default function HorecaPage() {
       setCatalogProducts(nextCatalogProducts);
       setAuthUser(user);
       setIsPreparingDashboard(false);
+
+      try {
+        const notifs = await getNotifications();
+        if (Array.isArray(notifs) && notifs.length > 0 && isActive) {
+          setNotifications(
+            notifs.map((n) => ({
+              id: n.id,
+              title: n.title,
+              detail: n.message,
+              time: new Date(n.createdAt).toLocaleDateString([], { month: "short", day: "numeric" }),
+              icon: n.title.toLowerCase().includes("delivery") ? Truck : CheckCircle2,
+              accentClassName: n.isRead ? "bg-slate-100 text-slate-700" : "bg-sky-100 text-sky-700",
+              unread: !n.isRead,
+            })),
+          );
+        }
+      } catch {
+        // Fallback to local default notifications
+      }
     }
 
     void initHoreca();
@@ -168,6 +164,14 @@ export default function HorecaPage() {
   ) {
     const nextQuantity =
       quantity <= 0 ? 0 : Math.max(option.minimumOrderQuantity, quantity);
+
+    const numericProductId = parseInt(String(product.id).replace(/\D/g, ""), 10) || 1;
+    if (nextQuantity === 0) {
+      removeFromCart(numericProductId).catch(() => {});
+    } else {
+      addToCart(numericProductId, nextQuantity).catch(() => {});
+    }
+
     setCartLines((currentLines) => {
       const existingLine = currentLines.find(
         (line) => line.product.id === product.id && line.option.id === option.id,
@@ -339,11 +343,17 @@ export default function HorecaPage() {
           });
         }
       }
-    } catch {
-      // Backend creation failed or offline, fall back to local IndexedDB persistence
+    } catch (backendError) {
+      // If it's a 400 Bad Request, 401 Unauthorized, or 403 Forbidden:
+      // It is a real validation or permission failure that should be displayed to the user!
+      if (backendError instanceof ApiError && (backendError.status === 400 || backendError.status === 401 || backendError.status === 403)) {
+        throw backendError;
+      }
+      // Offline / 502 Bad Gateway fallback to IndexedDB
     }
 
     await saveOrders(orders);
+    clearCart().catch(() => {});
     setCartLines([]);
     setPromotionGiftProductIds({});
     setDismissedPromotionGiftQuantities({});
@@ -360,7 +370,7 @@ export default function HorecaPage() {
 
   return (
     <>
-      <DashboardLayout accountType="horeca" menuLinks={horecaDashboardMenuLinks} userName={authUser?.displayName ?? ""} companyName={authUser?.companyName ?? ""} logoutHref="/logout" notifications={horecaNotifications} desktopHeaderAction={cartButton} mobileHeaderAction={cartButton}>
+      <DashboardLayout accountType="horeca" menuLinks={horecaDashboardMenuLinks} userName={authUser?.displayName ?? ""} companyName={authUser?.companyName ?? ""} logoutHref="/logout" notifications={notifications} desktopHeaderAction={cartButton} mobileHeaderAction={cartButton}>
         <Outlet context={{ cartLines, setCartLineQuantity, promotions, catalogProducts, promotionRewards, promotionGiftProductIds, setPromotionGiftProductId, removePromotionGift, completeOrder }} />
       </DashboardLayout>
 
@@ -392,7 +402,13 @@ export default function HorecaPage() {
                           const { price: unitPrice, promotion: pricePromotion } = getPromotionalPrice(product, option);
                           return (
                     <li key={`${product.id}-${option.id}`} className="flex gap-3">
-                      <img src={product.image} alt="" className="h-16 w-16 rounded-xl object-cover ring-1 ring-slate-200" />
+                      {product.image ? (
+                        <img src={product.image} alt="" className="h-16 w-16 rounded-xl object-cover ring-1 ring-slate-200" />
+                      ) : (
+                        <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-400 ring-1 ring-slate-200">
+                          <PackageOpen className="h-6 w-6 text-slate-400" aria-hidden="true" />
+                        </div>
+                      )}
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-semibold text-slate-900">{product.title}</p>
                         <p className="mt-0.5 text-xs text-slate-500">{getMarketplaceOptionLabel(option)} · {formatMarketplacePrice(unitPrice)} each · {getMarketplaceMinimumOrderLabel(option)}</p>
@@ -416,7 +432,13 @@ export default function HorecaPage() {
                           const giftProduct = catalogProducts.find((product) => product.id === reward.productId) ?? marketplaceProducts.find((product) => product.id === reward.productId);
                           const giftOption = giftProduct ? getMarketplaceSellingOptions(giftProduct).find((option) => option.id === reward.optionId) ?? getMarketplaceSellingOptions(giftProduct)[0] : undefined;
                           if (!giftProduct || !giftOption) return null;
-                          return <li key={`${reward.promotion.id}-${reward.productId}`} className="flex gap-3 rounded-2xl border border-violet-100 bg-violet-50/70 p-3"><img src={giftProduct.image} alt="" className="h-16 w-16 rounded-xl object-cover ring-1 ring-violet-200" /><div className="min-w-0 flex-1"><div className="flex items-start justify-between gap-2"><div className="min-w-0"><p className="truncate text-sm font-semibold text-slate-900">{giftProduct.title}</p><p className="mt-0.5 text-xs text-slate-500">{getMarketplaceOptionLabel(giftOption)} · {reward.quantity} free {reward.quantity === 1 ? "unit" : "units"}</p></div><span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-violet-100 px-2 py-0.5 text-xs font-bold text-violet-700"><Gift className="h-3 w-3" aria-hidden="true" />BXGY reward</span></div><p className="mt-2 text-xs font-semibold text-violet-700">{reward.promotion.title} · Free / promotion reward</p><div className="mt-2 flex items-center justify-between gap-2"><p className="text-sm font-bold text-violet-950">Free · 0 դրամ</p><button type="button" onClick={() => removePromotionGift(reward.promotion.id, reward.quantity)} className="inline-flex min-h-8 items-center gap-1 rounded-lg border border-rose-200 bg-white px-2 text-xs font-bold text-rose-700 transition hover:bg-rose-50" aria-label={`Remove ${giftProduct.title} free promotion reward`}><Trash2 className="h-3.5 w-3.5" aria-hidden="true" />Remove reward</button></div></div></li>;
+                          return <li key={`${reward.promotion.id}-${reward.productId}`} className="flex gap-3 rounded-2xl border border-violet-100 bg-violet-50/70 p-3">{giftProduct.image ? (
+                            <img src={giftProduct.image} alt="" className="h-16 w-16 rounded-xl object-cover ring-1 ring-violet-200" />
+                          ) : (
+                            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-violet-600 ring-1 ring-violet-200">
+                              <Gift className="h-6 w-6" aria-hidden="true" />
+                            </div>
+                          )}<div className="min-w-0 flex-1"><div className="flex items-start justify-between gap-2"><div className="min-w-0"><p className="truncate text-sm font-semibold text-slate-900">{giftProduct.title}</p><p className="mt-0.5 text-xs text-slate-500">{getMarketplaceOptionLabel(giftOption)} · {reward.quantity} free {reward.quantity === 1 ? "unit" : "units"}</p></div><span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-violet-100 px-2 py-0.5 text-xs font-bold text-violet-700"><Gift className="h-3 w-3" aria-hidden="true" />BXGY reward</span></div><p className="mt-2 text-xs font-semibold text-violet-700">{reward.promotion.title} · Free / promotion reward</p><div className="mt-2 flex items-center justify-between gap-2"><p className="text-sm font-bold text-violet-950">Free · 0 դրամ</p><button type="button" onClick={() => removePromotionGift(reward.promotion.id, reward.quantity)} className="inline-flex min-h-8 items-center gap-1 rounded-lg border border-rose-200 bg-white px-2 text-xs font-bold text-rose-700 transition hover:bg-rose-50" aria-label={`Remove ${giftProduct.title} free promotion reward`}><Trash2 className="h-3.5 w-3.5" aria-hidden="true" />Remove reward</button></div></div></li>;
                         })}
                       </ul>
                       <div className="mt-3 flex justify-between border-t border-[#e5dfd0] pt-3 text-xs text-slate-500"><span>{supplier} subtotal</span><span className="font-bold text-slate-800 tabular-nums">{formatMarketplacePrice(supplierTotal)}</span></div>

@@ -1,4 +1,4 @@
-import { useMemo, useState, type ChangeEvent } from "react";
+﻿import { useEffect, useMemo, useState, type ChangeEvent } from "react";
 import { useNavigate } from "react-router";
 import { Check, Globe, KeyRound, LogOut, X } from "lucide-react";
 import Input from "~/shared/ui/form/input";
@@ -7,8 +7,7 @@ import Button from "~/shared/ui/button";
 import { useToast } from "~/shared/ui/toast";
 import { DashboardPageContent } from "~/shared/ui";
 import { signOut } from "~/shared/lib/indexed-db";
-
-const MOCK_SAVE_DELAY_MS = 600;
+import { changePassword, logoutUser, getCompanyInfo, updateCompanyLanguage } from "~/shared/api";
 
 const languageOptions = [
   { value: "en", label: "English" },
@@ -49,6 +48,18 @@ export default function SupplierAccountPage() {
   const [isSavingPassword, setIsSavingPassword] = useState(false);
   const [language, setLanguage] = useState("en");
 
+  useEffect(() => {
+    let isActive = true;
+    getCompanyInfo().then((info) => {
+      if (isActive && (info?.language || info?.languageCode)) {
+        setLanguage((info.language || info.languageCode) ?? "en");
+      }
+    }).catch(() => {});
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
   const passedRules = useMemo(
     () => passwordRules.filter((rule) => rule.test(passwordForm.newPassword)),
     [passwordForm.newPassword],
@@ -64,7 +75,7 @@ export default function SupplierAccountPage() {
     };
   }
 
-  function handleSavePassword() {
+  async function handleSavePassword() {
     if (!passwordForm.currentPassword || !passwordForm.newPassword) {
       showToast({
         title: "Missing information",
@@ -85,20 +96,37 @@ export default function SupplierAccountPage() {
 
     setIsSavingPassword(true);
 
-    window.setTimeout(() => {
-      setIsSavingPassword(false);
+    try {
+      await changePassword({
+        oldPassword: passwordForm.currentPassword,
+        currentPassword: passwordForm.currentPassword,
+        newPassword: passwordForm.newPassword,
+      });
       setPasswordForm(initialPasswordForm);
       showToast({
         title: "Password updated",
         description: "Your password has been changed successfully.",
         variant: "success",
       });
-    }, MOCK_SAVE_DELAY_MS);
+    } catch (error) {
+      showToast({
+        title: "Couldn't update password",
+        description: error instanceof Error ? error.message : "Please check your current password and try again.",
+        variant: "error",
+      });
+    } finally {
+      setIsSavingPassword(false);
+    }
   }
 
-  function handleLanguageChange(nextValue: string | string[]) {
+  async function handleLanguageChange(nextValue: string | string[]) {
     const value = Array.isArray(nextValue) ? (nextValue[0] ?? "en") : nextValue;
     setLanguage(value);
+    try {
+      await updateCompanyLanguage({ language: value });
+    } catch {
+      // Backend fallback
+    }
     showToast({
       title: "Language updated",
       description: "Your language preference has been saved.",
@@ -107,6 +135,11 @@ export default function SupplierAccountPage() {
   }
 
   async function handleLogout() {
+    try {
+      await logoutUser();
+    } catch {
+      // Backend offline fallback
+    }
     await signOut();
     navigate("/login", { replace: true });
   }

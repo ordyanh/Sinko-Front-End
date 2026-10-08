@@ -7,18 +7,21 @@ import {
   Sparkles,
   Tag,
 } from "lucide-react";
+import { useEffect, useState } from "react";
 import { Link, useOutletContext } from "react-router";
 import {
   formatMarketplacePrice,
   getMarketplaceOptionLabel,
   getMarketplaceSellingOptions,
   marketplaceProducts,
+  type MarketplaceProduct,
 } from "~/entities/product";
 import {
   isPromotionVisibleOnHome,
   PromotionCard,
   type MarketplacePromotion,
 } from "~/entities/promotion";
+import { getMarketplaceSuppliers } from "~/shared/api";
 import { DashboardPageContent } from "~/shared/ui";
 
 type RecommendedSupplier = {
@@ -33,44 +36,7 @@ type RecommendedSupplier = {
   logoClassName: string;
 };
 
-const recommendedSuppliers: RecommendedSupplier[] = [
-  {
-    name: "Ararat Harvest",
-    initials: "AH",
-    description:
-      "Farm-picked vegetables, greens, and fruit for a sharper daily prep.",
-    deliveryNote: "Order by 18:00 for morning delivery",
-    deliveryWindow: "07:00–10:00",
-    serviceArea: "Yerevan & Kotayk",
-    categories: ["Fresh produce", "Herbs"],
-    accentClassName: "bg-[#dceede]",
-    logoClassName: "bg-[#236548] text-white",
-  },
-  {
-    name: "Lori Dairy Co.",
-    initials: "LD",
-    description:
-      "Regional dairy and cheeses with the consistency your service needs.",
-    deliveryNote: "Next delivery slot available tomorrow",
-    deliveryWindow: "08:00–12:00",
-    serviceArea: "Yerevan & Aragatsotn",
-    categories: ["Dairy", "Cheese"],
-    accentClassName: "bg-[#fff0c8]",
-    logoClassName: "bg-[#b7740d] text-white",
-  },
-  {
-    name: "Mare & Terra",
-    initials: "M&T",
-    description:
-      "A considered pantry of oils and Mediterranean staples for the pass.",
-    deliveryNote: "Free delivery on orders over 25,000 դրամ",
-    deliveryWindow: "10:00–15:00",
-    serviceArea: "Yerevan citywide",
-    categories: ["Pantry", "Oils"],
-    accentClassName: "bg-[#e8e3f8]",
-    logoClassName: "bg-[#655099] text-white",
-  },
-];
+const recommendedSuppliers: RecommendedSupplier[] = [];
 
 function SupplierCard({ supplier }: { supplier: RecommendedSupplier }) {
   return (
@@ -139,11 +105,20 @@ function PopularProductCard({
       to="/horeca/products"
       className="group flex min-w-0 items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3 transition duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
     >
-      <img
-        src={product.image}
-        alt=""
-        className="h-16 w-16 shrink-0 rounded-xl object-cover"
-      />
+      {product.image ? (
+        <img
+          src={product.image}
+          onError={(e) => {
+            e.currentTarget.style.display = "none";
+          }}
+          alt=""
+          className="h-16 w-16 shrink-0 rounded-xl object-cover"
+        />
+      ) : (
+        <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-400">
+          <Package className="h-7 w-7 text-slate-300" aria-hidden="true" />
+        </div>
+      )}
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-bold tracking-tight text-slate-900">
           {product.title}
@@ -172,8 +147,39 @@ function PopularProductCard({
 }
 
 export default function HorecaDashboardPage() {
-  const { promotions } = useOutletContext<{ promotions: MarketplacePromotion[] }>();
-  const popularProducts = marketplaceProducts.slice(0, 4);
+  const { promotions, catalogProducts } = useOutletContext<{
+    promotions: MarketplacePromotion[];
+    catalogProducts?: MarketplaceProduct[];
+  }>();
+  const [suppliers, setSuppliers] = useState<RecommendedSupplier[]>([]);
+
+  useEffect(() => {
+    let isActive = true;
+    getMarketplaceSuppliers()
+      .then((backendSuppliers) => {
+        if (!isActive || !backendSuppliers.length) return;
+        const accents = ["bg-[#dceede]", "bg-[#fff0c8]", "bg-[#e8e3f8]"];
+        const logos = ["bg-[#236548] text-white", "bg-[#b7740d] text-white", "bg-[#655099] text-white"];
+        const mapped = backendSuppliers.map((s, idx) => ({
+          name: s.companyName || "Supplier",
+          initials: (s.companyName || "S").split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase(),
+          description: s.description || "Trusted supplier on Sinko platform.",
+          deliveryNote: "Next delivery slot available tomorrow",
+          deliveryWindow: "08:00–14:00",
+          serviceArea: s.address || "Yerevan citywide",
+          categories: ["Produce", "General"],
+          accentClassName: accents[idx % accents.length],
+          logoClassName: logos[idx % logos.length],
+        }));
+        setSuppliers(mapped.slice(0, 6));
+      })
+      .catch(() => {});
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
+  const popularProducts = (catalogProducts || []).slice(0, 4);
   const homePromotions = promotions.filter(isPromotionVisibleOnHome);
 
   return (
@@ -264,7 +270,7 @@ export default function HorecaDashboardPage() {
             </Link>
           </div>
           <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
-            {recommendedSuppliers.map((supplier) => (
+            {suppliers.map((supplier) => (
               <SupplierCard key={supplier.name} supplier={supplier} />
             ))}
           </div>

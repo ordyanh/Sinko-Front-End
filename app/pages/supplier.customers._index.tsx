@@ -1,5 +1,6 @@
 import { Users } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { getMyClients } from "~/shared/api";
 import {
   getHorecaUsers,
   getLoggedInUser,
@@ -100,6 +101,30 @@ export default function SupplierCustomersPage() {
     let isCurrent = true;
 
     void (async () => {
+      // 1. Try real backend customers API first
+      try {
+        const backendClients = await getMyClients();
+        if (Array.isArray(backendClients) && backendClients.length > 0) {
+          if (!isCurrent) return;
+          setCustomers(
+            backendClients.map((client) => ({
+              id: client.id || client.clientId || "client",
+              companyName: client.companyName || "Client Company",
+              contactName: client.contactPerson || client.companyName || "—",
+              email: client.email || "—",
+              activityType: "HORECA",
+              address: client.address || "Yerevan",
+              totalOrders: client.totalOrders ?? 0,
+              status: "Active",
+            })),
+          );
+          return;
+        }
+      } catch {
+        // fallback to local data
+      }
+
+      // 2. Fallback to local storage
       const [horecaUsers, user] = await Promise.all([
         getHorecaUsers(),
         getLoggedInUser(),
@@ -115,24 +140,24 @@ export default function SupplierCustomersPage() {
         );
       }
 
-        if (!isCurrent) return;
+      if (!isCurrent) return;
 
-        setCustomers(
-          horecaUsers.map((user) => ({
-            id: user.id,
-            companyName: user.companyName,
-            contactName: user.displayName,
-            email: user.email,
-            activityType: "HORECA",
-            address: user.address,
-            totalOrders: orderCountByCustomerId.get(user.id) ?? 0,
-            status: "Active",
-          })),
-        );
+      setCustomers(
+        horecaUsers.map((user) => ({
+          id: user.id,
+          companyName: user.companyName,
+          contactName: user.displayName,
+          email: user.email,
+          activityType: "HORECA",
+          address: user.address,
+          totalOrders: orderCountByCustomerId.get(user.id) ?? 0,
+          status: "Active",
+        })),
+      );
     })()
       .catch(() => {
         if (isCurrent) {
-          setLoadError("We couldn't load customers from local storage.");
+          setLoadError("We couldn't load customers.");
         }
       })
       .finally(() => {

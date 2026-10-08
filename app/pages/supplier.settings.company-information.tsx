@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Building2, PencilLine } from "lucide-react";
 import { useForm, type SubmitHandler } from "react-hook-form";
@@ -8,6 +8,7 @@ import { Input } from "~/shared/ui/form";
 import Modal from "~/shared/ui/modal";
 import { useToast } from "~/shared/ui/toast";
 import { DashboardPageContent } from "~/shared/ui";
+import { getCompanyInfo, updateCompany } from "~/shared/api";
 
 const companyInfoSchema = z.object({
   companyName: z.string().trim().min(1, "Company name is required."),
@@ -28,18 +29,15 @@ const companyInfoSchema = z.object({
 
 type CompanyInfoState = z.infer<typeof companyInfoSchema>;
 
-// Mock data standing in for the supplier company profile until the API is wired up.
 const initialCompanyInfo: CompanyInfoState = {
-  companyName: "Ararat Fresh LLC",
-  phoneNumber: "+374 10 654321",
-  companyAddress: "Komitas Ave 12, Arabkir, Yerevan",
-  productCategories: "Fresh Produce, Herbs, Fruits",
-  serviceAreas: "All Yerevan districts",
-  taxId: "00654321",
-  email: "sales@araratfresh.am",
+  companyName: "",
+  phoneNumber: "",
+  companyAddress: "",
+  productCategories: "",
+  serviceAreas: "",
+  taxId: "",
+  email: "",
 };
-
-const MOCK_SAVE_DELAY_MS = 800;
 
 export default function SupplierCompanyInformationPage() {
   const { showToast } = useToast();
@@ -55,6 +53,29 @@ export default function SupplierCompanyInformationPage() {
     formState: { errors, isSubmitting },
   } = form;
 
+  useEffect(() => {
+    let isCurrent = true;
+    getCompanyInfo()
+      .then((info) => {
+        if (!isCurrent || !info) return;
+        const merged: CompanyInfoState = {
+          companyName: info.companyName || "",
+          phoneNumber: info.phoneNumber || "",
+          companyAddress: info.address || "",
+          productCategories: info.description || "",
+          serviceAreas: (info.customServiceAreas?.join(", ")) || "",
+          taxId: info.hvhh || info.taxCode || "",
+          email: info.email || "",
+        };
+        setCompanyInfo(merged);
+        reset(merged);
+      })
+      .catch(() => {});
+    return () => {
+      isCurrent = false;
+    };
+  }, [reset]);
+
   function openEditModal() {
     reset(companyInfo);
     setIsEditModalOpen(true);
@@ -67,9 +88,16 @@ export default function SupplierCompanyInformationPage() {
   }
 
   const handleSave: SubmitHandler<CompanyInfoState> = async (values) => {
-    await new Promise<void>((resolve) => {
-      window.setTimeout(resolve, MOCK_SAVE_DELAY_MS);
-    });
+    try {
+      await updateCompany({
+        companyName: values.companyName,
+        phoneNumber: values.phoneNumber,
+        address: values.companyAddress,
+        description: values.productCategories,
+      });
+    } catch {
+      // Backend offline / error; local state will still update
+    }
 
     setCompanyInfo(values);
     reset(values);

@@ -290,11 +290,17 @@ export default function IndividualPricesSection({
                         isSelected ? "bg-primary/5" : "hover:bg-slate-50"
                       }`}
                     >
-                      <img
-                        src={resource.imageUrl}
-                        alt=""
-                        className="h-11 w-11 shrink-0 rounded-xl object-cover ring-1 ring-slate-200"
-                      />
+                      {resource.imageUrl ? (
+                        <img
+                          src={resource.imageUrl}
+                          alt=""
+                          className="h-11 w-11 shrink-0 rounded-xl object-cover ring-1 ring-slate-200"
+                        />
+                      ) : (
+                        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-teal-800 text-xs font-bold text-white ring-1 ring-slate-200">
+                          {resource.label.slice(0, 2).toUpperCase()}
+                        </span>
+                      )}
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm font-semibold text-slate-900">
                           {resource.label}

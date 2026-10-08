@@ -1,11 +1,8 @@
 import { ArrowRight, Layers3, MapPin, Store } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
-import {
-  getSupplierCategories,
-  getSupplierProfile,
-  getSupplierUsers,
-} from "~/shared/lib/indexed-db";
+// Removed mock IndexedDB imports
+import { getMarketplaceSuppliers } from "~/shared/api";
 import { DashboardPageContent } from "~/shared/ui";
 
 type DirectorySupplier = {
@@ -89,47 +86,32 @@ export default function HorecaSuppliersPage() {
     let isCurrent = true;
 
     void (async () => {
-      const supplierUsers = await getSupplierUsers();
-      const directorySuppliers = await Promise.all(
-        supplierUsers.map(async (supplier) => {
-          const [categories, profile] = await Promise.all([
-            getSupplierCategories(supplier.id),
-            getSupplierProfile(supplier.id),
-          ]);
-          const categoriesById = new Map(
-            categories.map((category) => [category.id, category.name]),
-          );
-          const selectedCategories = profile.categoryIds
-            .map((categoryId) => categoriesById.get(categoryId))
-            .filter((category): category is string => Boolean(category));
-
-          return {
-            // Supplier usernames are the directory slugs used by the detail route.
-            id: supplier.username,
-            name: supplier.companyName,
-            initials: getSupplierInitials(supplier.companyName),
-            categories: selectedCategories,
-            serviceArea: "Available through Synko",
+      try {
+        const backendSuppliers = await getMarketplaceSuppliers();
+        if (isCurrent) {
+          const mapped = backendSuppliers.map((s) => ({
+            id: s.id,
+            name: s.companyName,
+            initials: getSupplierInitials(s.companyName),
+            categories: ["Produce", "General"],
+            serviceArea: s.address || "Available through Synko",
             description:
-              profile.description ||
-              `${supplier.companyName} is available to receive orders through Synko.`,
-          };
-        }),
-      );
-
-      if (!isCurrent) return;
-
-      setSuppliers(directorySuppliers);
-      setLoadError(null);
-    })()
-      .catch(() => {
+              s.description ||
+              `${s.companyName} is available to receive orders through Synko.`,
+          }));
+          setSuppliers(mapped);
+          setLoadError(null);
+        }
+      } catch {
         if (isCurrent) {
           setLoadError("We couldn't load the supplier directory. Please try again.");
         }
-      })
-      .finally(() => {
-        if (isCurrent) setIsLoading(false);
-      });
+      } finally {
+        if (isCurrent) {
+          setIsLoading(false);
+        }
+      }
+    })();
 
     return () => {
       isCurrent = false;

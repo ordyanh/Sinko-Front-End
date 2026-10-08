@@ -36,6 +36,11 @@ import {
   getHorecaOrders,
   getSupplierOrders,
   getSupplierOrderById,
+  getHorecaOrderById,
+  repeatOrder as backendRepeatOrder,
+  approveOrder as backendApproveOrder,
+  acceptOrder as backendAcceptOrder,
+  assignOrder as backendAssignOrder,
   createOrder as createBackendOrder,
   updateOrderStatus as updateBackendOrderStatus,
   sendPriceOffer,
@@ -45,6 +50,8 @@ import {
   getSupplierPromotions as getBackendSupplierPromotions,
   createPromotion as createBackendPromotion,
   getMarketplacePromotions,
+  getMarketplaceSuppliers,
+  getMyClients,
   getEmployeesList,
   createEmployee as createBackendEmployee,
   updateEmployee as updateBackendEmployee,
@@ -62,6 +69,7 @@ import {
   clearAuthTokenCookie,
   getClientAuthToken,
   serializeAuthTokenCookie,
+  setClientAuthToken,
 } from "~/shared/lib/auth-token";
 
 export type {
@@ -85,7 +93,7 @@ export type {
 export { initialUsers } from "./seeds/users";
 
 const DATABASE_NAME = "synko-mvp";
-const DATABASE_VERSION = 8;
+const DATABASE_VERSION = 9;
 const USERS_STORE = "users";
 const EMPLOYEES_STORE = "employees";
 const SESSION_STORE = "session";
@@ -191,6 +199,28 @@ async function openDatabase(): Promise<IDBDatabase> {
       );
       deliveryAddresses.createIndex("accountId", "accountId", { unique: false });
     }
+
+    const tx = request.transaction;
+    if (tx) {
+      for (const storeName of [
+        SUPPLIER_PRODUCTS_STORE,
+        ORDERS_STORE,
+        SUPPLIER_PROMOTIONS_STORE,
+        SUPPLIER_CATEGORIES_STORE,
+        SUPPLIER_PROFILES_STORE,
+        EMPLOYEES_STORE,
+        DELIVERY_ADDRESSES_STORE,
+        USERS_STORE,
+      ]) {
+        try {
+          if (database.objectStoreNames.contains(storeName)) {
+            tx.objectStore(storeName).clear();
+          }
+        } catch {
+          // ignore
+        }
+      }
+    }
   };
 
   return requestResult(request);
@@ -220,6 +250,7 @@ export async function initializeDatabase(): Promise<void> {
       SUPPLIER_CATEGORIES_STORE,
       SUPPLIER_PROFILES_STORE,
       SUPPLIER_PRODUCTS_STORE,
+      ORDERS_STORE,
       SUPPLIER_PROMOTIONS_STORE,
       DELIVERY_ADDRESSES_STORE,
     ],
@@ -229,6 +260,7 @@ export async function initializeDatabase(): Promise<void> {
   const supplierCategories = transaction.objectStore(SUPPLIER_CATEGORIES_STORE);
   const supplierProfiles = transaction.objectStore(SUPPLIER_PROFILES_STORE);
   const supplierProducts = transaction.objectStore(SUPPLIER_PRODUCTS_STORE);
+  const orders = transaction.objectStore(ORDERS_STORE);
   const supplierPromotions = transaction.objectStore(SUPPLIER_PROMOTIONS_STORE);
   const deliveryAddresses = transaction.objectStore(DELIVERY_ADDRESSES_STORE);
 
@@ -238,6 +270,37 @@ export async function initializeDatabase(): Promise<void> {
     if (!storedUser) users.put(seedUser);
     else if (!storedUser.address)
       users.put({ ...storedUser, address: seedUser.address });
+  }
+
+  // Purge any legacy mock users
+  for (const u of storedUsers) {
+    if (u.id === "horeca-blue-lagoon" || u.id === "supplier-ararat-harvest" || u.id === "supplier-mare-terra") {
+      users.delete(u.id);
+    }
+  }
+
+  // Purge any legacy mock products containing unsplash or mock IDs
+  const storedProducts = (await requestResult(supplierProducts.getAll())) as StoredSupplierProduct[];
+  for (const p of storedProducts) {
+    if (p.imageUrl?.includes("unsplash.com") || p.id.startsWith("PROD-") || p.id === "olive-oil" || p.id === "balsamic-vinegar" || p.id === "castelvetrano-olives") {
+      supplierProducts.delete(p.id);
+    }
+  }
+
+  // Purge any legacy mock orders
+  const storedOrders = (await requestResult(orders.getAll())) as StoredOrder[];
+  for (const o of storedOrders) {
+    if (o.lines?.some((l) => l.image?.includes("unsplash.com")) || o.id.startsWith("ORD-91")) {
+      orders.delete(o.id);
+    }
+  }
+
+  // Purge any legacy mock promotions
+  const storedPromos = (await requestResult(supplierPromotions.getAll())) as StoredSupplierPromotion[];
+  for (const pr of storedPromos) {
+    if (pr.id.startsWith("PROMO-MOCK") || pr.accountId?.startsWith("supplier-")) {
+      supplierPromotions.delete(pr.id);
+    }
   }
 
   for (const category of initialSupplierCategories) {
@@ -361,37 +424,20 @@ export async function getEmployeesForAccount(
 ): Promise<StoredEmployee[]> {
   try {
     const backendEmployees = await getEmployeesList();
-    if (Array.isArray(backendEmployees) && backendEmployees.length > 0) {
+    if (Array.isArray(backendEmployees)) {
       const activeUser = await getLoggedInUser();
       const role = activeUser?.role ?? "supplier";
       const mapped = backendEmployees.map((be) =>
         mapBackendEmployeeToStored(be, accountId, role),
       );
 
-      // Cache locally
-      const database = await openDatabase();
-      const transaction = database.transaction(EMPLOYEES_STORE, "readwrite");
-      const store = transaction.objectStore(EMPLOYEES_STORE);
-      for (const emp of mapped) {
-        store.put(emp);
-      }
-      await transactionComplete(transaction);
-      database.close();
-
       return mapped;
     }
   } catch {
-    // fallback to local store
+    // fallback
   }
 
-  const database = await openDatabase();
-  const transaction = database.transaction(EMPLOYEES_STORE, "readonly");
-  const employees = transaction.objectStore(EMPLOYEES_STORE);
-  const records = (await requestResult(
-    employees.index("accountId").getAll(IDBKeyRange.only(accountId)),
-  )) as StoredEmployee[];
-  database.close();
-  return records;
+  return [];
 }
 
 export function createEmployeeId(): string {
@@ -414,6 +460,8 @@ export async function saveEmployee(employee: StoredEmployee): Promise<void> {
         email: employee.email,
         phoneNumber: employee.phoneNumber,
         role: employee.role as any,
+        position: employee.role,
+        organizationId: employee.accountId,
       });
     } else {
       await updateBackendEmployee(employee.id, {
@@ -651,7 +699,7 @@ export async function getSupplierProducts(
 ): Promise<StoredSupplierProduct[]> {
   try {
     const backendProducts = await getSupplierCatalog();
-    if (Array.isArray(backendProducts) && backendProducts.length > 0) {
+    if (Array.isArray(backendProducts)) {
       const mapped = backendProducts.map((p) =>
         mapBackendProductToStored(p, accountId),
       );
@@ -674,21 +722,10 @@ export async function getSupplierProducts(
       );
     }
   } catch {
-    // fallback to local store
+    // fallback
   }
 
-  await initializeDatabase();
-  const database = await openDatabase();
-  const transaction = database.transaction(SUPPLIER_PRODUCTS_STORE, "readonly");
-  const products = transaction.objectStore(SUPPLIER_PRODUCTS_STORE);
-  const records = (await requestResult(
-    products.index("accountId").getAll(IDBKeyRange.only(accountId)),
-  )) as StoredSupplierProduct[];
-  database.close();
-
-  return records.sort((first, second) =>
-    second.createdAt.localeCompare(first.createdAt),
-  );
+  return [];
 }
 
 export async function getSupplierProduct(
@@ -704,15 +741,7 @@ export async function getSupplierProduct(
     // fallback
   }
 
-  await initializeDatabase();
-  const database = await openDatabase();
-  const transaction = database.transaction(SUPPLIER_PRODUCTS_STORE, "readonly");
-  const product = (await requestResult(
-    transaction.objectStore(SUPPLIER_PRODUCTS_STORE).get(productId),
-  )) as StoredSupplierProduct | undefined;
-  database.close();
-
-  return product?.accountId === accountId ? product : null;
+  return null;
 }
 
 export async function saveSupplierProduct(
@@ -727,7 +756,7 @@ export async function saveSupplierProduct(
   const rawCat = product.categoryIds[0]
     ? parseInt(String(product.categoryIds[0]).replace(/\D/g, ""), 10)
     : null;
-  const categoryId = rawCat && !isNaN(rawCat) && rawCat > 0 ? rawCat : 1;
+  const categoryId = rawCat && !isNaN(rawCat) && rawCat > 0 && rawCat <= 2147483647 ? rawCat : 16;
 
   const rawPrice = Number(primaryOption?.price ?? 0);
   const basePrice = !isNaN(rawPrice) && rawPrice > 0 ? rawPrice : 1;
@@ -877,7 +906,7 @@ export async function getSupplierPromotions(
 ): Promise<StoredSupplierPromotion[]> {
   try {
     const backendPromos = await getBackendSupplierPromotions();
-    if (Array.isArray(backendPromos) && backendPromos.length > 0) {
+    if (Array.isArray(backendPromos)) {
       const mapped = backendPromos.map((p) =>
         mapBackendPromotionToStored(p, accountId),
       );
@@ -902,22 +931,7 @@ export async function getSupplierPromotions(
     // fallback
   }
 
-  await initializeDatabase();
-  const database = await openDatabase();
-  const transaction = database.transaction(
-    SUPPLIER_PROMOTIONS_STORE,
-    "readonly",
-  );
-  const records = (await requestResult(
-    transaction
-      .objectStore(SUPPLIER_PROMOTIONS_STORE)
-      .index("accountId")
-      .getAll(IDBKeyRange.only(accountId)),
-  )) as StoredSupplierPromotion[];
-  database.close();
-  return records.sort((first, second) =>
-    second.updatedAt.localeCompare(first.updatedAt),
-  );
+  return [];
 }
 
 export async function getSupplierPromotion(
@@ -935,30 +949,81 @@ export async function saveSupplierPromotion(
   promotion: StoredSupplierPromotion,
 ): Promise<void> {
   try {
+    const isBuyXGetY = promotion.type === "BuyXGetY";
+    const isPercentage = promotion.type === "Percentage";
+
+    // Lookup real catalog products to get real product IDs
+    let validProductIds: number[] = [];
+    try {
+      const storedProds = await getSupplierProducts(promotion.accountId);
+      validProductIds = storedProds
+        .map((p) => parseInt(p.id.replace(/\D/g, ""), 10))
+        .filter((id) => !isNaN(id) && id > 0);
+    } catch {
+      // ignore
+    }
+
+    const defaultFirstId = validProductIds.length > 0 ? validProductIds[0] : 6;
+    const defaultSecondId = validProductIds.length > 1 ? validProductIds[1] : defaultFirstId;
+
+    let triggerPId = parseInt(promotion.triggerProductId?.replace(/\D/g, "") || "", 10);
+    if (isNaN(triggerPId) || triggerPId <= 0 || (validProductIds.length > 0 && !validProductIds.includes(triggerPId))) {
+      triggerPId = defaultFirstId;
+    }
+
+    let targetPId = parseInt(promotion.targetProductId?.replace(/\D/g, "") || "", 10);
+    if (isNaN(targetPId) || targetPId <= 0 || (validProductIds.length > 0 && !validProductIds.includes(targetPId))) {
+      targetPId = defaultSecondId;
+    }
+
+    const startDate = promotion.startDate || new Date().toISOString();
+    let endDate = promotion.endDate;
+    if (!endDate || new Date(endDate) <= new Date(startDate)) {
+      endDate = new Date(new Date(startDate).getTime() + 86400000 * 30).toISOString();
+    }
+
+    const resolvedProducts = !isBuyXGetY && promotion.productIds && promotion.productIds.length > 0
+      ? promotion.productIds.map((pId, idx) => {
+          let numId = parseInt(pId.replace(/\D/g, ""), 10);
+          if (isNaN(numId) || numId <= 0 || (validProductIds.length > 0 && !validProductIds.includes(numId))) {
+            numId = validProductIds.length > 0 ? validProductIds[idx % validProductIds.length] : defaultFirstId;
+          }
+          return {
+            productId: numId,
+            discountPercent: promotion.discountPercent
+              ? Number(promotion.discountPercent)
+              : 10,
+            fixedPrice: promotion.fixedPrices?.[pId]
+              ? Number(promotion.fixedPrices[pId])
+              : undefined,
+          };
+        })
+      : undefined;
+
     await createBackendPromotion({
       name: promotion.name,
       description: promotion.description,
-      type:
-        promotion.type === "BuyXGetY"
-          ? "BuyXGetY"
-          : promotion.type === "Percentage"
-            ? "Discount"
-            : "SpecialPrice",
-      startDate: promotion.startDate,
-      endDate: promotion.endDate || new Date(Date.now() + 86400000 * 30).toISOString(),
+      type: isBuyXGetY ? "BuyXGetY" : isPercentage ? "Percentage" : "FixedPrice",
+      startDate,
+      endDate,
       status: promotion.status === "Active" ? "Active" : "Draft",
       bannerEnabled: promotion.isBannerEnabled,
       brandColorFallback: promotion.brandColorFallback,
+      visibilityType: promotion.eligibility === "specific-customers" ? 2 : 1,
       targetCustomerIds:
         promotion.eligibility === "specific-customers"
           ? promotion.eligibleCustomerIds
           : null,
-      products: promotion.productIds.map((pId) => ({
-        productId: parseInt(pId.replace(/\D/g, ""), 10) || 1,
-        discountPercentage: promotion.discountPercent
-          ? Number(promotion.discountPercent)
-          : 10,
-      })),
+      products: resolvedProducts,
+      buyXGetY: isBuyXGetY
+        ? {
+            buyProductId: triggerPId,
+            buyQuantity: Number(promotion.triggerQuantity) || 1,
+            getProductId: targetPId,
+            getQuantity: Number(promotion.targetQuantity) || 1,
+            getDiscountPercent: 100,
+          }
+        : null,
     });
   } catch {
     // continue with local store
@@ -981,28 +1046,18 @@ export async function saveSupplierPromotion(
 export async function getAllSupplierPromotions(): Promise<StoredSupplierPromotion[]> {
   try {
     const backendPromos = await getMarketplacePromotions();
-    if (Array.isArray(backendPromos) && backendPromos.length > 0) {
+    if (Array.isArray(backendPromos)) {
       return backendPromos.map((p) =>
         mapBackendPromotionToStored(p, p.supplierId || "supplier"),
+      ).sort((first, second) =>
+        second.updatedAt.localeCompare(first.updatedAt),
       );
     }
   } catch {
     // fallback
   }
 
-  await initializeDatabase();
-  const database = await openDatabase();
-  const transaction = database.transaction(
-    SUPPLIER_PROMOTIONS_STORE,
-    "readonly",
-  );
-  const records = (await requestResult(
-    transaction.objectStore(SUPPLIER_PROMOTIONS_STORE).getAll(),
-  )) as StoredSupplierPromotion[];
-  database.close();
-  return records.sort((first, second) =>
-    second.updatedAt.localeCompare(first.updatedAt),
-  );
+  return [];
 }
 
 // -----------------------------------------------------------------------------
@@ -1328,7 +1383,7 @@ export async function getOrdersForHoreca(
 ): Promise<StoredOrder[]> {
   try {
     const backendOrders = await getHorecaOrders();
-    if (Array.isArray(backendOrders) && backendOrders.length > 0) {
+    if (Array.isArray(backendOrders)) {
       const mapped = backendOrders.map((bo) =>
         mapBackendOrderToStored(bo, accountId),
       );
@@ -1350,19 +1405,7 @@ export async function getOrdersForHoreca(
     // fallback
   }
 
-  await initializeDatabase();
-  const database = await openDatabase();
-  const transaction = database.transaction(ORDERS_STORE, "readonly");
-  const orders = (await requestResult(
-    transaction
-      .objectStore(ORDERS_STORE)
-      .index("horecaAccountId")
-      .getAll(IDBKeyRange.only(accountId)),
-  )) as StoredOrder[];
-  database.close();
-  return orders.sort((first, second) =>
-    second.placedAt.localeCompare(first.placedAt),
-  );
+  return [];
 }
 
 export async function getOrdersForSupplier(
@@ -1370,7 +1413,7 @@ export async function getOrdersForSupplier(
 ): Promise<StoredOrder[]> {
   try {
     const backendOrders = await getSupplierOrders();
-    if (Array.isArray(backendOrders) && backendOrders.length > 0) {
+    if (Array.isArray(backendOrders)) {
       const mapped = backendOrders.map((bo) =>
         mapBackendOrderToStored(bo, accountId),
       );
@@ -1392,19 +1435,7 @@ export async function getOrdersForSupplier(
     // fallback
   }
 
-  await initializeDatabase();
-  const database = await openDatabase();
-  const transaction = database.transaction(ORDERS_STORE, "readonly");
-  const orders = (await requestResult(
-    transaction
-      .objectStore(ORDERS_STORE)
-      .index("supplierAccountId")
-      .getAll(IDBKeyRange.only(accountId)),
-  )) as StoredOrder[];
-  database.close();
-  return orders.sort((first, second) =>
-    second.placedAt.localeCompare(first.placedAt),
-  );
+  return [];
 }
 
 export async function getOrderForHoreca(
@@ -1418,13 +1449,7 @@ export async function getOrderForHoreca(
     // fallback
   }
 
-  const database = await openDatabase();
-  const transaction = database.transaction(ORDERS_STORE, "readonly");
-  const order = (await requestResult(
-    transaction.objectStore(ORDERS_STORE).get(orderId),
-  )) as StoredOrder | undefined;
-  database.close();
-  return order?.horecaAccountId === accountId ? order : null;
+  return null;
 }
 
 export async function getOrderForSupplier(
@@ -1438,13 +1463,7 @@ export async function getOrderForSupplier(
     // fallback
   }
 
-  const database = await openDatabase();
-  const transaction = database.transaction(ORDERS_STORE, "readonly");
-  const order = (await requestResult(
-    transaction.objectStore(ORDERS_STORE).get(orderId),
-  )) as StoredOrder | undefined;
-  database.close();
-  return order?.supplierAccountId === accountId ? order : null;
+  return null;
 }
 
 // -----------------------------------------------------------------------------
@@ -1524,7 +1543,11 @@ export async function signInWithSeedUser(
   password: string,
   preferredRole: AccountRole = "horeca",
 ): Promise<LoggedInUser | null> {
-  await initializeDatabase();
+  try {
+    await initializeDatabase();
+  } catch (initErr) {
+    console.warn("IndexedDB initialization warning:", initErr);
+  }
   const normalizedIdentifier = identifier.trim().toLowerCase();
 
   let authRes: LoginResponse | null = null;
@@ -1539,8 +1562,8 @@ export async function signInWithSeedUser(
       authRes?.accessToken ||
       authRes?.AccessToken ||
       "";
-    if (token && typeof document !== "undefined") {
-      document.cookie = serializeAuthTokenCookie(token);
+    if (token) {
+      setClientAuthToken(token);
     }
   } catch (error) {
     backendError = error instanceof Error ? error : new Error(String(error));
@@ -1610,23 +1633,7 @@ export async function signInWithSeedUser(
     return withoutPassword(authenticatedUser);
   }
 
-  // 2. Fallback to local seeds (if offline or seed user with matching password)
-  const localUser = allUsers.find(
-    (candidate) =>
-      (candidate.email.toLowerCase() === normalizedIdentifier ||
-        candidate.username.toLowerCase() === normalizedIdentifier) &&
-      candidate.password === password,
-  );
-
-  if (localUser) {
-    session.put({
-      id: ACTIVE_USER_KEY,
-      userId: localUser.id,
-    } satisfies SessionRecord);
-    await transactionComplete(transaction);
-    database.close();
-    return withoutPassword(localUser);
-  }
+  // Local seed fallback removed - authentication is exclusively against backend
 
   await transactionComplete(transaction);
   database.close();
@@ -1677,33 +1684,45 @@ export async function getLoggedInUser(): Promise<LoggedInUser | null> {
 }
 
 export async function getHorecaUsers(): Promise<LoggedInUser[]> {
-  await initializeDatabase();
-  const database = await openDatabase();
-  const transaction = database.transaction(USERS_STORE, "readonly");
-  const users = (await requestResult(
-    transaction.objectStore(USERS_STORE).getAll(),
-  )) as SeedUser[];
-  database.close();
+  try {
+    const clients = await getMyClients();
+    if (Array.isArray(clients) && clients.length > 0) {
+      return clients.map((c) => ({
+        id: c.id || c.clientId || "client",
+        role: "horeca",
+        email: c.email || "",
+        username: c.companyName,
+        companyName: c.companyName,
+        address: c.address || "",
+        displayName: c.contactPerson || c.companyName,
+      }));
+    }
+  } catch {
+    // ignore
+  }
 
-  return users
-    .filter((user) => user.role === "horeca")
-    .map(withoutPassword)
-    .sort((first, second) => first.companyName.localeCompare(second.companyName));
+  return [];
 }
 
 export async function getSupplierUsers(): Promise<LoggedInUser[]> {
-  await initializeDatabase();
-  const database = await openDatabase();
-  const transaction = database.transaction(USERS_STORE, "readonly");
-  const users = (await requestResult(
-    transaction.objectStore(USERS_STORE).getAll(),
-  )) as SeedUser[];
-  database.close();
+  try {
+    const suppliers = await getMarketplaceSuppliers();
+    if (Array.isArray(suppliers) && suppliers.length > 0) {
+      return suppliers.map((s) => ({
+        id: s.id,
+        role: "supplier",
+        email: s.email || "",
+        username: s.companyName,
+        companyName: s.companyName,
+        address: s.address || "",
+        displayName: s.companyName,
+      }));
+    }
+  } catch {
+    // ignore
+  }
 
-  return users
-    .filter((user) => user.role === "supplier")
-    .map(withoutPassword)
-    .sort((first, second) => first.companyName.localeCompare(second.companyName));
+  return [];
 }
 
 export async function signOut(): Promise<void> {

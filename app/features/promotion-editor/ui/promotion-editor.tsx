@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
-import { mockCustomers } from "~/entities/horeca";
+import { getMyClients } from "~/shared/api";
 import {
   getPromotionTone,
   PromotionBanner,
@@ -66,6 +66,14 @@ type SellingOption = {
   label: string;
   price: number;
   minimumOrderQuantity: number;
+};
+
+type PromotionCustomer = {
+  id: string;
+  companyName: string;
+  contactName: string;
+  email: string;
+  activityType: string;
 };
 
 type DiscountScope = "all-options" | "specific-options";
@@ -128,68 +136,7 @@ function getPromotionOnlyOptionLabel(option: PromotionOnlySellingOption) {
   return `${option.quantity || "—"} ${unit}${pieces}`;
 }
 
-const supplierProducts: SupplierProduct[] = [
-  {
-    id: "PROD-1001",
-    name: "Organic Citrus Mix",
-    category: "Fresh Produce",
-    price: 18_500,
-    sellingOptions: [
-      { id: "option-1", label: "5 kg box", price: 18_500, minimumOrderQuantity: 1 },
-      { id: "option-2", label: "15 kg case", price: 51_000, minimumOrderQuantity: 1 },
-    ],
-    imageUrl:
-      "https://images.unsplash.com/photo-1615485290382-441e4d049cb5?auto=format&fit=crop&w=160&q=80",
-  },
-  {
-    id: "PROD-1002",
-    name: "Premium Extra Virgin Olive Oil",
-    category: "Pantry",
-    price: 24_000,
-    sellingOptions: [
-      { id: "option-1", label: "1 L bottle", price: 24_000, minimumOrderQuantity: 3 },
-      { id: "option-2", label: "6 × 1 L case", price: 136_800, minimumOrderQuantity: 1 },
-    ],
-    imageUrl:
-      "https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?auto=format&fit=crop&w=160&q=80",
-  },
-  {
-    id: "PROD-1003",
-    name: "Artisan Basil Bundle",
-    category: "Herbs",
-    price: 9_750,
-    sellingOptions: [
-      { id: "option-1", label: "1 bunch", price: 9_750, minimumOrderQuantity: 3 },
-      { id: "option-2", label: "12 bunch crate", price: 105_000, minimumOrderQuantity: 1 },
-    ],
-    imageUrl:
-      "https://images.unsplash.com/photo-1461354464878-ad92f492a5a0?auto=format&fit=crop&w=160&q=80",
-  },
-  {
-    id: "PROD-1004",
-    name: "Farmhouse Cheese Selection",
-    category: "Dairy",
-    price: 31_250,
-    sellingOptions: [
-      { id: "option-1", label: "3 kg wheel", price: 31_250, minimumOrderQuantity: 1 },
-      { id: "option-2", label: "12 kg case", price: 118_000, minimumOrderQuantity: 1 },
-    ],
-    imageUrl:
-      "https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?auto=format&fit=crop&w=160&q=80",
-  },
-  {
-    id: "PROD-1005",
-    name: "Sunrise Berry Box",
-    category: "Fruit",
-    price: 16_000,
-    sellingOptions: [
-      { id: "option-1", label: "4 kg tray", price: 16_000, minimumOrderQuantity: 2 },
-      { id: "option-2", label: "12 kg case", price: 45_600, minimumOrderQuantity: 1 },
-    ],
-    imageUrl:
-      "https://images.unsplash.com/photo-1464965911861-746a04b4bca6?auto=format&fit=crop&w=160&q=80",
-  },
-];
+const supplierProducts: SupplierProduct[] = [];
 
 function formatCurrency(amount: number) {
   return new Intl.NumberFormat("hy-AM", {
@@ -271,27 +218,13 @@ export default function PromotionEditor({
     useState<ProductSelectionTarget>(null);
   const [productSearch, setProductSearch] = useState("");
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
-  const [discountProductIds, setDiscountProductIds] = useState<string[]>(
-    isEditing && !isBuyXGetY ? ["PROD-1001", "PROD-1002"] : [],
-  );
-  const [discountOptionKeys, setDiscountOptionKeys] = useState<string[]>(
-    isEditing && !isBuyXGetY
-      ? [optionKey("PROD-1001", "option-1"), optionKey("PROD-1002", "option-1")]
-      : [],
-  );
+  const [discountProductIds, setDiscountProductIds] = useState<string[]>([]);
+  const [discountOptionKeys, setDiscountOptionKeys] = useState<string[]>([]);
   const [fixedPrices, setFixedPrices] = useState<Record<string, string>>({});
-  const [triggerProductId, setTriggerProductId] = useState(
-    isBuyXGetY ? "PROD-1001" : "",
-  );
-  const [triggerOptionId, setTriggerOptionId] = useState(
-    isBuyXGetY ? "option-2" : "",
-  );
-  const [targetProductId, setTargetProductId] = useState(
-    isBuyXGetY ? "PROD-1004" : "",
-  );
-  const [targetOptionId, setTargetOptionId] = useState(
-    isBuyXGetY ? "option-1" : "",
-  );
+  const [triggerProductId, setTriggerProductId] = useState("");
+  const [triggerOptionId, setTriggerOptionId] = useState("");
+  const [targetProductId, setTargetProductId] = useState("");
+  const [targetOptionId, setTargetOptionId] = useState("");
   const [giftChoices, setGiftChoices] = useState<Array<{ productId: string; optionId: string }>>([]);
   const [isCreatingTargetSellingOption, setIsCreatingTargetSellingOption] = useState(false);
   const [newTargetOption, setNewTargetOption] = useState<PromotionOnlySellingOption>({
@@ -310,11 +243,7 @@ export default function PromotionEditor({
   const [applyOnIndividualPricing, setApplyOnIndividualPricing] = useState(false);
   const [display, setDisplay] = useState<PromotionDisplay>("both");
   const [isBannerEnabled, setIsBannerEnabled] = useState(true);
-  const [visualUrl, setVisualUrl] = useState(
-    isEditing
-      ? "https://images.unsplash.com/photo-1615485290382-441e4d049cb5?auto=format&fit=crop&w=1200&q=85"
-      : "",
-  );
+  const [visualUrl, setVisualUrl] = useState("");
   const [visualError, setVisualError] = useState("");
   const [bannerImage, setBannerImage] = useState<StoredSupplierPromotion["bannerImage"]>();
   const [brandColorFallback, setBrandColorFallback] = useState("#0284c7");
@@ -322,7 +251,8 @@ export default function PromotionEditor({
   const [customerSearch, setCustomerSearch] = useState("");
   const [selectedCustomerIds, setSelectedCustomerIds] = useState<string[]>([]);
   const [eligibleCustomerIds, setEligibleCustomerIds] = useState<string[]>([]);
-  const [catalogProducts, setCatalogProducts] = useState<SupplierProduct[]>(supplierProducts);
+  const [catalogProducts, setCatalogProducts] = useState<SupplierProduct[]>([]);
+  const [availableCustomers, setAvailableCustomers] = useState<PromotionCustomer[]>([]);
 
   const isSingleProductSelection = productSelectionTarget === "trigger";
   const normalizedProductSearch = productSearch.trim().toLowerCase();
@@ -364,7 +294,7 @@ export default function PromotionEditor({
   // This panel opens only while a supplier is creating a new catalog option
   // for one of the selected Y products.
   const showLegacyTargetOptionEditor = isCreatingTargetSellingOption;
-  const eligibleCustomers = mockCustomers.filter((customer) =>
+  const eligibleCustomers = availableCustomers.filter((customer) =>
     eligibleCustomerIds.includes(customer.id),
   );
   const promotionTypeLabel = isBuyXGetY
@@ -417,7 +347,7 @@ export default function PromotionEditor({
     tone: getPromotionTone(brandColorFallback),
   };
   const normalizedCustomerSearch = customerSearch.trim().toLowerCase();
-  const filteredCustomers = mockCustomers.filter((customer) =>
+  const filteredCustomers = availableCustomers.filter((customer) =>
     [
       customer.companyName,
       customer.contactName,
@@ -438,14 +368,26 @@ export default function PromotionEditor({
 
       setAccountId(user.id);
       setSupplierName(user.companyName);
-      const storedProducts = await getSupplierProducts(user.id);
+      const [storedProducts, clients] = await Promise.all([
+        getSupplierProducts(user.id),
+        getMyClients(),
+      ]);
       if (!isCurrent) return;
+      setAvailableCustomers(
+        clients.map((c) => ({
+          id: c.clientId || c.id,
+          companyName: c.companyName || "Unknown Customer",
+          contactName: c.contactPerson || "",
+          email: c.email || "",
+          activityType: c.status || "Customer",
+        })),
+      );
       setCatalogProducts(storedProducts.map((product) => ({
         id: product.id,
         name: product.name,
         category: "Supplier catalog",
         price: product.sellingOptions[0]?.price ?? 0,
-        imageUrl: product.imageUrl ?? "/favicon.ico",
+        imageUrl: product.imageUrl ?? "",
         sellingOptions: product.sellingOptions.map((option) => ({
           id: option.id,
           label: `${option.quantity} ${option.customUnit?.trim() || option.unitType}${option.unitType === "Package" && option.piecesPerPackage ? ` (${option.piecesPerPackage} pcs)` : ""}`,
@@ -454,6 +396,13 @@ export default function PromotionEditor({
         })),
       })));
       if (!isEditing || !promotionId) {
+        if (storedProducts.length > 0) {
+          setTriggerProductId((prev) => prev || storedProducts[0].id);
+          setTriggerOptionId((prev) => prev || storedProducts[0].sellingOptions[0]?.id || "");
+          setTargetProductId((prev) => prev || (storedProducts.length > 1 ? storedProducts[1].id : storedProducts[0].id));
+          setTargetOptionId((prev) => prev || (storedProducts.length > 1 ? storedProducts[1].sellingOptions[0]?.id : storedProducts[0].sellingOptions[0]?.id) || "");
+          setDiscountProductIds((prev) => prev.length > 0 ? prev : [storedProducts[0].id]);
+        }
         setIsLoadingPromotion(false);
         return;
       }
@@ -1031,7 +980,21 @@ export default function PromotionEditor({
                         {giftChoices.map((choice) => {
                           const giftProduct = catalogProducts.find((product) => product.id === choice.productId);
                           if (!giftProduct) return null;
-                          return <div key={choice.productId} className="flex flex-wrap items-center gap-3 rounded-xl border border-violet-200 bg-white p-3"><img src={giftProduct.imageUrl} alt="" className="h-9 w-9 rounded-lg object-cover" /><span className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-900">{giftProduct.name}</span><Select value={choice.optionId} onValueChange={(value) => !Array.isArray(value) && setGiftChoiceOption(choice.productId, value)} className="w-40 shrink-0">{giftProduct.sellingOptions.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}</Select><button type="button" onClick={() => { setTargetProductId(choice.productId); setTargetOptionId(choice.optionId); setNewTargetOption({ id: "promotion-new-option", productId: choice.productId, quantity: "", unitType: "Piece (հատ)", piecesPerPackage: "", customUnit: "", price: "", compareAtPrice: "", minimumOrderQuantity: "1" }); setPromotionOnlyTargetOption(null); setIsCreatingTargetSellingOption(true); setNewTargetOptionError(""); }} className="text-xs font-semibold text-violet-700 transition hover:text-violet-950">New option</button><button type="button" onClick={() => { const nextChoices = giftChoices.filter((item) => item.productId !== choice.productId); setGiftChoices(nextChoices); setTargetProductId(nextChoices[0]?.productId ?? ""); setTargetOptionId(nextChoices[0]?.optionId ?? ""); }} className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-rose-50 hover:text-rose-700" aria-label={`Remove ${giftProduct.name} from eligible gifts`}><X className="h-4 w-4" aria-hidden="true" /></button></div>;
+                          return (
+                            <div key={choice.productId} className="flex flex-wrap items-center gap-3 rounded-xl border border-violet-200 bg-white p-3">
+                              {giftProduct.imageUrl ? (
+                                <img src={giftProduct.imageUrl} alt="" className="h-9 w-9 rounded-lg object-cover" />
+                              ) : (
+                                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-slate-400">
+                                  <Boxes className="h-4 w-4" />
+                                </div>
+                              )}
+                              <span className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-900">{giftProduct.name}</span>
+                              <Select value={choice.optionId} onValueChange={(value) => !Array.isArray(value) && setGiftChoiceOption(choice.productId, value)} className="w-40 shrink-0">{giftProduct.sellingOptions.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}</Select>
+                              <button type="button" onClick={() => { setTargetProductId(choice.productId); setTargetOptionId(choice.optionId); setNewTargetOption({ id: "promotion-new-option", productId: choice.productId, quantity: "", unitType: "Piece (հատ)", piecesPerPackage: "", customUnit: "", price: "", compareAtPrice: "", minimumOrderQuantity: "1" }); setPromotionOnlyTargetOption(null); setIsCreatingTargetSellingOption(true); setNewTargetOptionError(""); }} className="text-xs font-semibold text-violet-700 transition hover:text-violet-950">New option</button>
+                              <button type="button" onClick={() => { const nextChoices = giftChoices.filter((item) => item.productId !== choice.productId); setGiftChoices(nextChoices); setTargetProductId(nextChoices[0]?.productId ?? ""); setTargetOptionId(nextChoices[0]?.optionId ?? ""); }} className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-rose-50 hover:text-rose-700" aria-label={`Remove ${giftProduct.name} from eligible gifts`}><X className="h-4 w-4" aria-hidden="true" /></button>
+                            </div>
+                          );
                         })}
                       </div>
                     ) : null}
@@ -1622,11 +1585,17 @@ export default function PromotionEditor({
                         isSelected ? "bg-primary/5" : "hover:bg-slate-50"
                       }`}
                     >
-                      <img
-                        src={product.imageUrl}
-                        alt=""
-                        className="h-11 w-11 shrink-0 rounded-xl object-cover ring-1 ring-slate-200"
-                      />
+                      {product.imageUrl ? (
+                        <img
+                          src={product.imageUrl}
+                          alt=""
+                          className="h-11 w-11 shrink-0 rounded-xl object-cover ring-1 ring-slate-200"
+                        />
+                      ) : (
+                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-400 ring-1 ring-slate-200">
+                          <Boxes className="h-5 w-5" />
+                        </div>
+                      )}
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm font-semibold text-slate-900">
                           {product.name}
@@ -1725,11 +1694,9 @@ export default function PromotionEditor({
                         isSelected ? "bg-primary/5" : "hover:bg-slate-50"
                       }`}
                     >
-                      <img
-                        src={`https://ui-avatars.com/api/?name=${encodeURIComponent(customer.companyName)}&background=0f766e&color=ffffff&bold=true&size=96`}
-                        alt=""
-                        className="h-11 w-11 shrink-0 rounded-xl object-cover ring-1 ring-slate-200"
-                      />
+                      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-xs font-semibold text-primary ring-1 ring-primary/20">
+                        {customer.companyName.trim().slice(0, 2).toUpperCase() || "CU"}
+                      </span>
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm font-semibold text-slate-900">
                           {customer.companyName}

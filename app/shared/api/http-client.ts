@@ -1,35 +1,11 @@
-import axios, { AxiosError, type AxiosInstance } from "axios";
-import { resolveRequestUrl } from "./http";
-import { ApiError } from "./http";
+﻿import axios, { AxiosError, type AxiosInstance } from "axios";
+import { resolveRequestUrl, ApiError, getErrorMessage, type ApiErrorPayload } from "./http";
 import { getClientAuthToken } from "../lib/auth-token";
-
-type ApiErrorPayload = {
-  title?: string;
-  detail?: string;
-  message?: string;
-  errors?: Record<string, string[]>;
-};
-
-function getErrorMessage(payload: ApiErrorPayload | null, status: number) {
-  if (payload?.message) return payload.message;
-  if (payload?.detail) return payload.detail;
-  if (payload?.title) return payload.title;
-
-  const fieldErrors = payload?.errors
-    ? Object.values(payload.errors).flat().filter(Boolean)
-    : [];
-
-  if (fieldErrors.length > 0) return fieldErrors.join(" ");
-
-  return status >= 500
-    ? "The service is temporarily unavailable. Please try again."
-    : "The request could not be completed.";
-}
 
 function toApiError(error: unknown): unknown {
   if (!(error instanceof AxiosError)) return error;
 
-  const status = error.response?.status ?? 0;
+  const status = error.response?.status ?? (error.code === "ECONNREFUSED" || error.code === "ERR_NETWORK" ? 502 : 0);
   const payload = (error.response?.data ?? null) as ApiErrorPayload | null;
 
   return new ApiError(getErrorMessage(payload, status), status);

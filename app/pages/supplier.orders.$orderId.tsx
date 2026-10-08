@@ -7,6 +7,7 @@ import {
   Clock3,
   Mail,
   MapPin,
+  Package,
   PackageCheck,
   Pencil,
   Phone,
@@ -24,8 +25,19 @@ import {
   getSupplierProducts,
   saveOrder,
   saveSupplierProduct,
+  getEmployeesForAccount,
   type StoredOrder,
 } from "~/shared/lib/indexed-db";
+import { useToast } from "~/shared/ui/toast";
+import {
+  acceptOrder as backendAcceptOrder,
+  updateOrderStatus as backendUpdateOrderStatus,
+  sendPriceOffer as backendSendPriceOffer,
+  assignOrder as backendAssignOrder,
+} from "~/shared/api/orders";
+import { getEmployeesList, type EmployeeListItem } from "~/shared/api/employee";
+import type { StoredEmployee } from "~/shared/lib/indexed-db";
+import { getCurrentUserEmployeeRole } from "~/shared/lib/auth-token";
 
 type OrderStatus =
   | "New"
@@ -89,11 +101,15 @@ function SectionLabel({ children }: { children: string }) {
 function OrderHeaderActions({
   status,
   isEditingOffer,
+  isWarehouseManager,
+  isSubmitting,
   onStatusChange,
   onEditingOfferChange,
 }: {
   status: OrderStatus;
   isEditingOffer: boolean;
+  isWarehouseManager: boolean;
+  isSubmitting: boolean;
   onStatusChange: (status: OrderStatus) => void;
   onEditingOfferChange: (isEditing: boolean) => void;
 }) {
@@ -104,23 +120,32 @@ function OrderHeaderActions({
   };
 
   if (status === "New" && !isEditingOffer) {
+    if (isWarehouseManager) {
+      return (
+        <span className="text-xs italic text-slate-500">
+          Warehouse managers can only advance fulfilled orders.
+        </span>
+      );
+    }
     return (
       <div className="flex items-center gap-3">
         <button
           type="button"
+          disabled={isSubmitting}
           onClick={() => onEditingOfferChange(true)}
-          className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+          className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
         >
           <Pencil className="h-4 w-4" aria-hidden="true" />
           Edit offer
         </button>
         <button
           type="button"
+          disabled={isSubmitting}
           onClick={() => onStatusChange("Confirmed")}
-          className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-content transition hover:brightness-95"
+          className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-content transition hover:brightness-95 disabled:opacity-50"
         >
           <CircleCheck className="h-4 w-4" aria-hidden="true" />
-          Confirm order
+          {isSubmitting ? "Confirming..." : "Confirm order"}
         </button>
       </div>
     );
@@ -131,30 +156,38 @@ function OrderHeaderActions({
       <div className="flex items-center gap-3">
         <button
           type="button"
+          disabled={isSubmitting}
           onClick={() => onEditingOfferChange(false)}
-          className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+          className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
         >
           <XCircle className="h-4 w-4" aria-hidden="true" />
           Cancel editing
         </button>
         <button
           type="button"
+          disabled={isSubmitting}
           onClick={() => onStatusChange("Waiting for restaurant confirmation")}
-          className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-content transition hover:brightness-95"
+          className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-content transition hover:brightness-95 disabled:opacity-50"
         >
           <Send className="h-4 w-4" aria-hidden="true" />
-          {status === "Rejected" ? "Send revised offer" : "Send offer"}
+          {isSubmitting
+            ? "Sending..."
+            : status === "Rejected"
+              ? "Send revised offer"
+              : "Send offer"}
         </button>
       </div>
     );
   }
 
   if (status === "Rejected") {
+    if (isWarehouseManager) return null;
     return (
       <button
         type="button"
+        disabled={isSubmitting}
         onClick={() => onEditingOfferChange(true)}
-        className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-content transition hover:brightness-95"
+        className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-content transition hover:brightness-95 disabled:opacity-50"
       >
         <Pencil className="h-4 w-4" aria-hidden="true" />
         Edit rejected offer
@@ -166,20 +199,24 @@ function OrderHeaderActions({
   if (next) {
     return (
       <div className="flex items-center gap-3">
+        {!isWarehouseManager ? (
+          <button
+            type="button"
+            disabled={isSubmitting}
+            onClick={() => onStatusChange("Cancelled")}
+            className="inline-flex items-center gap-2 rounded-lg border border-rose-200 bg-white px-4 py-2.5 text-sm font-semibold text-rose-700 transition hover:bg-rose-50 disabled:opacity-50"
+          >
+            <XCircle className="h-4 w-4" aria-hidden="true" />
+            Cancel order
+          </button>
+        ) : null}
         <button
           type="button"
-          onClick={() => onStatusChange("Cancelled")}
-          className="inline-flex items-center gap-2 rounded-lg border border-rose-200 bg-white px-4 py-2.5 text-sm font-semibold text-rose-700 transition hover:bg-rose-50"
-        >
-          <XCircle className="h-4 w-4" aria-hidden="true" />
-          Cancel order
-        </button>
-        <button
-          type="button"
+          disabled={isSubmitting}
           onClick={() => onStatusChange(next)}
-          className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-content transition hover:brightness-95"
+          className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-content transition hover:brightness-95 disabled:opacity-50"
         >
-          Mark as {next}
+          {isSubmitting ? "Updating..." : "Mark as " + next}
         </button>
       </div>
     );
@@ -190,10 +227,17 @@ function OrderHeaderActions({
 
 export default function SupplierOrderDetailsPage() {
   const { orderId } = useParams();
+  const { showToast } = useToast();
+  const employeeRole = getCurrentUserEmployeeRole();
+  const isWarehouseManager = employeeRole === "WarehouseManager";
+
   const [order, setOrder] = useState<StoredOrder | null>(null);
   const [isLoadingOrder, setIsLoadingOrder] = useState(true);
   const [status, setStatus] = useState<OrderStatus>("New");
   const [assignedTo, setAssignedTo] = useState("");
+  const [assignedEmployeeId, setAssignedEmployeeId] = useState("");
+  const [employeeOptions, setEmployeeOptions] = useState<Array<{ id: string; name: string }>>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [lines, setLines] = useState<OrderLine[]>([]);
   const [savePrices, setSavePrices] = useState(true);
   const [isEditingOffer, setIsEditingOffer] = useState(false);
@@ -205,6 +249,30 @@ export default function SupplierOrderDetailsPage() {
     void (async () => {
       const user = await getLoggedInUser();
       if (!user || user.role !== "supplier" || !orderId) return;
+
+      // Load employees for assignment
+      try {
+        const list = await getEmployeesList();
+        if (isCurrent && Array.isArray(list) && list.length > 0) {
+          setEmployeeOptions(
+            list.map((e: EmployeeListItem) => ({
+              id: e.id,
+              name: e.employeeName || `${e.firstName ?? ""} ${e.lastName ?? ""}`.trim() || e.email || "Employee",
+            })),
+          );
+        } else {
+          const stored = await getEmployeesForAccount(user.id);
+          if (isCurrent && stored.length > 0) {
+            setEmployeeOptions(stored.map((e: StoredEmployee) => ({ id: e.id, name: e.name })));
+          }
+        }
+      } catch {
+        const stored = await getEmployeesForAccount(user.id);
+        if (isCurrent && stored.length > 0) {
+          setEmployeeOptions(stored.map((e) => ({ id: e.id, name: e.name })));
+        }
+      }
+
       const storedOrder = await getOrderForSupplier(user.id, orderId);
       if (!isCurrent || !storedOrder) return;
       setOrder(storedOrder);
@@ -319,32 +387,127 @@ export default function SupplierOrderDetailsPage() {
   }
 
   async function updateStatus(nextStatus: OrderStatus) {
-    const nextOrder: StoredOrder = {
-      ...activeOrder,
-      status: nextStatus,
-      offerReceivedAt: nextStatus === "Waiting for restaurant confirmation" ? new Date().toISOString() : activeOrder.offerReceivedAt,
-      lines: activeOrder.lines.map((line) => {
-        const editedLine = lines.find((candidate) => candidate.id === line.id);
-        return editedLine
-          ? { ...line, offeredPrice: editedLine.price, offeredQuantity: editedLine.quantity, comment: editedLine.comment }
-          : line;
-      }),
-    };
+    setIsSubmitting(true);
     setOfferSaveError(undefined);
+
     try {
+      if (nextStatus === "Waiting for restaurant confirmation") {
+        await backendSendPriceOffer({
+          orderId: activeOrder.id,
+          savePricesForCustomer: savePrices,
+          items: lines.map((l) => ({
+            productId: parseInt(String(l.productId).replace(/\D/g, ""), 10) || 1,
+            newPrice: l.price,
+            newQuantity: l.quantity,
+            comment: l.comment || null,
+          })),
+        });
+        showToast({
+          title: "Offer sent",
+          description: "Your price offer has been sent to the restaurant.",
+          variant: "success",
+        });
+      } else if (nextStatus === "Confirmed" && status === "New") {
+        try {
+          await backendAcceptOrder(activeOrder.id);
+        } catch {
+          await backendUpdateOrderStatus(activeOrder.id, "Confirmed");
+        }
+        showToast({
+          title: "Order confirmed",
+          description: "Order has been confirmed and moved to processing.",
+          variant: "success",
+        });
+      } else {
+        const statusMapToBackend: Record<OrderStatus, string> = {
+          New: "New",
+          Confirmed: "Confirmed",
+          Preparing: "InProgress",
+          Shipped: "ReadyForDelivery",
+          Delivered: "Delivered",
+          Cancelled: "Cancelled",
+          Rejected: "Rejected",
+          "Waiting for restaurant confirmation": "WaitingConfirmation",
+        };
+        await backendUpdateOrderStatus(
+          activeOrder.id,
+          statusMapToBackend[nextStatus] ?? nextStatus,
+        );
+        showToast({
+          title: "Status updated",
+          description: "Order marked as " + nextStatus + ".",
+          variant: "success",
+        });
+      }
+
+      const nextOrder: StoredOrder = {
+        ...activeOrder,
+        status: nextStatus,
+        offerReceivedAt:
+          nextStatus === "Waiting for restaurant confirmation"
+            ? new Date().toISOString()
+            : activeOrder.offerReceivedAt,
+        lines: activeOrder.lines.map((line) => {
+          const editedLine = lines.find((candidate) => candidate.id === line.id);
+          return editedLine
+            ? {
+                ...line,
+                offeredPrice: editedLine.price,
+                offeredQuantity: editedLine.quantity,
+                comment: editedLine.comment,
+              }
+            : line;
+        }),
+      };
+
       await Promise.all([
         saveOrder(nextOrder),
         nextStatus === "Waiting for restaurant confirmation" && savePrices
           ? saveIndividualPrices(nextOrder.lines)
           : Promise.resolve(),
       ]);
+
       setOrder(nextOrder);
       setStatus(nextStatus);
       if (nextStatus === "Waiting for restaurant confirmation") {
         setIsEditingOffer(false);
       }
-    } catch {
-      setOfferSaveError("We couldn't save this offer and its individual prices. Please try again.");
+    } catch (error) {
+      const errorMsg =
+        error instanceof Error ? error.message : "Couldn't update order status.";
+      setOfferSaveError(errorMsg);
+      showToast({
+        title: "Action failed",
+        description: errorMsg,
+        variant: "error",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  async function handleAssignEmployee(employeeId: string) {
+    if (!employeeId) return;
+    const target = employeeOptions.find((e) => e.id === employeeId);
+    setIsSubmitting(true);
+    try {
+      await backendAssignOrder(activeOrder.id, employeeId);
+      setAssignedTo(target?.name ?? employeeId);
+      setAssignedEmployeeId(employeeId);
+      showToast({
+        title: "Employee assigned",
+        description: "Order successfully assigned to " + (target?.name ?? "employee") + ".",
+        variant: "success",
+      });
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : "Failed to assign employee.";
+      showToast({
+        title: "Assignment error",
+        description: msg,
+        variant: "error",
+      });
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
@@ -361,6 +524,8 @@ export default function SupplierOrderDetailsPage() {
           <OrderHeaderActions
             status={status}
             isEditingOffer={isEditingOffer}
+            isWarehouseManager={isWarehouseManager}
+            isSubmitting={isSubmitting}
             onStatusChange={updateStatus}
             onEditingOfferChange={setIsEditingOffer}
           />
@@ -452,11 +617,17 @@ export default function SupplierOrderDetailsPage() {
                     <tr key={line.id}>
                       <td className="sticky left-0 z-10 border-r border-slate-200 bg-white px-5 py-4 transition-colors sm:px-6">
                         <div className="flex min-w-52 items-center gap-3">
-                          <img
-                            src={line.image}
-                            alt=""
-                            className="h-10 w-10 shrink-0 rounded-lg object-cover ring-1 ring-slate-200"
-                          />
+                          {line.image ? (
+                            <img
+                              src={line.image}
+                              alt=""
+                              className="h-10 w-10 shrink-0 rounded-lg object-cover ring-1 ring-slate-200"
+                            />
+                          ) : (
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-400 ring-1 ring-slate-200">
+                              <Package className="h-5 w-5 text-slate-400" aria-hidden="true" />
+                            </div>
+                          )}
                           <div className="min-w-0">
                             <p className="truncate font-semibold text-slate-800">
                               {line.name}
@@ -664,14 +835,17 @@ export default function SupplierOrderDetailsPage() {
                   {assignedTo ? "Reassign employee" : "Assign employee"}
                 </p>
                 <Select
-                  value={assignedTo}
-                  onValueChange={(value) => setAssignedTo(String(value))}
+                  value={assignedEmployeeId || assignedTo}
+                  onValueChange={(value) => handleAssignEmployee(String(value))}
                   size="sm"
                   className="mt-0"
                 >
-                  <option value="">Assign employee…</option>
-                  <option value="Nabil Khoury">Nabil Khoury</option>
-                  <option value="Mariam Haddad">Mariam Haddad</option>
+                  <option value="">Assign employee...</option>
+                  {employeeOptions.map((emp) => (
+                    <option key={emp.id} value={emp.id}>
+                      {emp.name}
+                    </option>
+                  ))}
                 </Select>
               </div>
             ) : null}

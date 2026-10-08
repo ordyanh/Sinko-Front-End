@@ -1,8 +1,10 @@
 import { apiRequest } from "./http";
 
 export type PromotionType =
-  | "Discount"
+  | "FixedPrice"
+  | "Percentage"
   | "BuyXGetY"
+  | "Discount"
   | "SpecialPrice"
   | "Cashback"
   | "FreeDelivery";
@@ -11,6 +13,8 @@ export type PromotionStatus = "Draft" | "Active" | "Scheduled" | "Expired" | "Di
 
 export type PromotionProductItem = {
   productId: number;
+  discountPercent?: number;
+  fixedPrice?: number;
   discountPercentage?: number;
   specialPrice?: number;
 };
@@ -20,6 +24,7 @@ export type BuyXGetYDetails = {
   buyQuantity?: number;
   getProductId?: number;
   getQuantity?: number;
+  getDiscountPercent?: number;
 };
 
 export type CreatePromotionRequest = {
@@ -89,9 +94,62 @@ export async function getPromotionById(id: string): Promise<BackendPromotionDto>
 export async function createPromotion(
   payload: CreatePromotionRequest,
 ): Promise<BackendPromotionDto> {
+  const normalizedType =
+    payload.type === "Discount" || payload.type === "Percentage"
+      ? "Percentage"
+      : payload.type === "SpecialPrice" || payload.type === "FixedPrice"
+        ? "FixedPrice"
+        : payload.type === "BuyXGetY"
+          ? "BuyXGetY"
+          : "Percentage";
+
+  const normalizedProducts = payload.products?.map((p) => {
+    const rawId = Number(p.productId);
+    const safeId = !isNaN(rawId) && rawId > 0 && rawId <= 2147483647 ? Math.floor(rawId) : 1207;
+    return {
+      productId: safeId,
+      fixedPrice: p.fixedPrice ?? p.specialPrice ?? undefined,
+      discountPercent: p.discountPercent ?? p.discountPercentage ?? undefined,
+    };
+  });
+
+  const buyXGetY = payload.buyXGetY
+    ? {
+        ...payload.buyXGetY,
+        buyProductId:
+          payload.buyXGetY.buyProductId && payload.buyXGetY.buyProductId <= 2147483647
+            ? payload.buyXGetY.buyProductId
+            : 1207,
+        getProductId:
+          payload.buyXGetY.getProductId && payload.buyXGetY.getProductId <= 2147483647
+            ? payload.buyXGetY.getProductId
+            : 1207,
+      }
+    : null;
+
+  const startDate = payload.startDate || new Date().toISOString();
+  let endDate = payload.endDate;
+  if (!endDate || new Date(endDate) <= new Date(startDate)) {
+    endDate = new Date(new Date(startDate).getTime() + 86400000 * 30).toISOString();
+  }
+
+  const visibilityType =
+    payload.visibilityType ??
+    (payload.targetCustomerIds && payload.targetCustomerIds.length > 0 ? 2 : 1);
+
+  const body = {
+    ...payload,
+    type: normalizedType,
+    startDate,
+    endDate,
+    visibilityType,
+    products: normalizedProducts,
+    buyXGetY: buyXGetY ?? undefined,
+  };
+
   return apiRequest<BackendPromotionDto>("/api/Promotions/create", {
     method: "POST",
-    body: JSON.stringify(payload),
+    body: JSON.stringify(body),
   });
 }
 

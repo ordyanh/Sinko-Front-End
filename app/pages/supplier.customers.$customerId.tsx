@@ -12,6 +12,12 @@ import { useEffect, useState } from "react";
 import { type CustomerOrderStatus } from "~/entities/horeca";
 import { DashboardPageContent } from "~/shared/ui";
 import {
+  getClientProfile,
+  getClientStats,
+  getClientPricing,
+  setClientProductPrice,
+} from "~/shared/api";
+import {
   getHorecaUsers,
   getLoggedInUser,
   getOrdersForSupplier,
@@ -121,29 +127,65 @@ export default function SupplierCustomerProfilePage() {
         setAccountId(user.id);
         setSupplierProducts(products);
 
+        let remoteProfile = null;
+        try {
+          if (customerId) {
+            remoteProfile = await getClientProfile(customerId);
+          }
+        } catch {
+          // fallback
+        }
+
         const horecaUser = customers.find((candidate) => candidate.id === customerId);
         const customerOrders = orders.filter((order) => order.horecaAccountId === customerId);
-        setCustomer(
-          horecaUser
-            ? {
-                ...toSupplierCustomerProfile(horecaUser),
-                totalOrders: customerOrders.length,
-                recentOrders: customerOrders.slice(0, 5).map((order) => ({
-                  id: order.id,
-                  date: order.placedAt,
-                  status: order.status,
-                  itemCount: order.lines.reduce(
-                    (count, line) => count + line.requestedQuantity,
-                    0,
-                  ),
-                  total: order.lines.reduce(
-                    (total, line) => total + line.offeredPrice * line.offeredQuantity,
-                    0,
-                  ),
-                })),
-              }
-            : null,
-        );
+        if (remoteProfile) {
+          setCustomer({
+            id: remoteProfile.id || remoteProfile.clientId || customerId || "",
+            companyName: remoteProfile.companyName || horecaUser?.companyName || "Client Company",
+            email: remoteProfile.email || horecaUser?.email || "—",
+            phone: remoteProfile.phoneNumber || "Not provided",
+            address: remoteProfile.address || horecaUser?.address || "Yerevan",
+            activityType: "HORECA",
+            taxCode: remoteProfile.taxCode || remoteProfile.hvhh || "Not provided",
+            status: "Active",
+            totalOrders: remoteProfile.totalOrders ?? customerOrders.length,
+            recentOrders: customerOrders.slice(0, 5).map((order) => ({
+              id: order.id,
+              date: order.placedAt,
+              status: order.status,
+              itemCount: order.lines.reduce(
+                (count, line) => count + line.requestedQuantity,
+                0,
+              ),
+              total: order.lines.reduce(
+                (total, line) => total + line.offeredPrice * line.offeredQuantity,
+                0,
+              ),
+            })),
+          });
+        } else {
+          setCustomer(
+            horecaUser
+              ? {
+                  ...toSupplierCustomerProfile(horecaUser),
+                  totalOrders: customerOrders.length,
+                  recentOrders: customerOrders.slice(0, 5).map((order) => ({
+                    id: order.id,
+                    date: order.placedAt,
+                    status: order.status,
+                    itemCount: order.lines.reduce(
+                      (count, line) => count + line.requestedQuantity,
+                      0,
+                    ),
+                    total: order.lines.reduce(
+                      (total, line) => total + line.offeredPrice * line.offeredQuantity,
+                      0,
+                    ),
+                  })),
+                }
+              : null,
+          );
+        }
       } else {
         const horecaUser = customers.find((candidate) => candidate.id === customerId);
         setCustomer(horecaUser ? toSupplierCustomerProfile(horecaUser) : null);
@@ -168,9 +210,7 @@ export default function SupplierCustomerProfilePage() {
         label: `${product.name} · ${option.quantity} ${option.unitType}`,
         description: `Minimum order: ${option.minimumOrderQuantity}`,
         originalPrice: option.price,
-        imageUrl:
-          product.imageUrl ??
-          `https://ui-avatars.com/api/?name=${encodeURIComponent(product.name)}&background=0f766e&color=ffffff&bold=true&size=96`,
+        imageUrl: product.imageUrl ?? "",
       })),
   );
   const customerPrices: IndividualPrice[] = customer
@@ -220,6 +260,15 @@ export default function SupplierCustomerProfilePage() {
     setIsSavingPrices(true);
     try {
       await Promise.all(updatedProducts.map((product) => saveSupplierProduct(product)));
+      // Also send each individual price to the backend API
+      await Promise.allSettled(
+        prices.map(async (p) => {
+          const rawProdId = parseInt(p.resourceId.split(":")[0]?.replace(/\D/g, "") || "", 10);
+          if (rawProdId > 0 && customer.id) {
+            await setClientProductPrice(customer.id, rawProdId, p.individualPrice);
+          }
+        }),
+      );
     } catch {
       setPriceSaveError("We couldn't save company prices. Please try again.");
     } finally {

@@ -160,10 +160,31 @@ export async function getSupplierCatalog(): Promise<BackendProductDto[]> {
 }
 
 export async function getProducts(): Promise<BackendProductDto[]> {
-  const res = await apiRequest<BackendProductDto[]>("/api/Products", {
-    method: "GET",
-  });
-  return Array.isArray(res) ? res : [];
+  try {
+    const res = await apiRequest<any[]>("/api/Marketplace/products", {
+      method: "GET",
+    });
+    if (Array.isArray(res) && res.length > 0) {
+      return res.map((p) => ({
+        ...p,
+        id: p.id ?? p.productId,
+        name: p.name ?? p.productName,
+        price: p.price,
+        basePrice: p.basePrice ?? p.price,
+      }));
+    }
+  } catch {
+    // Fallback to /api/Products
+  }
+
+  try {
+    const res = await apiRequest<BackendProductDto[]>("/api/Products", {
+      method: "GET",
+    });
+    return Array.isArray(res) ? res : [];
+  } catch {
+    return [];
+  }
 }
 
 export async function getProductById(id: string | number): Promise<BackendProductDto> {
@@ -192,9 +213,16 @@ export async function updateProduct(
 }
 
 export async function upsertProduct(payload: UpsertProductRequest): Promise<UpsertProductResponse> {
+  const rawCat = payload.categoryId ? Number(payload.categoryId) : null;
+  const safeCategoryId =
+    rawCat && !isNaN(rawCat) && rawCat > 0 && rawCat <= 2147483647
+      ? Math.floor(rawCat)
+      : 16;
+
   // Ensure status is valid backend enum ("Active" | "Inactive")
   const sanitizedPayload: UpsertProductRequest = {
     ...payload,
+    categoryId: safeCategoryId,
     status: toBackendProductStatus(payload.status),
     basePrice: Math.max(Number(payload.basePrice) || 0, 1),
     code: payload.code || `PRD-${Date.now().toString().slice(-6)}`,

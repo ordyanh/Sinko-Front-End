@@ -7,8 +7,8 @@ const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, "..");
 const envPath = path.join(rootDir, ".env");
 
-const LOCAL_AUTH = "http://localhost:5273/";
-const LOCAL_CORE = "http://localhost:5206/";
+const LOCAL_AUTH = "http://localhost:5273";
+const LOCAL_CORE = "http://localhost:5206";
 const REMOTE_AUTH = "https://syncoauthservice-f0e9fkaqgyczegas.swedencentral-01.azurewebsites.net";
 const REMOTE_CORE = "https://synco-h4etbseqg4h2ewcw.swedencentral-01.azurewebsites.net";
 
@@ -41,7 +41,7 @@ VITE_BACKEND_TARGET=${isLocal ? "local" : "remote"}
 VITE_AUTH_API_URL=${isLocal ? LOCAL_AUTH : REMOTE_AUTH}
 VITE_CORE_API_URL=${isLocal ? LOCAL_CORE : REMOTE_CORE}
 
-# Local C:\\Src\\Horeca endpoints
+# Local C:\\Src\\synco-app\\Horeca endpoints
 VITE_LOCAL_AUTH_URL=${LOCAL_AUTH}
 VITE_LOCAL_CORE_URL=${LOCAL_CORE}
 
@@ -52,7 +52,7 @@ VITE_REMOTE_CORE_URL=${REMOTE_CORE}
 
   fs.writeFileSync(envPath, content, "utf-8");
   console.log(`\n======================================================`);
-  console.log(` Switched Synco Backend Target to: ${isLocal ? "LOCAL (C:\\Src\\Horeca)" : "REMOTE (Azure Cloud)"}`);
+  console.log(` Switched Synco Backend Target to: ${isLocal ? "LOCAL (C:\\Src\\synco-app\\Horeca)" : "REMOTE (Azure Cloud)"}`);
   console.log(`======================================================`);
   console.log(` Auth Service: ${isLocal ? LOCAL_AUTH : REMOTE_AUTH}`);
   console.log(` Core Service: ${isLocal ? LOCAL_CORE : REMOTE_CORE}`);

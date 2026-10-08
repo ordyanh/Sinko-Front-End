@@ -1,4 +1,4 @@
-import { apiRequest } from "./http";
+﻿import { apiRequest, ApiError } from "./http";
 
 export type BackendOrderStatus =
   | "Draft"
@@ -444,6 +444,11 @@ export async function getSupplierOrders(filter?: OrderFilterRequest): Promise<Ba
   return [];
 }
 
+export async function getHorecaOrderById(orderId: string): Promise<BackendOrderDto | null> {
+  const orders = await getHorecaOrders();
+  return orders.find((o) => o.id === orderId || o.orderId === orderId) ?? null;
+}
+
 export async function getSupplierOrderById(orderId: string): Promise<BackendOrderDto> {
   const res = await apiRequest<unknown>(`/api/Orders/supplier/${encodeURIComponent(orderId)}`, {
     method: "GET",
@@ -454,6 +459,7 @@ export async function getSupplierOrderById(orderId: string): Promise<BackendOrde
 export async function createOrder(payload: CreateOrderRequest): Promise<BackendOrderDto> {
   const body = {
     suplierId: payload.suplierId || payload.supplierId || "",
+    supplierId: payload.supplierId || payload.suplierId || "",
     deliveryAddressId: payload.deliveryAddressId ?? null,
     description: payload.description ?? null,
     products: (payload.products || []).map((p) => ({
@@ -510,11 +516,14 @@ export async function updateOrderStatus(
       method: "PATCH",
       body: JSON.stringify({ orderId, status: normalizedStatus }),
     });
-  } catch {
-    return await apiRequest<void>("/api/Orders/update-status", {
-      method: "POST",
-      body: JSON.stringify({ orderId, status: normalizedStatus }),
-    });
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 405) {
+      return await apiRequest<void>("/api/Orders/update-status", {
+        method: "POST",
+        body: JSON.stringify({ orderId, status: normalizedStatus }),
+      });
+    }
+    throw error;
   }
 }
 
@@ -524,6 +533,7 @@ export async function updateDraftOrder(
 ): Promise<void> {
   const body = {
     suplierId: payload.suplierId || payload.supplierId || "",
+    supplierId: payload.supplierId || payload.suplierId || "",
     deliveryAddressId: payload.deliveryAddressId ?? null,
     description: payload.description ?? null,
     products: (payload.products || []).map((p) => ({

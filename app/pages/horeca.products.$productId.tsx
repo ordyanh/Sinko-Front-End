@@ -7,6 +7,7 @@ import {
   getMarketplaceMinimumOrderLabel,
   getMarketplaceOptionLabel,
   getMarketplaceSellingOptions,
+  mapBackendMarketplaceProduct,
   type MarketplaceCartLine,
   type MarketplaceProduct,
   type MarketplaceSellingOption,
@@ -17,6 +18,7 @@ import {
   getPromotionsForProduct,
   promotionTypeLabels,
 } from "~/entities/promotion";
+import { getMarketplaceProductById } from "~/shared/api/marketplace";
 import { DashboardPageContent } from "~/shared/ui";
 
 type MarketplaceContext = {
@@ -46,21 +48,32 @@ export default function HorecaProductDetailPage() {
   useEffect(() => {
     let isCurrent = true;
 
-    void getHorecaMarketplaceProducts()
-      .then((catalog) => {
-        if (isCurrent) setProducts(catalog);
-      })
-      .catch(() => {
+    void (async () => {
+      try {
+        const catalog = await getHorecaMarketplaceProducts();
+        if (!isCurrent) return;
+
+        let found = catalog.find((item) => item.id === productId);
+        if (!found && productId) {
+          const direct = await getMarketplaceProductById(productId);
+          if (direct && isCurrent) {
+            const mapped = mapBackendMarketplaceProduct(direct);
+            setProducts([...catalog, mapped]);
+            return;
+          }
+        }
+        setProducts(catalog);
+      } catch {
         if (isCurrent) setProductLoadError("We couldn't load this product from the supplier catalog.");
-      })
-      .finally(() => {
+      } finally {
         if (isCurrent) setIsLoadingProduct(false);
-      });
+      }
+    })();
 
     return () => {
       isCurrent = false;
     };
-  }, []);
+  }, [productId]);
 
   useEffect(() => {
     const firstOption = options[0];

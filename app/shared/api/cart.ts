@@ -32,6 +32,8 @@ export type CheckIndividualPricingRequest = {
     supplierId?: string;
     quantity: number;
   }>;
+  productIds?: number[];
+  hvhh?: string;
 };
 
 export async function getCart(): Promise<CartDto> {
@@ -115,8 +117,17 @@ export async function clearCart(): Promise<void> {
 }
 
 export async function checkIndividualPricing(payload: CheckIndividualPricingRequest): Promise<unknown> {
+  const productIds =
+    payload.productIds ??
+    payload.items?.map((item) => Number(item.productId)).filter(Boolean);
+
+  const body = {
+    ...payload,
+    productIds,
+  };
+
   return apiRequest<unknown>("/api/Cart/check-individual-pricing", {
     method: "POST",
-    body: JSON.stringify(payload),
+    body: JSON.stringify(body),
   });
 }

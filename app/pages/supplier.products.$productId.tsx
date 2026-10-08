@@ -481,7 +481,7 @@ export default function SupplierProductDetailPage() {
                           label: customer.companyName,
                           description: "HORECA",
                           originalPrice: Number(option.price) || 0,
-                          imageUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(customer.companyName)}&background=0f766e&color=ffffff&bold=true&size=96`,
+                          imageUrl: "",
                         }))}
                         initialPrices={option.companyPrices}
                         resetKey={`${productId ?? ""}-${option.id}-${isNewProduct}`}

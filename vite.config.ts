@@ -6,8 +6,8 @@ import { defineConfig, loadEnv } from "vite";
 
 const normalizeUrl = (url: string) => url.replace(/\/+$/, "");
 
-const LOCAL_AUTH_DEFAULT = "http://localhost:5273/";
-const LOCAL_CORE_DEFAULT = "http://localhost:5206/";
+const LOCAL_AUTH_DEFAULT = "http://localhost:5273";
+const LOCAL_CORE_DEFAULT = "http://localhost:5206";
 const REMOTE_AUTH_DEFAULT = "https://syncoauthservice-f0e9fkaqgyczegas.swedencentral-01.azurewebsites.net";
 const REMOTE_CORE_DEFAULT = "https://synco-h4etbseqg4h2ewcw.swedencentral-01.azurewebsites.net";
 
@@ -44,9 +44,9 @@ export default defineConfig(({ mode }) => {
   );
 
   console.log(`\n======================================================`);
-  console.log(`🚀 [Synco Dev Proxy] Active Target: ${isLocal ? "LOCAL (C:\\Src\\Horeca)" : "REMOTE (Azure Cloud)"}`);
-  console.log(`   Auth Service: ${authUrl} (local: http://localhost:5273/)`);
-  console.log(`   Core Service: ${coreUrl} (local: http://localhost:5206/)`);
+  console.log(`🚀 [Synco Dev Proxy] Active Target: ${isLocal ? "LOCAL (C:\\Src\\synco-app\\Horeca)" : "REMOTE (Azure Cloud)"}`);
+  console.log(`   Auth Service: ${authUrl} (local: http://localhost:5273)`);
+  console.log(`   Core Service: ${coreUrl} (local: http://localhost:5206)`);
   console.log(`   (Switch with: npm run use:local / npm run use:remote)`);
   console.log(`======================================================\n`);
 
