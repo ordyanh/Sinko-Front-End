@@ -9,9 +9,13 @@ REM ============================================================
 REM Always execute from the repository root where this BAT file is located
 cd /d "%~dp0"
 
+REM Target remote repository
+set "TARGET_REPO=https://github.com/ordyanh/Sinko-Front-End.git"
+
 echo ======================================================
 echo   Git Auto Commit and Push
 echo ======================================================
+echo Target repository: %TARGET_REPO%
 echo.
 
 REM 1. Verify Git availability
@@ -21,7 +25,20 @@ if %ERRORLEVEL% NEQ 0 (
     goto :END
 )
 
-REM 2. Detect current active branch
+REM 2. Ensure remote 'origin' is configured to target repository
+git remote get-url origin >nul 2>&1
+if %ERRORLEVEL% NEQ 0 (
+    echo Setting remote 'origin' to: %TARGET_REPO%
+    git remote add origin %TARGET_REPO%
+) else (
+    for /f "delims=" %%U in ('git remote get-url origin 2^>nul') do set "EXISTING_REMOTE=%%U"
+    if /i not "!EXISTING_REMOTE!"=="%TARGET_REPO%" (
+        echo Updating remote 'origin' to: %TARGET_REPO%
+        git remote set-url origin %TARGET_REPO%
+    )
+)
+
+REM 3. Detect current active branch
 for /f "delims=" %%B in ('git branch --show-current 2^>nul') do set "CURRENT_BRANCH=%%B"
 if not defined CURRENT_BRANCH (
     for /f "delims=" %%B in ('git rev-parse --abbrev-ref HEAD 2^>nul') do set "CURRENT_BRANCH=%%B"
@@ -37,24 +54,28 @@ if /i "%CURRENT_BRANCH%"=="HEAD" (
     goto :END
 )
 
-echo Active branch: %CURRENT_BRANCH%
+echo Active branch:      %CURRENT_BRANCH%
 echo.
 
-REM 3. Show current git status
+REM 4. Show current git status
 echo --- Current Status ---
 git status --short
 echo ----------------------
 echo.
 
-REM 4. Check if there are uncommitted changes
+REM 5. Check if there are uncommitted changes
 git status --porcelain | findstr /R "." >nul 2>&1
 set "HAS_CHANGES=%ERRORLEVEL%"
 
-REM 5. Determine commit message
-set "COMMIT_MSG=%~1"
+REM 6. Determine commit message
+set "COMMIT_MSG=%*"
+if defined COMMIT_MSG (
+    for /f "tokens=* delims=" %%M in ("!COMMIT_MSG!") do set "COMMIT_MSG=%%~M"
+)
+
 if not defined COMMIT_MSG (
     if %HAS_CHANGES% EQU 0 (
-        set /p "COMMIT_MSG=Enter commit message (press Enter for default): "
+        set /p "COMMIT_MSG=Enter commit message [press Enter for default]: "
     )
 )
 
@@ -62,10 +83,10 @@ if not defined COMMIT_MSG (
     set "COMMIT_MSG=Update on %CURRENT_BRANCH% [%DATE% %TIME%]"
 )
 
-REM 6. Stage and commit if there are changes
+REM 7. Stage and commit if there are changes
 if %HAS_CHANGES% EQU 0 (
     echo.
-    echo Staging all changes (git add -A)...
+    echo Staging all changes...
     git add -A
 
     echo Committing changes: "%COMMIT_MSG%"
@@ -81,8 +102,8 @@ if %HAS_CHANGES% EQU 0 (
 )
 
 echo.
-REM 7. Push to current branch on origin
-echo Pushing to origin/%CURRENT_BRANCH%...
+REM 8. Push to current branch on target repository
+echo Pushing to %TARGET_REPO% [branch: %CURRENT_BRANCH%]...
 git push -u origin "%CURRENT_BRANCH%"
 
 if %ERRORLEVEL% EQU 0 (

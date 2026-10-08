@@ -6,3 +6,6 @@ deploy.sh
 # React Router
 /.react-router/
 /build/
+
+# Visual Studio
+.vs/
