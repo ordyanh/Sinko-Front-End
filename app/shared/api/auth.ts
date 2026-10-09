@@ -6,6 +6,7 @@ export type UserRole = "Client" | "Supplier";
 export type RegisterRequest = {
   companyName?: string | null;
   email?: string | null;
+  phoneNumber?: string | null;
   mobile?: string | null;
   address?: string | null;
   taxCode?: string | null;
@@ -160,9 +161,15 @@ export type UpdateEmployeeRequest = {
 };
 
 export async function registerUser(payload: RegisterRequest) {
+  const phone = payload.phoneNumber ?? payload.mobile ?? null;
+  const requestBody = {
+    ...payload,
+    phoneNumber: phone,
+    mobile: payload.mobile ?? phone,
+  };
   return apiRequest<void>("/api/Auth/register", {
     method: "POST",
-    body: JSON.stringify(payload),
+    body: JSON.stringify(requestBody),
   });
 }
 

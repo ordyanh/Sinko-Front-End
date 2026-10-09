@@ -103,6 +103,7 @@ export default function RegisterHorecaForm() {
     payload.set("companyName", values.companyName);
     payload.set("email", values.email);
     payload.set("mobile", values.mobile);
+    payload.set("phoneNumber", values.mobile);
     payload.set("address", values.address);
     payload.set("taxCode", values.taxCode);
     payload.set("password", values.password);

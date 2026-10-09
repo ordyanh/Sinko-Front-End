@@ -88,31 +88,7 @@ export const getErrorMessage = (payload: any, status: number): string => {
   }
 
   if (payload && typeof payload === "object") {
-    // 1. Check for error / Error string (OrdersController returns { error: result.Message })
-    const errText = payload.error ?? payload.Error;
-    if (typeof errText === "string" && errText.trim()) {
-      return errText.trim();
-    }
-
-    // 2. Check for message / Message string
-    const msgText = payload.message ?? payload.Message;
-    if (typeof msgText === "string" && msgText.trim()) {
-      return msgText.trim();
-    }
-
-    // 3. Check for detail / Detail string
-    const detailText = payload.detail ?? payload.Detail;
-    if (typeof detailText === "string" && detailText.trim()) {
-      return detailText.trim();
-    }
-
-    // 4. Check for title / Title string
-    const titleText = payload.title ?? payload.Title;
-    if (typeof titleText === "string" && titleText.trim()) {
-      return titleText.trim();
-    }
-
-    // 5. Check validation errors dictionary
+    // 1. Check validation errors dictionary (e.g. ASP.NET ProblemDetails { errors: { Field: ["error"] } })
     const errObj = payload.errors ?? payload.Errors;
     if (errObj && typeof errObj === "object") {
       const fieldErrors = Object.values(errObj)
@@ -122,6 +98,30 @@ export const getErrorMessage = (payload: any, status: number): string => {
       if (fieldErrors.length > 0) {
         return fieldErrors.join("; ");
       }
+    }
+
+    // 2. Check for error / Error string (OrdersController returns { error: result.Message })
+    const errText = payload.error ?? payload.Error;
+    if (typeof errText === "string" && errText.trim()) {
+      return errText.trim();
+    }
+
+    // 3. Check for message / Message string
+    const msgText = payload.message ?? payload.Message;
+    if (typeof msgText === "string" && msgText.trim()) {
+      return msgText.trim();
+    }
+
+    // 4. Check for detail / Detail string
+    const detailText = payload.detail ?? payload.Detail;
+    if (typeof detailText === "string" && detailText.trim()) {
+      return detailText.trim();
+    }
+
+    // 5. Check for title / Title string
+    const titleText = payload.title ?? payload.Title;
+    if (typeof titleText === "string" && titleText.trim()) {
+      return titleText.trim();
     }
   }
 

@@ -100,6 +100,7 @@ export function toHorecaRegisterRequest(
   return {
     companyName: values.companyName.trim(),
     email: values.email.trim(),
+    phoneNumber: values.mobile.trim(),
     mobile: values.mobile.trim(),
     address: values.address.trim(),
     taxCode: values.taxCode.trim(),
