@@ -93,8 +93,11 @@ export default function HorecaSuppliersPage() {
             id: s.id,
             name: s.companyName,
             initials: getSupplierInitials(s.companyName),
-            categories: ["Produce", "General"],
-            serviceArea: s.address || "Available through Synko",
+            categories:
+              Array.isArray(s.productCategories) && s.productCategories.length > 0
+                ? s.productCategories
+                : ["Produce", "General"],
+            serviceArea: s.serviceArea || s.address || "Available through Synko",
             description:
               s.description ||
               `${s.companyName} is available to receive orders through Synko.`,

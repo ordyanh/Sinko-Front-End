@@ -161,11 +161,12 @@ export async function getSupplierCatalog(): Promise<BackendProductDto[]> {
 
 export async function getProducts(): Promise<BackendProductDto[]> {
   try {
-    const res = await apiRequest<any[]>("/api/Marketplace/products", {
+    const res = await apiRequest<any>("/api/Marketplace/products", {
       method: "GET",
     });
-    if (Array.isArray(res) && res.length > 0) {
-      return res.map((p) => ({
+    const raw = Array.isArray(res) ? res : (res?.value || res?.items || res?.data || []);
+    if (Array.isArray(raw) && raw.length > 0) {
+      return raw.map((p: any) => ({
         ...p,
         id: p.id ?? p.productId,
         name: p.name ?? p.productName,
@@ -178,10 +179,11 @@ export async function getProducts(): Promise<BackendProductDto[]> {
   }
 
   try {
-    const res = await apiRequest<BackendProductDto[]>("/api/Products", {
+    const res = await apiRequest<any>("/api/Products", {
       method: "GET",
     });
-    return Array.isArray(res) ? res : [];
+    const raw = Array.isArray(res) ? res : (res?.value || res?.items || res?.data || []);
+    return Array.isArray(raw) ? raw : [];
   } catch {
     return [];
   }

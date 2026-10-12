@@ -24,10 +24,15 @@ import {
   getMarketplaceOptionLabel,
   getMarketplaceProductPrice,
   getMarketplaceSellingOptions,
+  mapBackendMarketplaceProduct,
   type MarketplaceProduct,
 } from "~/entities/product";
 import { getMarketplaceSupplierById, type MarketplaceSupplier } from "~/entities/supplier";
-import { getMarketplaceSupplierById as getBackendMarketplaceSupplierById, getHorecaOrders as getBackendHorecaOrders } from "~/shared/api";
+import {
+  getMarketplaceSupplierById as getBackendMarketplaceSupplierById,
+  getMarketplaceSuppliers,
+  getHorecaOrders as getBackendHorecaOrders,
+} from "~/shared/api";
 import { getVisibleSupplierPromotions, PromotionCard } from "~/entities/promotion";
 import { DashboardPageContent } from "~/shared/ui";
 
@@ -61,40 +66,119 @@ export default function HorecaSupplierDetailsPage() {
     setIsLoading(true);
 
     Promise.all([
-      getBackendMarketplaceSupplierById(supplierId),
-      getHorecaMarketplaceProducts(),
+      getBackendMarketplaceSupplierById(supplierId).catch(() => null),
+      getHorecaMarketplaceProducts().catch(() => []),
       getBackendHorecaOrders().catch(() => []),
+      getMarketplaceSuppliers().catch(() => []),
     ])
-      .then(([res, catalog, orders]) => {
+      .then(([res, catalog, orders, suppliersList]) => {
         if (!isActive) return;
-        if (res) {
+
+        // 1. Resolve supplier info from any available source
+        const rawSupplier: any = res?.supplier || res;
+        const fromDirectory = (suppliersList || []).find(
+          (s: any) =>
+            s.id === supplierId ||
+            s.id?.toLowerCase() === supplierId?.toLowerCase()
+        );
+        const fromCatalog = (catalog || []).find(
+          (p: any) =>
+            p.supplierId === supplierId ||
+            p.supplierId?.toLowerCase() === supplierId?.toLowerCase()
+        );
+
+        const supplierFound =
+          rawSupplier?.companyName || rawSupplier?.id
+            ? rawSupplier
+            : fromDirectory
+            ? fromDirectory
+            : fromCatalog
+            ? {
+                id: supplierId,
+                companyName: fromCatalog.supplier,
+                description: `${fromCatalog.supplier} is available to receive orders.`,
+                serviceArea: "Yerevan",
+              }
+            : null;
+
+        if (supplierFound) {
+          const suppName =
+            supplierFound.companyName || supplierFound.name || "Supplier";
+          const words = (suppName || "S").trim().split(/\s+/);
+          const initials =
+            words.length > 1
+              ? (words[0][0] + words[1][0]).toUpperCase()
+              : suppName.slice(0, 2).toUpperCase();
+
+          const categories =
+            Array.isArray(supplierFound.productCategories) &&
+            supplierFound.productCategories.length > 0
+              ? supplierFound.productCategories
+              : Array.isArray(res?.categories) && res.categories.length > 0
+              ? res.categories.map((c: any) => c.name)
+              : ["Produce", "General"];
+
+          const serviceArea =
+            supplierFound.serviceArea ||
+            supplierFound.address ||
+            "Yerevan";
+
           const supp: MarketplaceSupplier = {
-            id: res.id,
-            name: res.companyName,
-            initials: res.companyName.slice(0, 2).toUpperCase(),
+            id: supplierFound.id || supplierId,
+            name: suppName,
+            initials,
             logoClassName: "bg-[#dff0e3] text-[#25633e]",
             accentClassName: "bg-[#dceede]",
-            categories: ["Produce", "General"],
-            serviceArea: res.address || "Yerevan",
-            description: res.description || `${res.companyName} is available to receive orders.`,
-            contactName: res.companyName,
-            phone: res.phoneNumber || "—",
-            email: res.email || "—",
-            address: res.address || "Yerevan",
+            categories,
+            serviceArea,
+            description:
+              supplierFound.description ||
+              `${suppName} is available to receive orders.`,
+            contactName: supplierFound.contactName || suppName,
+            phone: supplierFound.phoneNumber || "—",
+            email: supplierFound.email || "—",
+            address: supplierFound.address || serviceArea,
             deliveryWindow: "08:00–14:00",
             deliveryNote: "Next delivery slot available tomorrow",
-            orderSupplierId: res.id,
+            orderSupplierId: supplierFound.id || supplierId,
           };
           setSupplier(supp);
-          const filteredProds = catalog.filter((p) => p.supplier === supp.name || p.supplierId === supp.id).slice(0, 3);
-          setSupplierProducts(filteredProds);
-          const filteredOrders = (orders || []).filter((o: any) => o.supplierId === res.id || o.supplierName === res.companyName).slice(0, 3);
+
+          // 2. Resolve supplier products
+          // Combine products directly returned with supplier details + catalog
+          const directProducts = Array.isArray(res?.products)
+            ? res.products.map(mapBackendMarketplaceProduct)
+            : [];
+
+          const catalogProds = (catalog || []).filter(
+            (p) =>
+              p.supplierId === supp.id ||
+              p.supplierId?.toLowerCase() === supp.id.toLowerCase() ||
+              (supp.name && p.supplier.toLowerCase() === supp.name.toLowerCase())
+          );
+
+          const combinedProds = [...directProducts];
+          for (const cp of catalogProds) {
+            if (!combinedProds.some((p) => String(p.id) === String(cp.id))) {
+              combinedProds.push(cp);
+            }
+          }
+
+          setSupplierProducts(combinedProds);
+
+          const filteredOrders = (orders || []).filter(
+            (o: any) =>
+              o.supplierId === supp.id ||
+              o.supplierId?.toLowerCase() === supp.id.toLowerCase() ||
+              o.supplierName === supp.name
+          ).slice(0, 3);
           setSupplierOrders(filteredOrders);
         } else {
           setSupplier(null);
         }
       })
-      .catch(() => {
+      .catch((err) => {
+        console.error("Error loading supplier details:", err);
         if (isActive) setSupplier(null);
       })
       .finally(() => {
@@ -107,7 +191,13 @@ export default function HorecaSupplierDetailsPage() {
   }, [supplierId]);
 
   if (isLoading) {
-    return null;
+    return (
+      <DashboardPageContent>
+        <div className="rounded-3xl border border-slate-200 bg-white px-6 py-16 text-center text-sm font-medium text-slate-500">
+          Loading supplier details…
+        </div>
+      </DashboardPageContent>
+    );
   }
 
   if (!supplier) {
@@ -246,7 +336,7 @@ export default function HorecaSupplierDetailsPage() {
               {supplierProducts.map((product) => (
                 <Link
                   key={product.id}
-                  to={productsHref}
+                  to={`/horeca/products/${product.id}`}
                   className="group flex min-w-0 gap-3 rounded-2xl border border-slate-200 p-3 transition hover:border-primary/30 hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                 >
                   {product.image ? (

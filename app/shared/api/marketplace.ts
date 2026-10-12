@@ -6,28 +6,47 @@ export type MarketplaceSupplierDto = {
   email?: string;
   phoneNumber?: string;
   address?: string;
+  serviceArea?: string;
   description?: string;
   categoryIds?: number[];
+  productCategories?: string[];
   rating?: number;
   productCount?: number;
+  logoUrl?: string | null;
+};
+
+export type MarketplaceSupplierDetailsDto = MarketplaceSupplierDto & {
+  supplier: MarketplaceSupplierDto;
+  categories?: Array<{ id: number; name: string; productCount?: number }>;
+  products?: MarketplaceProductDto[];
+  promotions?: any[];
 };
 
 export type MarketplaceProductDto = {
   productId: number;
+  id?: number | string;
   code: string;
   productName: string;
+  name?: string;
   imageUrl?: string | null;
+  image?: string | null;
   categoryId?: number | null;
   categoryName?: string | null;
+  category?: string | null;
   supplierId: string;
   supplierName: string;
+  supplier?: string;
   price: number;
+  standardPrice?: number;
   inStock: boolean;
+  availability?: boolean;
   unit: string;
   unitId?: number | null;
+  sellingUnitId?: number | null;
   unitDisplay?: string | null;
+  sellingUnit?: string | null;
   unitName?: string | null;
-  packageOptions?: number[] | null;
+  packageOptions?: number[] | string | null;
   packaging?: string | null;
   description?: string | null;
 };
@@ -49,25 +68,73 @@ export type MarketplaceStaticInfo = {
   featuredCategories?: number[];
 };
 
+function extractArray<T>(res: any): T[] {
+  if (!res) return [];
+  if (Array.isArray(res)) return res;
+  if (Array.isArray(res.value)) return res.value;
+  if (Array.isArray(res.items)) return res.items;
+  if (Array.isArray(res.data)) return res.data;
+  return [];
+}
+
 export async function getMarketplaceSuppliers(): Promise<MarketplaceSupplierDto[]> {
   try {
-    const res = await apiRequest<MarketplaceSupplierDto[]>("/api/Marketplace/suppliers", {
+    const res = await apiRequest<any>("/api/Marketplace/suppliers", {
       method: "GET",
     });
-    return Array.isArray(res) ? res : [];
-  } catch {
+    return extractArray<MarketplaceSupplierDto>(res);
+  } catch (error) {
+    console.error("Failed to load marketplace suppliers:", error);
     return [];
   }
 }
 
 export async function getMarketplaceSupplierById(
   id: string,
-): Promise<MarketplaceSupplierDto | null> {
+): Promise<MarketplaceSupplierDetailsDto | null> {
   try {
-    return await apiRequest<MarketplaceSupplierDto>(`/api/Marketplace/suppliers/${id}`, {
+    const res = await apiRequest<any>(`/api/Marketplace/suppliers/${id}`, {
       method: "GET",
     });
-  } catch {
+    if (!res) return null;
+
+    if (res.supplier && typeof res.supplier === "object") {
+      const supplierDto: MarketplaceSupplierDto = {
+        ...res.supplier,
+        address: res.supplier.address || res.supplier.serviceArea,
+        serviceArea: res.supplier.serviceArea || res.supplier.address,
+      };
+      const products = extractArray<MarketplaceProductDto>(res.products);
+      const categories = extractArray<{ id: number; name: string; productCount?: number }>(res.categories);
+      const promotions = extractArray<any>(res.promotions);
+
+      return {
+        ...supplierDto,
+        supplier: supplierDto,
+        categories,
+        products,
+        promotions,
+      };
+    }
+
+    if (res.id || res.companyName) {
+      const supplierDto: MarketplaceSupplierDto = {
+        ...res,
+        address: res.address || res.serviceArea,
+        serviceArea: res.serviceArea || res.address,
+      };
+      return {
+        ...supplierDto,
+        supplier: supplierDto,
+        categories: extractArray(res.categories),
+        products: extractArray(res.products),
+        promotions: extractArray(res.promotions),
+      };
+    }
+
+    return null;
+  } catch (error) {
+    console.error(`Failed to load marketplace supplier ${id}:`, error);
     return null;
   }
 }
@@ -87,10 +154,10 @@ export async function getMarketplaceProducts(
     if (params?.langId != null) query.set("langId", String(params.langId));
     const qs = query.toString() ? `?${query.toString()}` : "";
 
-    const res = await apiRequest<MarketplaceProductDto[]>(`/api/Marketplace/products${qs}`, {
+    const res = await apiRequest<any>(`/api/Marketplace/products${qs}`, {
       method: "GET",
     });
-    return Array.isArray(res) ? res : [];
+    return extractArray<MarketplaceProductDto>(res);
   } catch (error) {
     console.error("Failed to load marketplace products:", error);
     return [];
@@ -102,10 +169,15 @@ export async function getMarketplaceProductById(
   langId: number = 1,
 ): Promise<MarketplaceProductDto | null> {
   try {
-    return await apiRequest<MarketplaceProductDto>(
+    const res = await apiRequest<any>(
       `/api/Marketplace/products/${id}?langId=${langId}`,
       { method: "GET" },
     );
+    if (!res) return null;
+    if (res.product && typeof res.product === "object") {
+      return { ...res.product, ...res };
+    }
+    return res as MarketplaceProductDto;
   } catch (error) {
     console.error(`Failed to load marketplace product ${id}:`, error);
     return null;
