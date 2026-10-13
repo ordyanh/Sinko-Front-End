@@ -63,6 +63,11 @@ export default function HorecaSupplierDetailsPage() {
   const [supplierOrders, setSupplierOrders] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  const pagedSupplierProducts = useMemo(() => {
+    const start = (productsPage - 1) * productsPageSize;
+    return (supplierProducts || []).slice(start, start + productsPageSize);
+  }, [supplierProducts, productsPage, productsPageSize]);
+
   useEffect(() => {
     let isActive = true;
     setIsLoading(true);
@@ -247,12 +252,7 @@ export default function HorecaSupplierDetailsPage() {
     );
   }
 
-  const pagedSupplierProducts = useMemo(() => {
-    const start = (productsPage - 1) * productsPageSize;
-    return supplierProducts.slice(start, start + productsPageSize);
-  }, [supplierProducts, productsPage, productsPageSize]);
-
-  const supplierPromotions = getVisibleSupplierPromotions(supplier.name);
+    const supplierPromotions = getVisibleSupplierPromotions(supplier.name);
   const productsHref = `/horeca/products?supplier=${encodeURIComponent(supplier.name)}`;
   const ordersHref = `/horeca/orders?supplier=${encodeURIComponent(supplier.name)}`;
 
