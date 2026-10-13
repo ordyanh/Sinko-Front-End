@@ -1,4 +1,4 @@
-import type { CustomerOrderStatus } from "./customer";
+﻿import type { CustomerOrderStatus } from "./customer";
 
 export type HorecaOrderStatus = CustomerOrderStatus;
 
@@ -134,8 +134,11 @@ export function formatAmdDelta(amount: number) {
   return `${sign}${formatAmd(Math.abs(amount))}`;
 }
 
-export function formatOrderDate(date: string) {
-  return new Date(date).toLocaleDateString("en-US", {
+export function formatOrderDate(date?: string | null) {
+  if (!date) return "â€”";
+  const parsed = new Date(date);
+  if (isNaN(parsed.getTime())) return "â€”";
+  return parsed.toLocaleDateString("en-US", {
     day: "numeric",
     month: "short",
     year: "numeric",

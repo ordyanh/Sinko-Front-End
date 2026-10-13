@@ -1,4 +1,4 @@
-import {
+﻿import {
   ArrowLeft,
   ArrowRight,
   AtSign,
@@ -27,7 +27,7 @@ import {
   mapBackendMarketplaceProduct,
   type MarketplaceProduct,
 } from "~/entities/product";
-import { getMarketplaceSupplierById, type MarketplaceSupplier } from "~/entities/supplier";
+import { type MarketplaceSupplier } from "~/entities/supplier";
 import {
   getMarketplaceSupplierById as getBackendMarketplaceSupplierById,
   getMarketplaceSuppliers,
@@ -67,6 +67,8 @@ export default function HorecaSupplierDetailsPage() {
     let isActive = true;
     setIsLoading(true);
 
+    const targetId = String(supplierId || "").toLowerCase();
+
     Promise.all([
       getBackendMarketplaceSupplierById(supplierId).catch(() => null),
       getHorecaMarketplaceProducts().catch(() => []),
@@ -79,14 +81,10 @@ export default function HorecaSupplierDetailsPage() {
         // 1. Resolve supplier info from any available source
         const rawSupplier: any = res?.supplier || res;
         const fromDirectory = (suppliersList || []).find(
-          (s: any) =>
-            s.id === supplierId ||
-            s.id?.toLowerCase() === supplierId?.toLowerCase()
+          (s: any) => s?.id != null && String(s.id).toLowerCase() === targetId
         );
         const fromCatalog = (catalog || []).find(
-          (p: any) =>
-            p.supplierId === supplierId ||
-            p.supplierId?.toLowerCase() === supplierId?.toLowerCase()
+          (p: any) => p?.supplierId != null && String(p.supplierId).toLowerCase() === targetId
         );
 
         const supplierFound =
@@ -97,8 +95,8 @@ export default function HorecaSupplierDetailsPage() {
             : fromCatalog
             ? {
                 id: supplierId,
-                companyName: fromCatalog.supplier,
-                description: `${fromCatalog.supplier} is available to receive orders.`,
+                companyName: fromCatalog.supplier || "Supplier",
+                description: `${fromCatalog.supplier || "Supplier"} is available to receive orders.`,
                 serviceArea: "Yerevan",
               }
             : null;
@@ -106,27 +104,41 @@ export default function HorecaSupplierDetailsPage() {
         if (supplierFound) {
           const suppName =
             supplierFound.companyName || supplierFound.name || "Supplier";
-          const words = (suppName || "S").trim().split(/\s+/);
+          const words = String(suppName || "S").trim().split(/\s+/).filter(Boolean);
           const initials =
-            words.length > 1
+            words.length > 1 && words[0]?.[0] && words[1]?.[0]
               ? (words[0][0] + words[1][0]).toUpperCase()
-              : suppName.slice(0, 2).toUpperCase();
+              : String(suppName).slice(0, 2).toUpperCase() || "SP";
 
-          const categories =
+          const rawCats =
             Array.isArray(supplierFound.productCategories) &&
             supplierFound.productCategories.length > 0
               ? supplierFound.productCategories
               : Array.isArray(res?.categories) && res.categories.length > 0
-              ? res.categories.map((c: any) => c.name)
+              ? res.categories
               : ["Produce", "General"];
+
+          const categories: string[] = rawCats
+            .map((c: any) =>
+              typeof c === "string"
+                ? c
+                : c?.name || c?.categoryName || (c?.id != null ? `Category ${c.id}` : "")
+            )
+            .filter((c: string): c is string => Boolean(c && typeof c === "string"));
+          if (categories.length === 0) {
+            categories.push("Produce", "General");
+          }
 
           const serviceArea =
             supplierFound.serviceArea ||
             supplierFound.address ||
             "Yerevan";
 
+          const suppPhone = supplierFound.phoneNumber || supplierFound.phone || "—";
+          const suppEmail = supplierFound.email || "—";
+
           const supp: MarketplaceSupplier = {
-            id: supplierFound.id || supplierId,
+            id: String(supplierFound.id || supplierId),
             name: suppName,
             initials,
             logoClassName: "bg-[#dff0e3] text-[#25633e]",
@@ -137,12 +149,12 @@ export default function HorecaSupplierDetailsPage() {
               supplierFound.description ||
               `${suppName} is available to receive orders.`,
             contactName: supplierFound.contactName || suppName,
-            phone: supplierFound.phoneNumber || "—",
-            email: supplierFound.email || "—",
+            phone: suppPhone,
+            email: suppEmail,
             address: supplierFound.address || serviceArea,
-            deliveryWindow: "08:00–14:00",
+            deliveryWindow: "08:00â€“14:00",
             deliveryNote: "Next delivery slot available tomorrow",
-            orderSupplierId: supplierFound.id || supplierId,
+            orderSupplierId: String(supplierFound.id || supplierId),
           };
           setSupplier(supp);
 
@@ -152,12 +164,18 @@ export default function HorecaSupplierDetailsPage() {
             ? res.products.map(mapBackendMarketplaceProduct)
             : [];
 
-          const catalogProds = (catalog || []).filter(
-            (p) =>
-              p.supplierId === supp.id ||
-              p.supplierId?.toLowerCase() === supp.id.toLowerCase() ||
-              (supp.name && p.supplier.toLowerCase() === supp.name.toLowerCase())
-          );
+          const suppIdLower = String(supp.id || "").toLowerCase();
+          const suppNameLower = String(supp.name || "").toLowerCase();
+
+          const catalogProds = (catalog || []).filter((p: any) => {
+            if (!p) return false;
+            const pSuppId = p.supplierId != null ? String(p.supplierId).toLowerCase() : "";
+            const pSuppName = p.supplier != null ? String(p.supplier).toLowerCase() : "";
+            return (
+              (pSuppId && suppIdLower && pSuppId === suppIdLower) ||
+              (pSuppName && suppNameLower && pSuppName === suppNameLower)
+            );
+          });
 
           const combinedProds = [...directProducts];
           for (const cp of catalogProds) {
@@ -168,12 +186,17 @@ export default function HorecaSupplierDetailsPage() {
 
           setSupplierProducts(combinedProds);
 
-          const filteredOrders = (orders || []).filter(
-            (o: any) =>
-              o.supplierId === supp.id ||
-              o.supplierId?.toLowerCase() === supp.id.toLowerCase() ||
-              o.supplierName === supp.name
-          ).slice(0, 3);
+          const filteredOrders = (orders || [])
+            .filter((o: any) => {
+              if (!o) return false;
+              const oSuppId = o.supplierId != null ? String(o.supplierId).toLowerCase() : "";
+              const oSuppName = o.supplierName != null ? String(o.supplierName).toLowerCase() : "";
+              return (
+                (oSuppId && suppIdLower && oSuppId === suppIdLower) ||
+                (oSuppName && suppNameLower && oSuppName === suppNameLower)
+              );
+            })
+            .slice(0, 3);
           setSupplierOrders(filteredOrders);
         } else {
           setSupplier(null);
@@ -223,7 +246,6 @@ export default function HorecaSupplierDetailsPage() {
       </DashboardPageContent>
     );
   }
-
 
   const pagedSupplierProducts = useMemo(() => {
     const start = (productsPage - 1) * productsPageSize;
@@ -313,10 +335,24 @@ export default function HorecaSupplierDetailsPage() {
               {supplier.contactName}
             </p>
             <div className="mt-2 space-y-1 text-sm text-slate-600">
-              <a className="block w-fit hover:text-primary" href={`tel:${supplier.phone.replaceAll(" ", "")}`}>
+              <a
+                className="block w-fit hover:text-primary"
+                href={
+                  supplier.phone && supplier.phone !== "—"
+                    ? `tel:${String(supplier.phone).replace(/\s+/g, "")}`
+                    : "#"
+                }
+              >
                 {supplier.phone}
               </a>
-              <a className="flex w-fit items-center gap-1.5 hover:text-primary" href={`mailto:${supplier.email}`}>
+              <a
+                className="flex w-fit items-center gap-1.5 hover:text-primary"
+                href={
+                  supplier.email && supplier.email !== "—"
+                    ? `mailto:${supplier.email}`
+                    : "#"
+                }
+              >
                 <AtSign className="h-3.5 w-3.5" aria-hidden="true" />
                 {supplier.email}
               </a>
@@ -358,7 +394,20 @@ export default function HorecaSupplierDetailsPage() {
                       <p className="text-sm font-bold leading-5 tracking-tight text-slate-900">
                         {product.title}
                       </p>
-                      <p className="mt-1 truncate text-xs text-slate-500" title={getMarketplaceSellingOptions(product).map(getMarketplaceOptionLabel).join(", ")}>{getMarketplaceSellingOptions(product).map(getMarketplaceOptionLabel).join(" · ")}</p>
+                      <p
+                        className="mt-1 truncate text-xs text-slate-500"
+                        title={
+                          (getMarketplaceSellingOptions(product) || [])
+                            .map(getMarketplaceOptionLabel)
+                            .filter(Boolean)
+                            .join(", ")
+                        }
+                      >
+                        {(getMarketplaceSellingOptions(product) || [])
+                          .map(getMarketplaceOptionLabel)
+                          .filter(Boolean)
+                          .join(" · ") || product.unit || "unit"}
+                      </p>
                       <p className="mt-3 text-sm font-bold text-slate-950 tabular-nums">
                         {formatMarketplacePrice(getMarketplaceProductPrice(product))}
                       </p>
@@ -425,7 +474,8 @@ export default function HorecaSupplierDetailsPage() {
                   <div className="min-w-0">
                     <p className="font-semibold text-slate-950 tabular-nums">{order.id}</p>
                     <p className="mt-1 text-sm text-slate-500">
-                      Placed {formatOrderDate(order.placedAt)} · {order.lines.length} items
+                      Placed {order.placedAt ? formatOrderDate(order.placedAt) : "Recently"} ·{" "}
+                      {(order.lines || order.items || []).length} items
                     </p>
                   </div>
                   <div className="flex w-full items-center justify-between gap-3 sm:w-auto sm:justify-start">
@@ -433,7 +483,15 @@ export default function HorecaSupplierDetailsPage() {
                       {horecaOrderStatusLabels[order.status as keyof typeof horecaOrderStatusLabels] ?? String(order.status)}
                     </span>
                     <span className="text-sm font-bold text-slate-950 tabular-nums">
-                      {formatAmd((order.lines || []).reduce((total: number, line: any) => total + (line.offeredPrice ?? line.price ?? 0) * (line.offeredQuantity ?? line.quantity ?? 1), 0))}
+                      {formatAmd(
+                        ((order.lines || order.items || []) as any[]).reduce(
+                          (total: number, line: any) =>
+                            total +
+                            (line.offeredPrice ?? line.price ?? line.unitPrice ?? 0) *
+                              (line.offeredQuantity ?? line.quantity ?? line.count ?? 1),
+                          0,
+                        ),
+                      )}
                     </span>
                     <ArrowRight className="h-4 w-4 text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-primary" aria-hidden="true" />
                   </div>
@@ -445,6 +503,33 @@ export default function HorecaSupplierDetailsPage() {
           )}
         </section>
       </div>
+    </DashboardPageContent>
+  );
+}
+
+export function ErrorBoundary({ error }: any) {
+  return (
+    <DashboardPageContent>
+      <section className="rounded-3xl border border-red-200 bg-red-50/50 p-6 text-slate-900 sm:p-8">
+        <h1 className="text-xl font-bold text-red-700">Unable to display supplier details</h1>
+        <p className="mt-2 text-sm text-slate-600">
+          An error occurred while loading this supplier. Please try returning to the suppliers directory.
+        </p>
+        {error instanceof Error ? (
+          <p className="mt-3 rounded-xl bg-red-100/60 p-3 font-mono text-xs text-red-800">
+            {error.message}
+          </p>
+        ) : null}
+        <div className="mt-6">
+          <Link
+            to="/horeca/suppliers"
+            className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-content transition hover:brightness-95"
+          >
+            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+            Back to suppliers
+          </Link>
+        </div>
+      </section>
     </DashboardPageContent>
   );
 }
