@@ -202,4 +202,7 @@ export type StoredOrder = {
   status: StoredOrderStatus;
   lines: StoredOrderLine[];
   history: StoredOrderEvent[];
+  totalAmount?: number;
+  totalPrice?: number;
+  finalPrice?: number;
 };

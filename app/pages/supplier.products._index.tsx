@@ -70,8 +70,6 @@ function formatAmd(value: number) {
   }).format(value);
 }
 
-const pageSize = 3;
-
 const importPreviewProducts: ImportPreviewProduct[] = [
   {
     row: 2,
@@ -189,6 +187,7 @@ export default function SupplierProductsPage() {
   );
   const [createdDate, setCreatedDate] = useState("");
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [importStep, setImportStep] = useState<"upload" | "preview">("upload");
@@ -288,7 +287,7 @@ export default function SupplierProductsPage() {
     const lastPage = Math.max(1, Math.ceil(filteredProducts.length / pageSize));
 
     if (page > lastPage) setPage(lastPage);
-  }, [filteredProducts.length, page]);
+  }, [filteredProducts.length, page, pageSize]);
 
   function handleSearchChange(value: string) {
     setSearchValue(value);
@@ -507,6 +506,8 @@ export default function SupplierProductsPage() {
         page={page}
         onPageChange={setPage}
         pageSize={pageSize}
+        onPageSizeChange={setPageSize}
+        pageSizeOptions={[5, 10, 25, 50, 100]}
         totalCount={filteredProducts.length}
         emptyMessage="No products match your search."
       />

@@ -15,6 +15,7 @@ import {
 import { getPromotionProductIds, getPromotionalPrice, getPromotionsForProduct, promotionTypeLabels, type MarketplacePromotion } from "~/entities/promotion";
 import {
   DashboardPageContent,
+  Pagination,
   SearchFilter,
   type SearchFilterDefinition,
   type SearchFilterValue,
@@ -122,6 +123,8 @@ export default function HorecaProductsPage() {
   const [searchParams] = useSearchParams();
   const [searchValue, setSearchValue] = useState("");
   const [products, setProducts] = useState<MarketplaceProduct[]>([]);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [isLoadingProducts, setIsLoadingProducts] = useState(true);
   const [productsError, setProductsError] = useState<string | null>(null);
   const [selectedFilters, setSelectedFilters] = useState<SearchFilterValue[]>(
@@ -221,6 +224,16 @@ export default function HorecaProductsPage() {
       }),
     [normalizedSearchValue, products, selectedFilters, selectedPromotion],
   );
+
+  useEffect(() => {
+    setPage(1);
+  }, [normalizedSearchValue, selectedFilters]);
+
+  const pagedProducts = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return visibleProducts.slice(start, start + pageSize);
+  }, [visibleProducts, page, pageSize]);
+
   const selectedOptions = selectedProduct ? getMarketplaceSellingOptions(selectedProduct) : [];
   const selectedOption = selectedOptions.find((option) => option.id === selectedOptionId) ?? selectedOptions[0];
   const selectedPricePromotion = selectedProduct && selectedOption ? getPromotionalPrice(selectedProduct, selectedOption).promotion : undefined;
@@ -321,18 +334,31 @@ export default function HorecaProductsPage() {
               <p className="mt-1 text-sm text-rose-700">{productsError}</p>
             </div>
           ) : visibleProducts.length > 0 ? (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {visibleProducts.map((product) => (
-                <ProductCard
-                  key={product.id}
-                  product={product}
-                  selectedPackageCount={cartLines
-                    .filter((line) => line.product.id === product.id)
-                    .reduce((total, line) => total + line.quantity, 0)}
-                  onOpen={() => openProductSelector(product)}
+            <>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {pagedProducts.map((product) => (
+                  <ProductCard
+                    key={product.id}
+                    product={product}
+                    selectedPackageCount={cartLines
+                      .filter((line) => line.product.id === product.id)
+                      .reduce((total, line) => total + line.quantity, 0)}
+                    onOpen={() => openProductSelector(product)}
+                  />
+                ))}
+              </div>
+              <div className="mt-6">
+                <Pagination
+                  page={page}
+                  pageSize={pageSize}
+                  totalCount={visibleProducts.length}
+                  onPageChange={setPage}
+                  onPageSizeChange={setPageSize}
+                  pageSizeOptions={[5, 10, 25, 50, 100]}
+                  itemName="products"
                 />
-              ))}
-            </div>
+              </div>
+            </>
           ) : (
             <div className="flex min-h-56 flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-6 text-center">
               <Search className="h-7 w-7 text-slate-400" aria-hidden="true" />

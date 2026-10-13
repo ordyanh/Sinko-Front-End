@@ -464,6 +464,16 @@ export default function PromotionEditor({
   }, [isEditing, promotionId, showToast]);
 
   async function handleStatusChange(nextIsActive: boolean) {
+    if (nextIsActive && (!startDate || !startDate.trim())) {
+      showToast({
+        title: "Activation date required",
+        description: "Please specify an activation start date before activating the promotion.",
+        variant: "error",
+      });
+      setIsActive(false);
+      return;
+    }
+
     setIsActive(nextIsActive);
 
     // Existing promotions save this control immediately. Status is an
@@ -478,6 +488,8 @@ export default function PromotionEditor({
       await saveSupplierPromotion({
         ...existingPromotion,
         status: nextIsActive ? "Active" : "Draft",
+        startDate: startDate || existingPromotion.startDate || todayDateInputValue(),
+        endDate: hasEndDate && endDate ? endDate : existingPromotion.endDate,
         updatedAt: new Date().toISOString(),
       });
       showToast({
@@ -670,39 +682,89 @@ export default function PromotionEditor({
   function handleVisualUpload(event: React.ChangeEvent<HTMLInputElement>) {
     const input = event.currentTarget;
     const file = input.files?.[0];
-    // Clearing the native input lets the supplier choose the same file again
-    // after removing it or after a failed read.
-    input.value = "";
     if (!file) return;
+
     const fileName = file.name.toLowerCase();
     const isJpeg = file.type === "image/jpeg" || file.type === "image/jpg" || /\.jpe?g$/.test(fileName);
     const isPng = file.type === "image/png" || /\.png$/.test(fileName);
     if (!isJpeg && !isPng) {
       setVisualError("Choose a JPG or PNG image.");
+      input.value = "";
       return;
     }
     const mimeType = isPng ? "image/png" : "image/jpeg";
-    if (file.size > 5 * 1024 * 1024) {
-      setVisualError("Use an image smaller than 5 MB.");
+    if (file.size > 10 * 1024 * 1024) {
+      setVisualError("Use an image smaller than 10 MB.");
+      input.value = "";
       return;
     }
     setVisualError("");
+
     const reader = new FileReader();
     reader.onload = () => {
-      const dataUrl = typeof reader.result === "string" ? reader.result : "";
-      if (!dataUrl) {
+      const rawDataUrl = typeof reader.result === "string" ? reader.result : "";
+      if (!rawDataUrl) {
         setVisualError("This image could not be read. Choose another JPG or PNG file.");
+        input.value = "";
         return;
       }
-      setVisualUrl(dataUrl);
-      setBannerImage({
-        dataUrl,
-        fileName: file.name,
-        mimeType,
-      });
+
+      // Resize and compress via canvas to avoid browser memory bloat and tab crashes
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const maxWidth = 1200;
+          const maxHeight = 600;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > maxWidth || height > maxHeight) {
+            const ratio = Math.min(maxWidth / width, maxHeight / height);
+            width = Math.round(width * ratio);
+            height = Math.round(height * ratio);
+          }
+
+          const canvas = document.createElement("canvas");
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            const compressed = canvas.toDataURL(mimeType, 0.85);
+            setVisualUrl(compressed);
+            setBannerImage({
+              dataUrl: compressed,
+              fileName: file.name,
+              mimeType,
+            });
+          } else {
+            setVisualUrl(rawDataUrl);
+            setBannerImage({
+              dataUrl: rawDataUrl,
+              fileName: file.name,
+              mimeType,
+            });
+          }
+        } catch {
+          setVisualUrl(rawDataUrl);
+          setBannerImage({
+            dataUrl: rawDataUrl,
+            fileName: file.name,
+            mimeType,
+          });
+        } finally {
+          input.value = "";
+        }
+      };
+      img.onerror = () => {
+        setVisualError("Failed to render this image. Choose another file.");
+        input.value = "";
+      };
+      img.src = rawDataUrl;
     };
     reader.onerror = () => {
       setVisualError("This image could not be read. Choose another JPG or PNG file.");
+      input.value = "";
     };
     reader.readAsDataURL(file);
   }
@@ -717,6 +779,33 @@ export default function PromotionEditor({
 
     if (!name.trim()) {
       showToast({ title: "Promotion name is required", description: "Enter a name before saving.", variant: "error" });
+      return;
+    }
+
+    if (isActive && (!startDate || !startDate.trim())) {
+      showToast({
+        title: "Activation date required",
+        description: "Please specify an activation start date before activating the promotion.",
+        variant: "error",
+      });
+      return;
+    }
+
+    if (hasEndDate && (!endDate || !endDate.trim())) {
+      showToast({
+        title: "End date required",
+        description: "Please specify an end date or turn off 'Set an end date'.",
+        variant: "error",
+      });
+      return;
+    }
+
+    if (hasEndDate && endDate && startDate && endDate < startDate) {
+      showToast({
+        title: "Invalid date range",
+        description: "End date cannot be earlier than start date.",
+        variant: "error",
+      });
       return;
     }
 

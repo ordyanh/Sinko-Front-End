@@ -55,9 +55,15 @@ type TableLayoutProps<Row> = {
   defaultPage?: number;
   onPageChange?: (page: number) => void;
   pageSize?: number;
+  defaultPageSize?: number;
+  pageSizeOptions?: number[];
+  onPageSizeChange?: (pageSize: number) => void;
+  showPageSizeSelector?: boolean;
   totalCount?: number;
   className?: string;
 };
+
+const DEFAULT_PAGE_SIZE_OPTIONS = [5, 10, 25, 50, 100];
 
 function joinClassNames(...classNames: Array<string | undefined>) {
   return classNames.filter(Boolean).join(" ");
@@ -94,20 +100,27 @@ export default function TableLayout<Row>({
   page,
   defaultPage = 1,
   onPageChange,
-  pageSize = 10,
+  pageSize,
+  defaultPageSize = 10,
+  pageSizeOptions = DEFAULT_PAGE_SIZE_OPTIONS,
+  onPageSizeChange,
+  showPageSizeSelector = true,
   totalCount = rows.length,
   className,
 }: TableLayoutProps<Row>) {
   const [uncontrolledSearchValue, setUncontrolledSearchValue] =
     useState(defaultSearchValue);
   const [uncontrolledPage, setUncontrolledPage] = useState(defaultPage);
+  const [uncontrolledPageSize, setUncontrolledPageSize] =
+    useState(defaultPageSize);
   const navigate = useNavigate();
   const currentSearchValue = searchValue ?? uncontrolledSearchValue;
   const currentPage = page ?? uncontrolledPage;
-  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+  const currentPageSize = pageSize ?? uncontrolledPageSize;
+  const totalPages = Math.max(1, Math.ceil(totalCount / currentPageSize));
   const currentPageStart =
-    totalCount === 0 ? 0 : (currentPage - 1) * pageSize + 1;
-  const currentPageEnd = Math.min(currentPage * pageSize, totalCount);
+    totalCount === 0 ? 0 : (currentPage - 1) * currentPageSize + 1;
+  const currentPageEnd = Math.min(currentPage * currentPageSize, totalCount);
   const columnCount = columns.length + (rowActions.length > 0 ? 1 : 0);
 
   function handleSearchChange(nextValue: string) {
@@ -123,6 +136,18 @@ export default function TableLayout<Row>({
     }
 
     onPageChange?.(clampedPage);
+  }
+
+  function handlePageSizeChange(nextSize: number) {
+    if (pageSize === undefined) {
+      setUncontrolledPageSize(nextSize);
+    }
+    onPageSizeChange?.(nextSize);
+
+    const newTotalPages = Math.max(1, Math.ceil(totalCount / nextSize));
+    if (currentPage > newTotalPages) {
+      changePage(newTotalPages);
+    }
   }
 
   return (
@@ -310,14 +335,37 @@ export default function TableLayout<Row>({
         </div>
 
         <footer className="flex flex-col gap-3 border-t border-slate-200 px-5 py-4 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-6">
-          <p className="text-slate-500">
-            Showing{" "}
-            <span className="font-semibold text-slate-700">
-              {currentPageStart}-{currentPageEnd}
-            </span>{" "}
-            of{" "}
-            <span className="font-semibold text-slate-700">{totalCount}</span>
-          </p>
+          <div className="flex flex-wrap items-center gap-3 text-slate-500">
+            <p>
+              Showing{" "}
+              <span className="font-semibold text-slate-700 tabular-nums">
+                {currentPageStart}-{currentPageEnd}
+              </span>{" "}
+              of{" "}
+              <span className="font-semibold text-slate-700 tabular-nums">{totalCount}</span>
+            </p>
+
+            {showPageSizeSelector && pageSizeOptions.length > 0 ? (
+              <div className="flex items-center gap-1.5 border-l border-slate-200 pl-3">
+                <label htmlFor="table-page-size" className="text-xs font-medium text-slate-500">
+                  Per page:
+                </label>
+                <select
+                  id="table-page-size"
+                  aria-label="Select number of items per page"
+                  value={currentPageSize}
+                  onChange={(e) => handlePageSizeChange(Number(e.target.value))}
+                  className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 focus:border-primary focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/20"
+                >
+                  {pageSizeOptions.map((opt) => (
+                    <option key={opt} value={opt}>
+                      {opt}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
+          </div>
           <div className="flex items-center gap-1">
             <IconButton
               icon={<ChevronLeft aria-hidden="true" />}

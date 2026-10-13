@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Controller, useForm, type SubmitHandler } from "react-hook-form";
 import Button from "~/shared/ui/button";
@@ -38,13 +39,26 @@ export default function EmployeeFormModal({
       role: isSupplier
         ? defaults.role || "Sales Manager"
         : "Purchasing Employee",
-      // Horeca employees do not have a region. This value only maintains the
-      // existing shared employee record shape and is never shown in the form.
       location: isSupplier
         ? defaults.location || yerevanRegionOptions[0]
         : "Not assigned",
     },
   });
+
+  useEffect(() => {
+    if (isOpen) {
+      const currentDefaults = getEmployeeFormDefaults(employee);
+      form.reset({
+        ...currentDefaults,
+        role: isSupplier
+          ? currentDefaults.role || "Sales Manager"
+          : "Purchasing Employee",
+        location: isSupplier
+          ? currentDefaults.location || yerevanRegionOptions[0]
+          : "Not assigned",
+      });
+    }
+  }, [isOpen, employee, isSupplier, form]);
   const {
     control,
     register,

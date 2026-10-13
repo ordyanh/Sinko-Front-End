@@ -43,6 +43,9 @@ export type HorecaOrder = {
   status: HorecaOrderStatus;
   lines: HorecaOrderLine[];
   history: HorecaOrderEvent[];
+  totalAmount?: number;
+  totalPrice?: number;
+  finalPrice?: number;
 };
 
 // Restaurant-facing wording. The stored status is shared with the supplier side,

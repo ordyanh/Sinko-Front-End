@@ -22,6 +22,7 @@ import {
   createOrder as createBackendOrder,
   createMultiSupplierOrder,
   getNotifications,
+  getCart,
   addToCart,
   updateCartQuantity,
   removeFromCart,
@@ -87,6 +88,31 @@ export default function HorecaPage() {
       setCatalogProducts(nextCatalogProducts);
       setAuthUser(user);
       setIsPreparingDashboard(false);
+
+      try {
+        const cartData = await getCart();
+        if (cartData && Array.isArray(cartData.items) && cartData.items.length > 0 && isActive) {
+          const loadedLines: MarketplaceCartLine[] = [];
+          for (const item of cartData.items) {
+            const prod = nextCatalogProducts.find(
+              (p) => String(p.id) === String(item.productId),
+            );
+            if (prod && prod.sellingOptions.length > 0) {
+              const option = prod.sellingOptions[0];
+              loadedLines.push({
+                product: prod,
+                option,
+                quantity: item.quantity,
+              });
+            }
+          }
+          if (loadedLines.length > 0 && isActive) {
+            setCartLines(loadedLines);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load initial cart:", err);
+      }
 
       try {
         const notifs = await getNotifications();
@@ -165,11 +191,25 @@ export default function HorecaPage() {
     const nextQuantity =
       quantity <= 0 ? 0 : Math.max(option.minimumOrderQuantity, quantity);
 
-    const numericProductId = parseInt(String(product.id).replace(/\D/g, ""), 10) || 1;
+    const numericProductId = parseInt(String(product.id).replace(/\D/g, ""), 10);
+    if (!numericProductId || isNaN(numericProductId)) return;
+
+    const isExisting = cartLines.some(
+      (line) => line.product.id === product.id && line.option.id === option.id,
+    );
+
     if (nextQuantity === 0) {
-      removeFromCart(numericProductId).catch(() => {});
+      removeFromCart(numericProductId).catch((err) => {
+        console.error("Failed to remove from cart:", err);
+      });
+    } else if (isExisting) {
+      updateCartQuantity(numericProductId, nextQuantity).catch((err) => {
+        console.error("Failed to update cart quantity:", err);
+      });
     } else {
-      addToCart(numericProductId, nextQuantity).catch(() => {});
+      addToCart(numericProductId, nextQuantity).catch((err) => {
+        console.error("Failed to add to cart:", err);
+      });
     }
 
     setCartLines((currentLines) => {

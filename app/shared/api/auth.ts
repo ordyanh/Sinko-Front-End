@@ -154,6 +154,7 @@ export type UpdateEmployeeRequest = {
   firstName?: string | null;
   lastName?: string | null;
   position?: string | null;
+  phoneNumber?: string | null;
   role?: EmployeeRole;
   status?: EmployeeStatus;
   statusStartDate?: string | null;

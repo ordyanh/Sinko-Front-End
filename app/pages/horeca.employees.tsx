@@ -54,8 +54,6 @@ const columns: TableColumn<HorecaEmployee>[] = [
   },
 ];
 
-const pageSize = 5;
-
 function getHorecaEmployeeSearchFilters(
   employees: HorecaEmployee[],
 ): SearchFilterDefinition[] {
@@ -92,6 +90,7 @@ export default function HorecaEmployeesPage() {
     [],
   );
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [isEmployeeModalOpen, setIsEmployeeModalOpen] = useState(false);
   const [employeeToEdit, setEmployeeToEdit] = useState<HorecaEmployee>();
   const [employeeOnVacation, setEmployeeOnVacation] =
@@ -169,12 +168,21 @@ export default function HorecaEmployeesPage() {
   async function saveEmployee(values: EmployeeFormValues) {
     if (!accountId) return;
 
+    const normalizedEmail = values.email.trim().toLowerCase();
+    const duplicate = employees.find(
+      (e) => e.email.trim().toLowerCase() === normalizedEmail && e.id !== employeeToEdit?.id,
+    );
+    if (duplicate) {
+      window.alert("An employee with this email address already exists.");
+      return;
+    }
+
     const name = `${values.firstName} ${values.lastName}`;
     const employee: HorecaEmployee = {
       id: employeeToEdit?.id ?? createEmployeeId(),
       name,
-      email: values.email,
-      phoneNumber: values.phoneNumber,
+      email: values.email.trim(),
+      phoneNumber: values.phoneNumber?.trim() || undefined,
       role: "Purchasing Employee",
       location: employeeToEdit?.location ?? "Not assigned",
       status: employeeToEdit?.status ?? "Active",
@@ -182,17 +190,22 @@ export default function HorecaEmployeesPage() {
       vacationEndDate: employeeToEdit?.vacationEndDate,
     };
 
-    await saveStoredEmployee({ ...employee, accountId, accountRole: "horeca" });
-    setEmployees((currentEmployees) =>
-      employeeToEdit
-        ? currentEmployees.map((currentEmployee) =>
-            currentEmployee.id === employee.id ? employee : currentEmployee,
-          )
-        : [...currentEmployees, employee],
-    );
-    setPage(1);
-
-    closeEmployeeModal();
+    try {
+      const saved = await saveStoredEmployee({ ...employee, accountId, accountRole: "horeca" });
+      const finalEmployee = saved ? { ...employee, id: saved.id } : employee;
+      setEmployees((currentEmployees) =>
+        employeeToEdit
+          ? currentEmployees.map((currentEmployee) =>
+              currentEmployee.id === employee.id ? finalEmployee : currentEmployee,
+            )
+          : [...currentEmployees.filter((e) => e.email.trim().toLowerCase() !== normalizedEmail), finalEmployee],
+      );
+      setPage(1);
+      closeEmployeeModal();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to save employee.";
+      window.alert(message);
+    }
   }
 
   async function saveVacation({ startDate, endDate }: VacationFormValues) {
@@ -204,10 +217,13 @@ export default function HorecaEmployeesPage() {
       vacationStartDate: startDate,
       vacationEndDate: endDate,
     };
-    await saveStoredEmployee({ ...employee, accountId, accountRole: "horeca" });
+    const saved = await saveStoredEmployee({ ...employee, accountId, accountRole: "horeca" });
+    const finalEmployee = saved ? { ...employee, id: saved.id } : employee;
     setEmployees((currentEmployees) =>
       currentEmployees.map((currentEmployee) =>
-        currentEmployee.id === employee.id ? employee : currentEmployee,
+        currentEmployee.id === employee.id || currentEmployee.id === employeeOnVacation.id
+          ? finalEmployee
+          : currentEmployee,
       ),
     );
     setEmployeeOnVacation(null);
@@ -272,6 +288,8 @@ export default function HorecaEmployeesPage() {
         page={page}
         onPageChange={setPage}
         pageSize={pageSize}
+        onPageSizeChange={setPageSize}
+        pageSizeOptions={[5, 10, 25, 50, 100]}
         totalCount={filteredEmployees.length}
         emptyMessage="No employees match your search."
       />

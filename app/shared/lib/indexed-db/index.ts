@@ -52,9 +52,12 @@ import {
   getMarketplacePromotions,
   getMarketplaceSuppliers,
   getMyClients,
+  getDictionaryCategories,
+  createCustomCategory,
   getEmployeesList,
   createEmployee as createBackendEmployee,
   updateEmployee as updateBackendEmployee,
+  updateEmployeeStatus as updateBackendEmployeeStatus,
   deleteEmployee as deleteBackendEmployee,
   getSupplierProfile as getBackendSupplierProfile,
   saveSupplierProfile as saveBackendSupplierProfile,
@@ -422,14 +425,55 @@ function mapBackendEmployeeToStored(
 export async function getEmployeesForAccount(
   accountId: string,
 ): Promise<StoredEmployee[]> {
+  let localEmployees: StoredEmployee[] = [];
+  try {
+    const database = await openDatabase();
+    const transaction = database.transaction(EMPLOYEES_STORE, "readonly");
+    const store = transaction.objectStore(EMPLOYEES_STORE);
+    const records = (await requestResult(
+      store.index("accountId").getAll(IDBKeyRange.only(accountId)),
+    )) as StoredEmployee[];
+    database.close();
+    localEmployees = records || [];
+  } catch {
+    // ignore
+  }
+
   try {
     const backendEmployees = await getEmployeesList();
     if (Array.isArray(backendEmployees)) {
       const activeUser = await getLoggedInUser();
       const role = activeUser?.role ?? "supplier";
-      const mapped = backendEmployees.map((be) =>
-        mapBackendEmployeeToStored(be, accountId, role),
-      );
+      const localMap = new Map(localEmployees.map((e) => [e.id, e]));
+      const localEmailMap = new Map(localEmployees.map((e) => [e.email.toLowerCase(), e]));
+
+      const mapped = backendEmployees.map((be) => {
+        const item = mapBackendEmployeeToStored(be, accountId, role);
+        const existing = localMap.get(item.id) || localEmailMap.get(item.email.toLowerCase());
+        if (existing) {
+          if (!item.phoneNumber && existing.phoneNumber) {
+            item.phoneNumber = existing.phoneNumber;
+          }
+          if (existing.location && (!item.location || item.location === "Yerevan")) {
+            item.location = existing.location;
+          }
+        }
+        return item;
+      });
+
+      // Save mapped into IndexedDB
+      try {
+        const database = await openDatabase();
+        const transaction = database.transaction(EMPLOYEES_STORE, "readwrite");
+        const store = transaction.objectStore(EMPLOYEES_STORE);
+        for (const emp of mapped) {
+          store.put(emp);
+        }
+        await transactionComplete(transaction);
+        database.close();
+      } catch {
+        // ignore
+      }
 
       return mapped;
     }
@@ -437,7 +481,7 @@ export async function getEmployeesForAccount(
     // fallback
   }
 
-  return [];
+  return localEmployees;
 }
 
 export function createEmployeeId(): string {
@@ -446,43 +490,110 @@ export function createEmployeeId(): string {
   return `employee-${randomId}`;
 }
 
-export async function saveEmployee(employee: StoredEmployee): Promise<void> {
-  try {
-    const names = employee.name.split(" ");
-    const firstName = names[0] || "";
-    const lastName = names.slice(1).join(" ") || "";
+export async function saveEmployee(employee: StoredEmployee): Promise<StoredEmployee> {
+  const originalId = employee.id;
+  const isEditingExisting = !employee.id.startsWith("employee-");
 
-    if (employee.id.startsWith("employee-")) {
-      await createBackendEmployee({
+  const names = employee.name.trim().split(/\s+/);
+  const firstName = names[0] || "";
+  const lastName = names.slice(1).join(" ") || "";
+
+  if (isEditingExisting) {
+    let targetId = employee.id;
+
+    if (targetId.startsWith("employee-")) {
+      try {
+        const backendEmployees = await getEmployeesList();
+        const matched = backendEmployees.find(
+          (be) => be.email && be.email.toLowerCase() === employee.email.toLowerCase(),
+        );
+        if (matched && matched.id) {
+          targetId = matched.id;
+          employee.id = matched.id;
+        }
+      } catch {
+        // ignore lookup error
+      }
+    }
+
+    if (!targetId.startsWith("employee-")) {
+      try {
+        // Update core employee info including phone number
+        await updateBackendEmployee(targetId, {
+          employeeId: targetId,
+          firstName,
+          lastName,
+          role: employee.role as any,
+          position: employee.role,
+          phoneNumber: employee.phoneNumber || undefined,
+          status: employee.status === "On vacation" ? "OnVacation" : "Active",
+          statusStartDate: employee.vacationStartDate
+            ? new Date(employee.vacationStartDate).toISOString()
+            : null,
+          statusEndDate: employee.vacationEndDate
+            ? new Date(employee.vacationEndDate).toISOString()
+            : null,
+        });
+
+        if (employee.status === "On vacation" || Boolean(employee.vacationStartDate)) {
+          await updateBackendEmployeeStatus(targetId, {
+            employeeId: targetId,
+            status: "OnVacation",
+            statusStartDate: employee.vacationStartDate
+              ? new Date(employee.vacationStartDate).toISOString()
+              : null,
+            statusEndDate: employee.vacationEndDate
+              ? new Date(employee.vacationEndDate).toISOString()
+              : null,
+          });
+        }
+      } catch (backendError) {
+        console.warn("Backend employee update error:", backendError);
+      }
+    }
+  } else {
+    // Genuinely new employee creation
+    try {
+      const res = (await createBackendEmployee({
         employeeName: employee.name,
         firstName,
         lastName,
         email: employee.email,
-        phoneNumber: employee.phoneNumber,
+        phoneNumber: employee.phoneNumber || undefined,
         role: employee.role as any,
         position: employee.role,
         organizationId: employee.accountId,
-      });
-    } else {
-      await updateBackendEmployee(employee.id, {
-        employeeId: employee.id,
-        firstName,
-        lastName,
-        role: employee.role as any,
-        status: employee.status === "On vacation" ? "OnVacation" : "Active",
-        statusStartDate: employee.vacationStartDate,
-        statusEndDate: employee.vacationEndDate,
-      });
+      })) as any;
+
+      const newId = res?.employeeId ?? res?.id;
+      if (newId) {
+        employee.id = newId;
+      }
+    } catch (err: any) {
+      console.error("Backend create employee error:", err);
+      const msg = err?.message || String(err);
+      if (msg.includes("ALREADY_EXISTS") || msg.toLowerCase().includes("already exists")) {
+        throw new Error("An employee with this email address already exists.");
+      }
+      throw err;
     }
-  } catch {
-    // Keep local persistence working
   }
 
-  const database = await openDatabase();
-  const transaction = database.transaction(EMPLOYEES_STORE, "readwrite");
-  transaction.objectStore(EMPLOYEES_STORE).put(employee);
-  await transactionComplete(transaction);
-  database.close();
+  try {
+    const database = await openDatabase();
+    const transaction = database.transaction(EMPLOYEES_STORE, "readwrite");
+    const store = transaction.objectStore(EMPLOYEES_STORE);
+    if (originalId !== employee.id) {
+      store.delete(originalId);
+    }
+    store.put(employee);
+    await transactionComplete(transaction);
+    database.close();
+  } catch {
+    // ignore
+  }
+
+  return employee;
 }
 
 export async function deleteEmployee(
@@ -521,12 +632,37 @@ export async function getSupplierCategories(
   const database = await openDatabase();
   const transaction = database.transaction(
     SUPPLIER_CATEGORIES_STORE,
-    "readonly",
+    "readwrite",
   );
-  const categories = transaction.objectStore(SUPPLIER_CATEGORIES_STORE);
+  const store = transaction.objectStore(SUPPLIER_CATEGORIES_STORE);
   const records = (await requestResult(
-    categories.index("accountId").getAll(IDBKeyRange.only(accountId)),
+    store.index("accountId").getAll(IDBKeyRange.only(accountId)),
   )) as StoredSupplierCategory[];
+
+  // Also fetch dictionary categories from backend and sync into local store
+  try {
+    const dictCats = await getDictionaryCategories();
+    for (const dictCat of dictCats) {
+      const existing = records.find(
+        (r) =>
+          r.id === String(dictCat.id) ||
+          r.name.toLowerCase() === dictCat.name.toLowerCase(),
+      );
+      if (!existing) {
+        const newCat: StoredSupplierCategory = {
+          id: String(dictCat.id),
+          accountId,
+          name: dictCat.name,
+        };
+        records.push(newCat);
+        store.put(newCat);
+      }
+    }
+  } catch {
+    // fallback to local records
+  }
+
+  await transactionComplete(transaction);
   database.close();
 
   return records.sort((first, second) => first.name.localeCompare(second.name));
@@ -548,8 +684,19 @@ export async function createSupplierCategory(
   );
   if (existingCategory) return existingCategory;
 
+  let assignedId: string = `supplier-category-${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`}`;
+
+  try {
+    const res = await createCustomCategory(normalizedName, accountId);
+    if (res && res.id) {
+      assignedId = String(res.id);
+    }
+  } catch (err) {
+    console.warn("Could not register category on backend, using local id:", err);
+  }
+
   const category: StoredSupplierCategory = {
-    id: `supplier-category-${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`}`,
+    id: assignedId,
     accountId,
     name: normalizedName,
   };
@@ -650,10 +797,17 @@ function mapBackendProductToStored(
     String(bp.status) === "1" ||
     String(bp.status).toLowerCase() === "active";
 
+  const resolvedName =
+    bp.name ||
+    (bp as any).Name ||
+    (bp.names ? Object.values(bp.names)[0] : "") ||
+    bp.code ||
+    "Product";
+
   return {
     id: String(bp.id),
     accountId: bp.supplierId || accountId,
-    name: bp.name || (bp.names ? Object.values(bp.names)[0] : "Product"),
+    name: resolvedName,
     description: bp.description || "",
     categoryIds: bp.categoryId ? [String(bp.categoryId)] : [],
     code: bp.code || undefined,
@@ -697,12 +851,78 @@ export function createSupplierProductId(): string {
 export async function getSupplierProducts(
   accountId: string,
 ): Promise<StoredSupplierProduct[]> {
+  let localProducts: StoredSupplierProduct[] = [];
+  try {
+    const database = await openDatabase();
+    const transaction = database.transaction(
+      SUPPLIER_PRODUCTS_STORE,
+      "readonly",
+    );
+    const store = transaction.objectStore(SUPPLIER_PRODUCTS_STORE);
+    const records = (await requestResult(store.getAll())) as StoredSupplierProduct[];
+    database.close();
+    localProducts = (records || []).filter((p) => p.accountId === accountId);
+  } catch {
+    // ignore
+  }
+
+  const localMapById = new Map(localProducts.map((p) => [p.id, p]));
+  const localMapByCode = new Map(
+    localProducts.filter((p) => p.code).map((p) => [p.code!.toLowerCase(), p]),
+  );
+
   try {
     const backendProducts = await getSupplierCatalog();
     if (Array.isArray(backendProducts)) {
-      const mapped = backendProducts.map((p) =>
-        mapBackendProductToStored(p, accountId),
-      );
+      const mapped = backendProducts.map((p) => {
+        const stored = mapBackendProductToStored(p, accountId);
+        const existing =
+          localMapById.get(stored.id) ||
+          (stored.code ? localMapByCode.get(stored.code.toLowerCase()) : undefined);
+
+        if (existing) {
+          if (
+            (!stored.name || stored.name === "Product" || stored.name === stored.code) &&
+            existing.name &&
+            existing.name !== existing.code
+          ) {
+            stored.name = existing.name;
+          }
+          if (
+            (!stored.categoryIds || stored.categoryIds.length === 0) &&
+            existing.categoryIds?.length
+          ) {
+            stored.categoryIds = existing.categoryIds;
+          }
+          if (existing.description && !stored.description) {
+            stored.description = existing.description;
+          }
+          // Preserve local rich options like piecesPerPackage or compareAtPrice
+          if (existing.sellingOptions?.length && stored.sellingOptions?.length) {
+            stored.sellingOptions = stored.sellingOptions.map((sOpt, idx) => {
+              const matchedLocal = existing.sellingOptions[idx] || existing.sellingOptions.find((e) => e.id === sOpt.id);
+              if (matchedLocal) {
+                return {
+                  ...sOpt,
+                  piecesPerPackage: matchedLocal.piecesPerPackage ?? sOpt.piecesPerPackage,
+                  customUnit: matchedLocal.customUnit ?? sOpt.customUnit,
+                  compareAtPrice: matchedLocal.compareAtPrice ?? sOpt.compareAtPrice,
+                };
+              }
+              return sOpt;
+            });
+          }
+        }
+        return stored;
+      });
+
+      // Retain local products not yet synced to backend
+      const mappedIds = new Set(mapped.map((p) => p.id));
+      for (const local of localProducts) {
+        if (!mappedIds.has(local.id)) {
+          mapped.push(local);
+        }
+      }
 
       // Cache in IndexedDB
       const database = await openDatabase();
@@ -725,23 +945,74 @@ export async function getSupplierProducts(
     // fallback
   }
 
-  return [];
+  return localProducts;
 }
 
 export async function getSupplierProduct(
   accountId: string,
   productId: string,
 ): Promise<StoredSupplierProduct | null> {
+  let localProduct: StoredSupplierProduct | null = null;
+  try {
+    const database = await openDatabase();
+    const transaction = database.transaction(
+      SUPPLIER_PRODUCTS_STORE,
+      "readonly",
+    );
+    const found = await requestResult(
+      transaction.objectStore(SUPPLIER_PRODUCTS_STORE).get(productId),
+    );
+    database.close();
+    if (found) {
+      localProduct = found as StoredSupplierProduct;
+    }
+  } catch {
+    // ignore
+  }
+
   try {
     const backendProduct = await getProductById(productId);
     if (backendProduct) {
-      return mapBackendProductToStored(backendProduct, accountId);
+      const mapped = mapBackendProductToStored(backendProduct, accountId);
+      if (localProduct) {
+        if (
+          (!mapped.name || mapped.name === "Product" || mapped.name === mapped.code) &&
+          localProduct.name &&
+          localProduct.name !== localProduct.code
+        ) {
+          mapped.name = localProduct.name;
+        }
+        if (
+          (!mapped.categoryIds || mapped.categoryIds.length === 0) &&
+          localProduct.categoryIds?.length
+        ) {
+          mapped.categoryIds = localProduct.categoryIds;
+        }
+        if (localProduct.description && !mapped.description) {
+          mapped.description = localProduct.description;
+        }
+        if (localProduct.sellingOptions?.length && mapped.sellingOptions?.length) {
+          mapped.sellingOptions = mapped.sellingOptions.map((mOpt, idx) => {
+            const matchedLocal = localProduct!.sellingOptions[idx] || localProduct!.sellingOptions.find((e) => e.id === mOpt.id);
+            if (matchedLocal) {
+              return {
+                ...mOpt,
+                piecesPerPackage: matchedLocal.piecesPerPackage ?? mOpt.piecesPerPackage,
+                customUnit: matchedLocal.customUnit ?? mOpt.customUnit,
+                compareAtPrice: matchedLocal.compareAtPrice ?? mOpt.compareAtPrice,
+              };
+            }
+            return mOpt;
+          });
+        }
+      }
+      return mapped;
     }
   } catch {
     // fallback
   }
 
-  return null;
+  return localProduct;
 }
 
 export async function saveSupplierProduct(
@@ -753,10 +1024,29 @@ export async function saveSupplierProduct(
     String(product.id).startsWith("product-") || isNaN(rawId) || rawId <= 0;
   const numericId = isLocalId ? null : rawId;
 
-  const rawCat = product.categoryIds[0]
-    ? parseInt(String(product.categoryIds[0]).replace(/\D/g, ""), 10)
-    : null;
-  const categoryId = rawCat && !isNaN(rawCat) && rawCat > 0 && rawCat <= 2147483647 ? rawCat : 16;
+  let categoryId = 16;
+  if (product.categoryIds && product.categoryIds.length > 0) {
+    const rawCat = product.categoryIds[0];
+    const parsedNum = parseInt(String(rawCat).replace(/\D/g, ""), 10);
+    if (!isNaN(parsedNum) && parsedNum > 0 && parsedNum <= 2147483647) {
+      categoryId = parsedNum;
+    } else {
+      try {
+        const cats = await getSupplierCategories(product.accountId);
+        const match = cats.find(
+          (c) => c.id === rawCat || c.name.toLowerCase() === String(rawCat).toLowerCase(),
+        );
+        if (match) {
+          const matchNum = parseInt(String(match.id).replace(/\D/g, ""), 10);
+          if (!isNaN(matchNum) && matchNum > 0) {
+            categoryId = matchNum;
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }
+  }
 
   const rawPrice = Number(primaryOption?.price ?? 0);
   const basePrice = !isNaN(rawPrice) && rawPrice > 0 ? rawPrice : 1;
@@ -768,11 +1058,13 @@ export async function saveSupplierProduct(
   // Backend Sinko.DAL.Enums.ProductStatus: Active = 1, Inactive = 2
   const status = product.status === "Active" ? "Active" : "Inactive";
   const unit = mapUnitTypeToBackend(primaryOption?.unitType);
+  const oldId = product.id;
 
   try {
     const upsertRes = await upsertProduct({
       id: numericId,
       code,
+      name: product.name.trim(),
       names: { "1": product.name.trim() || "Product" },
       unit,
       basePrice,
@@ -788,13 +1080,19 @@ export async function saveSupplierProduct(
         ? `${primaryOption.quantity} ${primaryOption.unitType}`
         : null,
       sellingOptions: product.sellingOptions.map((opt) => ({
-        id: typeof opt.id === "number" ? opt.id : undefined,
-        name: `${opt.quantity} ${opt.unitType}`,
+        id: typeof opt.id === "number" ? opt.id : (opt.id && !String(opt.id).startsWith("option-") && !isNaN(Number(opt.id)) ? Number(opt.id) : undefined),
+        name: `${opt.quantity} ${opt.customUnit?.trim() || opt.unitType}`,
         quantity: opt.quantity,
         unitType: opt.unitType,
         price: opt.price,
         unitPrice: opt.price,
-        packageCount: opt.quantity,
+        packageCount: opt.piecesPerPackage ? Number(opt.piecesPerPackage) : opt.quantity,
+        individualPrices: Array.isArray(opt.companyPrices)
+          ? opt.companyPrices.map((cp) => ({
+              companyId: cp.resourceId,
+              price: cp.individualPrice,
+            }))
+          : [],
       })),
     });
 
@@ -811,7 +1109,11 @@ export async function saveSupplierProduct(
     SUPPLIER_PRODUCTS_STORE,
     "readwrite",
   );
-  transaction.objectStore(SUPPLIER_PRODUCTS_STORE).put(product);
+  const store = transaction.objectStore(SUPPLIER_PRODUCTS_STORE);
+  if (oldId !== product.id) {
+    store.delete(oldId);
+  }
+  store.put(product);
   await transactionComplete(transaction);
   database.close();
 }
@@ -904,12 +1206,56 @@ export function createSupplierPromotionId(): string {
 export async function getSupplierPromotions(
   accountId: string,
 ): Promise<StoredSupplierPromotion[]> {
+  let localPromotions: StoredSupplierPromotion[] = [];
+  try {
+    const database = await openDatabase();
+    const transaction = database.transaction(SUPPLIER_PROMOTIONS_STORE, "readonly");
+    const store = transaction.objectStore(SUPPLIER_PROMOTIONS_STORE);
+    const all = (await requestResult(store.getAll())) as StoredSupplierPromotion[];
+    database.close();
+    localPromotions = (all || []).filter((p) => p.accountId === accountId);
+  } catch {
+    // ignore
+  }
+
+  const localMap = new Map(localPromotions.map((p) => [p.id, p]));
+
   try {
     const backendPromos = await getBackendSupplierPromotions();
     if (Array.isArray(backendPromos)) {
-      const mapped = backendPromos.map((p) =>
-        mapBackendPromotionToStored(p, accountId),
-      );
+      const mapped = backendPromos.map((p) => {
+        const base = mapBackendPromotionToStored(p, accountId);
+        const existing = localMap.get(base.id);
+        if (existing) {
+          return {
+            ...base,
+            discountOptionKeys:
+              existing.discountOptionKeys?.length
+                ? existing.discountOptionKeys
+                : base.discountOptionKeys,
+            fixedPrices:
+              existing.fixedPrices && Object.keys(existing.fixedPrices).length > 0
+                ? existing.fixedPrices
+                : base.fixedPrices,
+            discountScope: existing.discountScope ?? base.discountScope,
+            triggerOptionId: existing.triggerOptionId ?? base.triggerOptionId,
+            targetOptionId: existing.targetOptionId ?? base.targetOptionId,
+            giftChoices:
+              existing.giftChoices?.length ? existing.giftChoices : base.giftChoices,
+            bannerImage: existing.bannerImage ?? base.bannerImage,
+            visualUrl: existing.bannerImage?.dataUrl || existing.visualUrl,
+          };
+        }
+        return base;
+      });
+
+      // Retain local promotions that are not yet on backend
+      const mappedIds = new Set(mapped.map((p) => p.id));
+      for (const local of localPromotions) {
+        if (!mappedIds.has(local.id)) {
+          mapped.push(local);
+        }
+      }
 
       const database = await openDatabase();
       const transaction = database.transaction(
@@ -931,17 +1277,37 @@ export async function getSupplierPromotions(
     // fallback
   }
 
-  return [];
+  return localPromotions;
 }
 
 export async function getSupplierPromotion(
   accountId: string,
   promotionId: string,
 ): Promise<StoredSupplierPromotion | null> {
+  // First look in local IndexedDB to preserve rich form fields
+  try {
+    const database = await openDatabase();
+    const transaction = database.transaction(
+      SUPPLIER_PROMOTIONS_STORE,
+      "readonly",
+    );
+    const store = transaction.objectStore(SUPPLIER_PROMOTIONS_STORE);
+    const existing = (await requestResult(
+      store.get(promotionId),
+    )) as StoredSupplierPromotion | undefined;
+    database.close();
+    if (existing && existing.accountId === accountId) {
+      return existing;
+    }
+  } catch {
+    // fallback
+  }
+
   const promotions = await getSupplierPromotions(accountId);
   return (
-    promotions.find((promo) => promo.id === promotionId && promo.accountId === accountId) ??
-    null
+    promotions.find(
+      (promo) => promo.id === promotionId && promo.accountId === accountId,
+    ) ?? null
   );
 }
 
@@ -1264,20 +1630,38 @@ function mapBackendOrderToStored(
       contactPhone: bo.contactPhone || bo.clientPhoneNumber || "",
     },
     status: storedStatus,
-    lines: rawLines.map((l: any) => ({
-      id: String(l.sellingOptionId ? `${l.productId}-${l.sellingOptionId}` : `line-${l.productId}`),
-      productId: String(l.productId),
-      sellingOptionId: l.sellingOptionId,
-      name: l.productName || l.name || "Product",
-      image: l.imageUrl || l.image || "",
-      unit: l.unitDisplay || l.unitName || (typeof l.unit === "string" ? l.unit : "Piece"),
-      minimumOrderQuantity: 1,
-      requestedQuantity: Number(l.quantity ?? l.count ?? 1),
-      requestedPrice: Number(l.unitPrice ?? l.finalPrice ?? l.basePrice ?? 0),
-      offeredQuantity: Number(l.quantity ?? l.count ?? 1),
-      offeredPrice: Number(l.unitPrice ?? l.finalPrice ?? l.basePrice ?? 0),
-      comment: l.comment || "",
-    })),
+    lines: rawLines.map((l: any) => {
+      const qty = Number(l.quantity ?? l.count ?? 1);
+      const rawFinalPrice = l.finalPrice ?? l.FinalPrice;
+      const rawBasePrice = l.basePrice ?? l.BasePrice;
+      const rawUnitPrice = l.unitPrice ?? l.UnitPrice ?? l.price ?? l.Price;
+
+      let unitPrice = 0;
+      if (rawUnitPrice !== undefined && rawUnitPrice !== null) {
+        unitPrice = Number(rawUnitPrice);
+      } else if (rawFinalPrice !== undefined && rawFinalPrice !== null && qty > 0) {
+        unitPrice = Number(rawFinalPrice) / qty;
+      } else if (rawBasePrice !== undefined && rawBasePrice !== null) {
+        unitPrice = Number(rawBasePrice);
+      }
+
+      const basePrice = Number(rawBasePrice ?? rawUnitPrice ?? unitPrice);
+
+      return {
+        id: String(l.sellingOptionId ? `${l.productId}-${l.sellingOptionId}` : `line-${l.productId}`),
+        productId: String(l.productId),
+        sellingOptionId: l.sellingOptionId,
+        name: l.productName || l.name || "Product",
+        image: l.imageUrl || l.image || "",
+        unit: l.unitDisplay || l.unitName || (typeof l.unit === "string" ? l.unit : "Piece"),
+        minimumOrderQuantity: 1,
+        requestedQuantity: qty,
+        requestedPrice: basePrice > 0 ? basePrice : unitPrice,
+        offeredQuantity: qty,
+        offeredPrice: unitPrice > 0 ? unitPrice : basePrice,
+        comment: l.comment || "",
+      };
+    }),
     history: Array.isArray(bo.events)
       ? bo.events.map((e) => ({
           id: e.id || String(Date.now()),
@@ -1293,6 +1677,9 @@ function mapBackendOrderToStored(
             date: bo.placedAt || bo.creationDate || new Date().toISOString(),
           },
         ],
+    totalAmount: Number(bo.finalPrice ?? bo.totalPrice ?? bo.totalAmount ?? 0),
+    totalPrice: Number(bo.totalPrice ?? bo.finalPrice ?? bo.totalAmount ?? 0),
+    finalPrice: Number(bo.finalPrice ?? bo.totalPrice ?? bo.totalAmount ?? 0),
   };
 }
 
@@ -1443,10 +1830,34 @@ export async function getOrderForHoreca(
   orderId: string,
 ): Promise<StoredOrder | null> {
   try {
-    const bo = await getSupplierOrderById(orderId);
-    if (bo) return mapBackendOrderToStored(bo, accountId);
+    const bo = await getHorecaOrderById(orderId);
+    if (bo) {
+      const stored = mapBackendOrderToStored(bo, accountId);
+      try {
+        const database = await openDatabase();
+        const transaction = database.transaction(ORDERS_STORE, "readwrite");
+        const store = transaction.objectStore(ORDERS_STORE);
+        store.put(stored);
+        await transactionComplete(transaction);
+        database.close();
+      } catch {
+        // ignore
+      }
+      return stored;
+    }
   } catch {
     // fallback
+  }
+
+  try {
+    const database = await openDatabase();
+    const transaction = database.transaction(ORDERS_STORE, "readonly");
+    const store = transaction.objectStore(ORDERS_STORE);
+    const existing = (await requestResult(store.get(orderId))) as StoredOrder | undefined;
+    database.close();
+    if (existing) return existing;
+  } catch {
+    // ignore
   }
 
   return null;

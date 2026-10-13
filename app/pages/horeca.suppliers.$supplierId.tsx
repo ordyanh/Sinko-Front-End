@@ -9,7 +9,7 @@ import {
   ReceiptText,
   Tag,
 } from "lucide-react";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link, useParams } from "react-router";
 import {
   formatAmd,
@@ -34,7 +34,7 @@ import {
   getHorecaOrders as getBackendHorecaOrders,
 } from "~/shared/api";
 import { getVisibleSupplierPromotions, PromotionCard } from "~/entities/promotion";
-import { DashboardPageContent } from "~/shared/ui";
+import { DashboardPageContent, Pagination } from "~/shared/ui";
 
 function DetailLink({
   to,
@@ -58,6 +58,8 @@ export default function HorecaSupplierDetailsPage() {
   const { supplierId = "" } = useParams();
   const [supplier, setSupplier] = useState<MarketplaceSupplier | null>(null);
   const [supplierProducts, setSupplierProducts] = useState<MarketplaceProduct[]>([]);
+  const [productsPage, setProductsPage] = useState(1);
+  const [productsPageSize, setProductsPageSize] = useState(10);
   const [supplierOrders, setSupplierOrders] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -223,6 +225,11 @@ export default function HorecaSupplierDetailsPage() {
   }
 
 
+  const pagedSupplierProducts = useMemo(() => {
+    const start = (productsPage - 1) * productsPageSize;
+    return supplierProducts.slice(start, start + productsPageSize);
+  }, [supplierProducts, productsPage, productsPageSize]);
+
   const supplierPromotions = getVisibleSupplierPromotions(supplier.name);
   const productsHref = `/horeca/products?supplier=${encodeURIComponent(supplier.name)}`;
   const ordersHref = `/horeca/orders?supplier=${encodeURIComponent(supplier.name)}`;
@@ -332,32 +339,45 @@ export default function HorecaSupplierDetailsPage() {
           </div>
 
           {supplierProducts.length > 0 ? (
-            <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {supplierProducts.map((product) => (
-                <Link
-                  key={product.id}
-                  to={`/horeca/products/${product.id}`}
-                  className="group flex min-w-0 gap-3 rounded-2xl border border-slate-200 p-3 transition hover:border-primary/30 hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-                >
-                  {product.image ? (
-                    <img src={product.image} onError={(e) => { e.currentTarget.style.display = "none"; }} alt="" className="h-20 w-20 shrink-0 rounded-xl object-cover" />
-                  ) : (
-                    <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-400">
-                      <Package className="h-8 w-8 text-slate-300" aria-hidden="true" />
+            <>
+              <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {pagedSupplierProducts.map((product) => (
+                  <Link
+                    key={product.id}
+                    to={`/horeca/products/${product.id}`}
+                    className="group flex min-w-0 gap-3 rounded-2xl border border-slate-200 p-3 transition hover:border-primary/30 hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                  >
+                    {product.image ? (
+                      <img src={product.image} onError={(e) => { e.currentTarget.style.display = "none"; }} alt="" className="h-20 w-20 shrink-0 rounded-xl object-cover" />
+                    ) : (
+                      <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-400">
+                        <Package className="h-8 w-8 text-slate-300" aria-hidden="true" />
+                      </div>
+                    )}
+                    <div className="min-w-0 py-0.5">
+                      <p className="text-sm font-bold leading-5 tracking-tight text-slate-900">
+                        {product.title}
+                      </p>
+                      <p className="mt-1 truncate text-xs text-slate-500" title={getMarketplaceSellingOptions(product).map(getMarketplaceOptionLabel).join(", ")}>{getMarketplaceSellingOptions(product).map(getMarketplaceOptionLabel).join(" · ")}</p>
+                      <p className="mt-3 text-sm font-bold text-slate-950 tabular-nums">
+                        {formatMarketplacePrice(getMarketplaceProductPrice(product))}
+                      </p>
                     </div>
-                  )}
-                  <div className="min-w-0 py-0.5">
-                    <p className="text-sm font-bold leading-5 tracking-tight text-slate-900">
-                      {product.title}
-                    </p>
-                    <p className="mt-1 truncate text-xs text-slate-500" title={getMarketplaceSellingOptions(product).map(getMarketplaceOptionLabel).join(", ")}>{getMarketplaceSellingOptions(product).map(getMarketplaceOptionLabel).join(" · ")}</p>
-                    <p className="mt-3 text-sm font-bold text-slate-950 tabular-nums">
-                      {formatMarketplacePrice(getMarketplaceProductPrice(product))}
-                    </p>
-                  </div>
-                </Link>
-              ))}
-            </div>
+                  </Link>
+                ))}
+              </div>
+              <div className="mt-5">
+                <Pagination
+                  page={productsPage}
+                  pageSize={productsPageSize}
+                  totalCount={supplierProducts.length}
+                  onPageChange={setProductsPage}
+                  onPageSizeChange={setProductsPageSize}
+                  pageSizeOptions={[5, 10, 25, 50, 100]}
+                  itemName="products"
+                />
+              </div>
+            </>
           ) : (
             <p className="mt-5 text-sm text-slate-500">No products are listed yet.</p>
           )}

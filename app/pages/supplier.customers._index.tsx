@@ -14,8 +14,6 @@ import {
   type SearchFilterValue,
 } from "~/shared/ui";
 
-const pageSize = 5;
-
 type SupplierCustomer = {
   id: string;
   companyName: string;
@@ -79,6 +77,7 @@ export default function SupplierCustomersPage() {
     [],
   );
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const customerSearchFilters = useMemo<SearchFilterDefinition[]>(
     () => [
       {
@@ -228,6 +227,8 @@ export default function SupplierCustomersPage() {
         page={page}
         onPageChange={setPage}
         pageSize={pageSize}
+        onPageSizeChange={setPageSize}
+        pageSizeOptions={[5, 10, 25, 50, 100]}
         totalCount={filteredCustomers.length}
         emptyMessage="No HORECA customers match your search."
       />

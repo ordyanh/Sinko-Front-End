@@ -61,8 +61,6 @@ function promotionFromStored(promotion: StoredSupplierPromotion): Promotion {
   };
 }
 
-const pageSize = 5;
-
 const promotionTypeLabels: Record<PromotionType, string> = {
   FixedPrice: "Fixed price",
   Percentage: "Percentage discount",
@@ -170,6 +168,7 @@ export default function SupplierPromotionsPage() {
     [],
   );
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [isTypeModalOpen, setIsTypeModalOpen] = useState(false);
   const [selectedPromotionType, setSelectedPromotionType] =
     useState<"discount" | "buy-x-get-y" | null>(null);
@@ -268,6 +267,8 @@ export default function SupplierPromotionsPage() {
         page={page}
         onPageChange={setPage}
         pageSize={pageSize}
+        onPageSizeChange={setPageSize}
+        pageSizeOptions={[5, 10, 25, 50, 100]}
         totalCount={filteredPromotions.length}
         emptyMessage="No promotions match your search."
       />

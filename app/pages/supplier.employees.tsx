@@ -56,8 +56,6 @@ const columns: TableColumn<SupplierEmployee>[] = [
   },
 ];
 
-const pageSize = 5;
-
 function getSupplierEmployeeSearchFilters(
   employees: SupplierEmployee[],
 ): SearchFilterDefinition[] {
@@ -95,6 +93,7 @@ export default function SupplierEmployeesPage() {
     [],
   );
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [isEmployeeModalOpen, setIsEmployeeModalOpen] = useState(false);
   const [employeeToEdit, setEmployeeToEdit] = useState<SupplierEmployee>();
   const [employeeOnVacation, setEmployeeOnVacation] =
@@ -183,12 +182,21 @@ export default function SupplierEmployeesPage() {
   async function saveEmployee(values: EmployeeFormValues) {
     if (!accountId) return;
 
+    const normalizedEmail = values.email.trim().toLowerCase();
+    const duplicate = employees.find(
+      (e) => e.email.trim().toLowerCase() === normalizedEmail && e.id !== employeeToEdit?.id,
+    );
+    if (duplicate) {
+      window.alert("An employee with this email address already exists.");
+      return;
+    }
+
     const name = `${values.firstName} ${values.lastName}`;
     const employee: SupplierEmployee = {
       id: employeeToEdit?.id ?? createEmployeeId(),
       name,
-      email: values.email,
-      phoneNumber: values.phoneNumber,
+      email: values.email.trim(),
+      phoneNumber: values.phoneNumber?.trim() || undefined,
       role: values.role,
       location: values.location,
       status: employeeToEdit?.status ?? "Active",
@@ -196,17 +204,22 @@ export default function SupplierEmployeesPage() {
       vacationEndDate: employeeToEdit?.vacationEndDate,
     };
 
-    await saveStoredEmployee({ ...employee, accountId, accountRole: "supplier" });
-    setEmployees((currentEmployees) =>
-      employeeToEdit
-        ? currentEmployees.map((currentEmployee) =>
-            currentEmployee.id === employee.id ? employee : currentEmployee,
-          )
-        : [...currentEmployees, employee],
-    );
-    setPage(1);
-
-    closeEmployeeModal();
+    try {
+      const saved = await saveStoredEmployee({ ...employee, accountId, accountRole: "supplier" });
+      const finalEmployee = saved ? { ...employee, id: saved.id } : employee;
+      setEmployees((currentEmployees) =>
+        employeeToEdit
+          ? currentEmployees.map((currentEmployee) =>
+              currentEmployee.id === employee.id ? finalEmployee : currentEmployee,
+            )
+          : [...currentEmployees.filter((e) => e.email.trim().toLowerCase() !== normalizedEmail), finalEmployee],
+      );
+      setPage(1);
+      closeEmployeeModal();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to save employee.";
+      window.alert(message);
+    }
   }
 
   async function saveVacation({ startDate, endDate }: VacationFormValues) {
@@ -218,10 +231,13 @@ export default function SupplierEmployeesPage() {
       vacationStartDate: startDate,
       vacationEndDate: endDate,
     };
-    await saveStoredEmployee({ ...employee, accountId, accountRole: "supplier" });
+    const saved = await saveStoredEmployee({ ...employee, accountId, accountRole: "supplier" });
+    const finalEmployee = saved ? { ...employee, id: saved.id } : employee;
     setEmployees((currentEmployees) =>
       currentEmployees.map((currentEmployee) =>
-        currentEmployee.id === employee.id ? employee : currentEmployee,
+        currentEmployee.id === employee.id || currentEmployee.id === employeeOnVacation.id
+          ? finalEmployee
+          : currentEmployee,
       ),
     );
     setEmployeeOnVacation(null);
@@ -286,6 +302,8 @@ export default function SupplierEmployeesPage() {
         page={page}
         onPageChange={setPage}
         pageSize={pageSize}
+        onPageSizeChange={setPageSize}
+        pageSizeOptions={[5, 10, 25, 50, 100]}
         totalCount={filteredEmployees.length}
         emptyMessage="No employees match your search."
       />

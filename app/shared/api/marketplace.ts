@@ -60,6 +60,8 @@ export type MarketplaceProductFilter = {
   maxPrice?: number;
   inStock?: boolean;
   langId?: number;
+  pageNumber?: number;
+  pageSize?: number;
 };
 
 export type MarketplaceStaticInfo = {
@@ -77,9 +79,21 @@ function extractArray<T>(res: any): T[] {
   return [];
 }
 
-export async function getMarketplaceSuppliers(): Promise<MarketplaceSupplierDto[]> {
+export async function getMarketplaceSuppliers(params?: {
+  search?: string;
+  categoryId?: number;
+  pageNumber?: number;
+  pageSize?: number;
+}): Promise<MarketplaceSupplierDto[]> {
   try {
-    const res = await apiRequest<any>("/api/Marketplace/suppliers", {
+    const query = new URLSearchParams();
+    if (params?.search) query.set("search", params.search);
+    if (params?.categoryId != null) query.set("categoryId", String(params.categoryId));
+    if (params?.pageNumber != null) query.set("pageNumber", String(params.pageNumber));
+    if (params?.pageSize != null) query.set("pageSize", String(params.pageSize));
+    const qs = query.toString() ? `?${query.toString()}` : "";
+
+    const res = await apiRequest<any>(`/api/Marketplace/suppliers${qs}`, {
       method: "GET",
     });
     return extractArray<MarketplaceSupplierDto>(res);
@@ -152,6 +166,8 @@ export async function getMarketplaceProducts(
     if (params?.maxPrice != null) query.set("MaxPrice", String(params.maxPrice));
     if (params?.inStock != null) query.set("InStock", String(params.inStock));
     if (params?.langId != null) query.set("langId", String(params.langId));
+    if (params?.pageNumber != null) query.set("PageNumber", String(params.pageNumber));
+    if (params?.pageSize != null) query.set("PageSize", String(params.pageSize));
     const qs = query.toString() ? `?${query.toString()}` : "";
 
     const res = await apiRequest<any>(`/api/Marketplace/products${qs}`, {

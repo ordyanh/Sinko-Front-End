@@ -26,8 +26,6 @@ import {
   type SearchFilterValue,
 } from "~/shared/ui";
 
-const pageSize = 5;
-
 const statusFilterOptions: Array<{ value: HorecaOrderStatus; label: string }> = (
   [
     "Waiting for restaurant confirmation",
@@ -136,8 +134,15 @@ const columns: TableColumn<HorecaOrder>[] = [
     headerClassName: "text-right",
     className: "text-right",
     cell: (order) => {
-      const offeredTotal = getOfferedTotal(order.lines);
-      const delta = offeredTotal - getRequestedTotal(order.lines);
+      const calculatedOffered = getOfferedTotal(order.lines);
+      const offeredTotal = calculatedOffered > 0
+        ? calculatedOffered
+        : (order.finalPrice ?? order.totalPrice ?? order.totalAmount ?? 0);
+      const calculatedRequested = getRequestedTotal(order.lines);
+      const requestedTotal = calculatedRequested > 0
+        ? calculatedRequested
+        : (order.totalPrice ?? order.finalPrice ?? order.totalAmount ?? 0);
+      const delta = offeredTotal - requestedTotal;
       const tone = getOfferTone(delta, getShortLineCount(order.lines));
       const hasOffer = order.offerReceivedAt !== null;
 
@@ -166,6 +171,7 @@ export default function HorecaOrdersPage() {
     [],
   );
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [orders, setOrders] = useState<HorecaOrder[]>([]);
   const [isLoadingOrders, setIsLoadingOrders] = useState(true);
 
@@ -340,6 +346,8 @@ export default function HorecaOrdersPage() {
         page={page}
         onPageChange={setPage}
         pageSize={pageSize}
+        onPageSizeChange={setPageSize}
+        pageSizeOptions={[5, 10, 25, 50, 100]}
         totalCount={filteredOrders.length}
         emptyMessage={isLoadingOrders ? "Loading orders…" : "No orders match your search."}
       />

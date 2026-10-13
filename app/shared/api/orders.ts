@@ -274,18 +274,27 @@ export function normalizeBackendOrder(raw: any): BackendOrderDto {
         item.requestedQuantity ??
         1,
     );
-    const unitPrice = Number(
-      item.finalPrice ??
-        item.FinalPrice ??
-        item.basePrice ??
-        item.BasePrice ??
-        item.unitPrice ??
-        item.UnitPrice ??
-        0,
-    );
+    const rawFinalPrice = item.finalPrice ?? item.FinalPrice;
+    const rawBasePrice = item.basePrice ?? item.BasePrice;
+    const rawUnitPrice = item.unitPrice ?? item.UnitPrice ?? item.price ?? item.Price;
+
+    let unitPrice = 0;
+    if (rawUnitPrice !== undefined && rawUnitPrice !== null) {
+      unitPrice = Number(rawUnitPrice);
+    } else if (rawFinalPrice !== undefined && rawFinalPrice !== null && qty > 0) {
+      unitPrice = Number(rawFinalPrice) / qty;
+    } else if (rawBasePrice !== undefined && rawBasePrice !== null) {
+      unitPrice = Number(rawBasePrice);
+    }
+
+    const basePrice = Number(rawBasePrice ?? rawUnitPrice ?? unitPrice);
     const totalPrice = Number(
-      item.totalPrice ?? item.TotalPrice ?? unitPrice * qty,
+      rawFinalPrice ??
+        item.totalPrice ??
+        item.TotalPrice ??
+        unitPrice * qty,
     );
+    const finalPrice = Number(rawFinalPrice ?? totalPrice);
 
     return {
       productId: item.productId ?? item.ProductId ?? "",
@@ -301,8 +310,8 @@ export function normalizeBackendOrder(raw: any): BackendOrderDto {
       count: qty,
       unitPrice,
       totalPrice,
-      basePrice: Number(item.basePrice ?? item.BasePrice ?? unitPrice),
-      finalPrice: Number(item.finalPrice ?? item.FinalPrice ?? unitPrice),
+      basePrice,
+      finalPrice,
       discountPercent: item.discountPercent ?? item.DiscountPercent,
       unit:
         item.unitDisplay ??
@@ -445,8 +454,16 @@ export async function getSupplierOrders(filter?: OrderFilterRequest): Promise<Ba
 }
 
 export async function getHorecaOrderById(orderId: string): Promise<BackendOrderDto | null> {
-  const orders = await getHorecaOrders();
-  return orders.find((o) => o.id === orderId || o.orderId === orderId) ?? null;
+  const cleanId = String(orderId).trim().toLowerCase();
+  const orders = await getHorecaOrders({ pageSize: 500 });
+  return (
+    orders.find(
+      (o) =>
+        String(o.id).toLowerCase() === cleanId ||
+        String(o.orderId).toLowerCase() === cleanId ||
+        String(o.orderNumber).toLowerCase() === cleanId,
+    ) ?? null
+  );
 }
 
 export async function getSupplierOrderById(orderId: string): Promise<BackendOrderDto> {

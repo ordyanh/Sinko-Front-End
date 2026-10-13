@@ -32,8 +32,6 @@ const orderStatusClasses: Record<CustomerOrderStatus, string> = {
   Cancelled: "bg-red-50 text-red-700",
 };
 
-const pageSize = 5;
-
 const supplierOrderStatusFilters = Object.keys(orderStatusClasses).map(
   (status) => ({ value: status, label: status }),
 );
@@ -119,6 +117,7 @@ export default function SupplierOrdersPage() {
     [],
   );
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const customerId = searchParams.get("customerId");
   const overviewFromUrl = searchParams.get("overview");
   const selectedOverview = isOrderOverview(overviewFromUrl)
@@ -293,6 +292,8 @@ export default function SupplierOrdersPage() {
         page={page}
         onPageChange={setPage}
         pageSize={pageSize}
+        onPageSizeChange={setPageSize}
+        pageSizeOptions={[5, 10, 25, 50, 100]}
         totalCount={filteredOrders.length}
         emptyMessage={isLoadingOrders ? "Loading orders…" : "No orders match your search."}
       />

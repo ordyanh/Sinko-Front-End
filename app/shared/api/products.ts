@@ -61,6 +61,7 @@ export type UpdateProductRequest = CreateProductRequest;
 export type UpsertProductRequest = {
   id?: number | null;
   code: string;
+  name?: string;
   names?: Record<string, string> | null;
   unit?: number;
   sellingUnit?: number | null;
@@ -219,12 +220,17 @@ export async function upsertProduct(payload: UpsertProductRequest): Promise<Upse
   const safeCategoryId =
     rawCat && !isNaN(rawCat) && rawCat > 0 && rawCat <= 2147483647
       ? Math.floor(rawCat)
-      : 16;
+      : null;
+
+  const resolvedName =
+    payload.name || (payload.names ? Object.values(payload.names)[0] : undefined);
 
   // Ensure status is valid backend enum ("Active" | "Inactive")
   const sanitizedPayload: UpsertProductRequest = {
     ...payload,
-    categoryId: safeCategoryId,
+    categoryId: safeCategoryId ?? 1,
+    name: resolvedName,
+    names: payload.names || (resolvedName ? { "1": resolvedName } : undefined),
     status: toBackendProductStatus(payload.status),
     basePrice: Math.max(Number(payload.basePrice) || 0, 1),
     code: payload.code || `PRD-${Date.now().toString().slice(-6)}`,

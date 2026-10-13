@@ -121,23 +121,13 @@ export default function SupplierProductDetailPage() {
       ]);
       if (!isCurrent) return;
 
-      const supplierCategoryIds = new Set([
-        ...profile.categoryIds,
-        ...(product?.categoryIds ?? []),
-      ]);
       setAccountId(user.id);
       setHorecaCustomers(customers);
       setIsLoadingHorecaCustomers(false);
       setCategoryOptions(
-        categories
-          .filter((category) => supplierCategoryIds.has(category.id))
-          .sort((first, second) => first.name.localeCompare(second.name)),
+        categories.sort((first, second) => first.name.localeCompare(second.name)),
       );
-      setCategoriesError(
-        profile.categoryIds.length === 0
-          ? "Add at least one supplier category in Settings before creating a product."
-          : null,
-      );
+      setCategoriesError(null);
       if (!isNewProduct && !product) {
         setProductError("This product couldn't be found in your catalog.");
       } else if (product) {
