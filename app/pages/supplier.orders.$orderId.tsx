@@ -38,6 +38,7 @@ import {
 import { getEmployeesList, type EmployeeListItem } from "~/shared/api/employee";
 import type { StoredEmployee } from "~/shared/lib/indexed-db";
 import { getCurrentUserEmployeeRole } from "~/shared/lib/auth-token";
+import { useTranslation } from "~/shared/lib/i18n";
 
 type OrderStatus =
   | "New"
@@ -48,6 +49,20 @@ type OrderStatus =
   | "Shipped"
   | "Delivered"
   | "Cancelled";
+
+function getLocalizedOrderStatus(status: OrderStatus, t: (k: string) => string): string {
+  const map: Record<OrderStatus, string> = {
+    New: "orders.statusNew",
+    "Waiting for restaurant confirmation": "orders.statusWaitingConfirmation",
+    Confirmed: "orders.statusConfirmed",
+    Preparing: "orders.statusPreparing",
+    Shipped: "orders.statusShipped",
+    Delivered: "orders.statusDelivered",
+    Cancelled: "orders.statusCancelled",
+    Rejected: "orders.statusRejected",
+  };
+  return map[status] ? t(map[status]) : status;
+}
 
 type OrderLine = {
   id: string;
@@ -105,6 +120,7 @@ function OrderHeaderActions({
   isSubmitting,
   onStatusChange,
   onEditingOfferChange,
+  t,
 }: {
   status: OrderStatus;
   isEditingOffer: boolean;
@@ -112,6 +128,7 @@ function OrderHeaderActions({
   isSubmitting: boolean;
   onStatusChange: (status: OrderStatus) => void;
   onEditingOfferChange: (isEditing: boolean) => void;
+  t: (k: string, f?: string, p?: Record<string, string | number>) => string;
 }) {
   const nextStatus: Partial<Record<OrderStatus, OrderStatus>> = {
     Confirmed: "Preparing",
@@ -123,7 +140,7 @@ function OrderHeaderActions({
     if (isWarehouseManager) {
       return (
         <span className="text-xs italic text-slate-500">
-          Warehouse managers can only advance fulfilled orders.
+          {t("orders.warehouseManagerNotice")}
         </span>
       );
     }
@@ -136,7 +153,7 @@ function OrderHeaderActions({
           className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
         >
           <Pencil className="h-4 w-4" aria-hidden="true" />
-          Edit offer
+          {t("orders.editOffer")}
         </button>
         <button
           type="button"
@@ -145,7 +162,7 @@ function OrderHeaderActions({
           className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-content transition hover:brightness-95 disabled:opacity-50"
         >
           <CircleCheck className="h-4 w-4" aria-hidden="true" />
-          {isSubmitting ? "Confirming..." : "Confirm order"}
+          {isSubmitting ? t("orders.confirmingOrder") : t("orders.confirmOrder")}
         </button>
       </div>
     );
@@ -161,7 +178,7 @@ function OrderHeaderActions({
           className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
         >
           <XCircle className="h-4 w-4" aria-hidden="true" />
-          Cancel editing
+          {t("orders.cancelEditing")}
         </button>
         <button
           type="button"
@@ -171,10 +188,10 @@ function OrderHeaderActions({
         >
           <Send className="h-4 w-4" aria-hidden="true" />
           {isSubmitting
-            ? "Sending..."
+            ? t("orders.sendingOffer")
             : status === "Rejected"
-              ? "Send revised offer"
-              : "Send offer"}
+              ? t("orders.sendRevisedOffer")
+              : t("orders.sendOffer")}
         </button>
       </div>
     );
@@ -190,7 +207,7 @@ function OrderHeaderActions({
         className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-content transition hover:brightness-95 disabled:opacity-50"
       >
         <Pencil className="h-4 w-4" aria-hidden="true" />
-        Edit rejected offer
+        {t("orders.editRejectedOffer")}
       </button>
     );
   }
@@ -207,7 +224,7 @@ function OrderHeaderActions({
             className="inline-flex items-center gap-2 rounded-lg border border-rose-200 bg-white px-4 py-2.5 text-sm font-semibold text-rose-700 transition hover:bg-rose-50 disabled:opacity-50"
           >
             <XCircle className="h-4 w-4" aria-hidden="true" />
-            Cancel order
+            {t("orders.cancelOrder")}
           </button>
         ) : null}
         <button
@@ -216,7 +233,7 @@ function OrderHeaderActions({
           onClick={() => onStatusChange(next)}
           className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-content transition hover:brightness-95 disabled:opacity-50"
         >
-          {isSubmitting ? "Updating..." : "Mark as " + next}
+          {isSubmitting ? t("orders.advancingOrder") : t("orders.advanceTo", undefined, { status: getLocalizedOrderStatus(next, t) })}
         </button>
       </div>
     );
@@ -226,6 +243,7 @@ function OrderHeaderActions({
 }
 
 export default function SupplierOrderDetailsPage() {
+  const { t } = useTranslation();
   const { orderId } = useParams();
   const { showToast } = useToast();
   const employeeRole = getCurrentUserEmployeeRole();
@@ -302,7 +320,7 @@ export default function SupplierOrderDetailsPage() {
     return (
       <DashboardPageContent>
         <section className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm font-medium text-slate-500 shadow-sm">
-          Loading order…
+          {t("common.loading")}
         </section>
       </DashboardPageContent>
     );
@@ -312,8 +330,8 @@ export default function SupplierOrderDetailsPage() {
     return (
       <DashboardPageContent>
         <section className="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
-          <h1 className="text-lg font-semibold text-slate-900">Order not found</h1>
-          <Link to="/supplier/orders" className="mt-5 inline-flex text-sm font-semibold text-primary">Back to orders</Link>
+          <h1 className="text-lg font-semibold text-slate-900">{t("orders.orderUnavailable")}</h1>
+          <Link to="/supplier/orders" className="mt-5 inline-flex text-sm font-semibold text-primary">{t("orders.backToOrders")}</Link>
         </section>
       </DashboardPageContent>
     );
@@ -519,7 +537,7 @@ export default function SupplierOrderDetailsPage() {
             to="/supplier/orders"
             className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 transition hover:text-slate-900"
           >
-            <ArrowLeft className="h-4 w-4" /> Back to orders
+            <ArrowLeft className="h-4 w-4" /> {t("orders.backToOrders")}
           </Link>
           <OrderHeaderActions
             status={status}
@@ -528,6 +546,7 @@ export default function SupplierOrderDetailsPage() {
             isSubmitting={isSubmitting}
             onStatusChange={updateStatus}
             onEditingOfferChange={setIsEditingOffer}
+            t={t}
           />
         </div>
         {offerSaveError ? <p role="alert" className="mt-3 text-sm text-rose-700">{offerSaveError}</p> : null}
@@ -541,16 +560,16 @@ export default function SupplierOrderDetailsPage() {
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
-                Order {orderId ?? "ORD-9107"}
+                {t("orders.title")} {orderId ?? "ORD-9107"}
               </h1>
               <span
                 className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${statusStyles[status]}`}
               >
-                {status}
+                {getLocalizedOrderStatus(status, t)}
               </span>
             </div>
             <p className="mt-1 text-sm text-slate-500">
-              {customer.companyName} · Created {formatDate(order.placedAt)}
+              {customer.companyName} · {t("orders.placedAtDate", undefined, { date: formatDate(order.placedAt) })}
             </p>
           </div>
         </div>
@@ -560,10 +579,9 @@ export default function SupplierOrderDetailsPage() {
         <div className="mt-6 flex items-start gap-3 rounded-2xl border border-sky-200 bg-sky-50 px-5 py-4 text-sky-900">
           <Clock3 className="mt-0.5 h-5 w-5 shrink-0 text-sky-600" />
           <div>
-            <p className="font-semibold">Waiting for restaurant confirmation</p>
+            <p className="font-semibold">{t("orders.waitingRestaurantConfirmation")}</p>
             <p className="mt-0.5 text-sm text-sky-800">
-              Your offer was sent on 24 August at 10:42. The order is locked
-              while the restaurant reviews it.
+              {t("orders.waitingRestaurantConfirmationDesc")}
             </p>
           </div>
         </div>
@@ -573,13 +591,13 @@ export default function SupplierOrderDetailsPage() {
         <div className="mt-6 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-amber-900">
           <CircleAlert className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
           <div>
-            <p className="font-semibold">Action required</p>
+            <p className="font-semibold">{t("orders.actionRequiredCounterOffer")}</p>
             <p className="mt-0.5 text-sm text-amber-800">
               {canEditOffer
-                ? "Update the prices, quantities, and notes, then send the offer."
+                ? t("orders.adjustQuantitiesSubtitle")
                 : status === "Rejected"
-                  ? "The restaurant rejected this offer. Edit it before sending a revision."
-                  : "Confirm the order as requested, or edit it to create an offer."}
+                  ? t("orders.orderRejectedNotice", undefined, { supplier: customer.companyName })
+                  : t("orders.acceptToMoveOrderSubtitle")}
             </p>
           </div>
         </div>
@@ -590,11 +608,11 @@ export default function SupplierOrderDetailsPage() {
           <section className="min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
             <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4 sm:px-6">
               <div>
-                <SectionLabel>Order items</SectionLabel>
+                <SectionLabel>{t("orders.orderItems")}</SectionLabel>
                 <p className="mt-1 text-sm text-slate-600">
                   {canEditOffer
-                    ? "Edit the offer the restaurant will receive."
-                    : "Final product quantities and agreed prices."}
+                    ? t("orders.adjustQuantitiesSubtitle")
+                    : t("orders.whatYouAskedForPricesConfirmed")}
                 </p>
               </div>
               <p className="text-lg font-semibold text-slate-900">{formatCurrency(total)}</p>
@@ -604,12 +622,12 @@ export default function SupplierOrderDetailsPage() {
                 <thead className="sticky top-0 z-20 bg-slate-50 text-left text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
                   <tr>
                     <th className="sticky left-0 z-20 min-w-64 whitespace-nowrap border-b border-r border-slate-200 bg-slate-50 px-5 py-3.5 sm:px-6">
-                      Product
+                      {t("common.product")}
                     </th>
-                    <th className="min-w-32 whitespace-nowrap px-4 py-3">Price (AMD)</th>
-                    <th className="min-w-24 whitespace-nowrap px-4 py-3">Qty</th>
-                    <th className="min-w-56 whitespace-nowrap px-4 py-3">Comment</th>
-                    <th className="min-w-32 whitespace-nowrap px-6 py-3 text-right">Amount</th>
+                    <th className="min-w-32 whitespace-nowrap px-4 py-3">{t("common.price")} (AMD)</th>
+                    <th className="min-w-24 whitespace-nowrap px-4 py-3">{t("common.quantity")}</th>
+                    <th className="min-w-56 whitespace-nowrap px-4 py-3">{t("common.comment")}</th>
+                    <th className="min-w-32 whitespace-nowrap px-6 py-3 text-right">{t("common.amount")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -636,7 +654,8 @@ export default function SupplierOrderDetailsPage() {
                               {line.unit}
                             </p>
                             <p className="mt-0.5 text-xs text-slate-400">
-                              Minimum order: {line.minimumOrderQuantity} {line.minimumOrderQuantity === 1 ? "unit" : "units"}
+                              {t("orders.minimumOrderQuantity")} {line.minimumOrderQuantity}{" "}
+                              {line.minimumOrderQuantity === 1 ? t("common.unit") : t("common.units")}
                             </p>
                           </div>
                         </div>
@@ -692,7 +711,7 @@ export default function SupplierOrderDetailsPage() {
                             onChange={(event) =>
                               updateLine(line.id, "comment", event.target.value)
                             }
-                            placeholder="Add a note"
+                            placeholder={t("orders.addNote")}
                             size="sm"
                             className="h-9 px-2"
                           />
@@ -714,7 +733,7 @@ export default function SupplierOrderDetailsPage() {
 
           {canEditOffer ? (
             <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-              <SectionLabel>Pricing preference</SectionLabel>
+              <SectionLabel>{t("orders.pricingPreference")}</SectionLabel>
               <label className="mt-4 flex cursor-pointer items-start gap-3">
                 <input
                   checked={savePrices}
@@ -724,11 +743,10 @@ export default function SupplierOrderDetailsPage() {
                 />
                 <span>
                   <span className="block text-sm font-semibold text-slate-800">
-                    Save prices for this customer
+                    {t("orders.savePricesForCustomer")}
                   </span>
                   <span className="mt-1 block text-sm text-slate-500">
-                    Use these prices as a starting point for the next order from{" "}
-                    {customer.companyName}.
+                    {t("orders.savePricesForCustomerDesc", { company: customer.companyName })}
                   </span>
                 </span>
               </label>
@@ -738,15 +756,14 @@ export default function SupplierOrderDetailsPage() {
           {isInFulfilment ? (
             <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
               <div>
-                <SectionLabel>Fulfilment</SectionLabel>
+                <SectionLabel>{t("orders.deliveryProgress")}</SectionLabel>
                 <p className="mt-1 text-sm text-slate-600">
-                  Move this order through its physical delivery stages from the
-                  actions above.
+                  {t("orders.acceptToMoveOrderSubtitle")}
                 </p>
               </div>
               <ol
                 className="mt-6 grid grid-cols-4 gap-1"
-                aria-label="Fulfilment progress"
+                aria-label={t("orders.deliveryProgress")}
               >
                 {(
                   ["Confirmed", "Preparing", "Shipped", "Delivered"] as const
@@ -768,7 +785,7 @@ export default function SupplierOrderDetailsPage() {
                       <p
                         className={`mt-2 text-xs font-semibold ${isComplete ? "text-slate-800" : "text-slate-400"}`}
                       >
-                        {step}
+                        {getLocalizedOrderStatus(step, t)}
                       </p>
                     </li>
                   );
@@ -780,16 +797,16 @@ export default function SupplierOrderDetailsPage() {
           {isTerminal ? (
             <section className="rounded-2xl border border-slate-200 bg-slate-50 px-5 py-4 text-sm text-slate-600">
               <span className="font-semibold text-slate-800">
-                This order is closed.
+                {t("orders.orderIsClosed")}
               </span>{" "}
-              Its status and line items can no longer be changed.
+              {t("orders.orderIsClosedDesc")}
             </section>
           ) : null}
         </div>
 
         <aside className="space-y-6">
           <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <SectionLabel>Delivery address</SectionLabel>
+            <SectionLabel>{t("orders.deliveryAddress")}</SectionLabel>
             <p className="mt-3 font-semibold text-slate-900">
               {customer.companyName}
             </p>
@@ -816,23 +833,23 @@ export default function SupplierOrderDetailsPage() {
             </div>
           </section>
           <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <SectionLabel>Assignment</SectionLabel>
+            <SectionLabel>{t("orders.assignment")}</SectionLabel>
             {assignedTo ? (
               <div className="mt-3 rounded-xl bg-slate-50 p-3">
                 <p className="text-sm font-semibold text-slate-800">
                   {assignedTo}
                 </p>
-                <p className="mt-1 text-xs text-slate-500">Assigned just now</p>
+                <p className="mt-1 text-xs text-slate-500">{t("orders.assignedJustNow")}</p>
               </div>
             ) : (
               <p className="mt-3 text-sm text-slate-500">
-                No employee is assigned to this order.
+                {t("orders.noEmployeeAssigned")}
               </p>
             )}
             {!isTerminal ? (
               <div className="mt-4">
                 <p className="mb-2 text-xs font-medium text-slate-500">
-                  {assignedTo ? "Reassign employee" : "Assign employee"}
+                  {assignedTo ? t("orders.reassignEmployee") : t("orders.assignEmployee")}
                 </p>
                 <Select
                   value={assignedEmployeeId || assignedTo}
@@ -840,7 +857,7 @@ export default function SupplierOrderDetailsPage() {
                   size="sm"
                   className="mt-0"
                 >
-                  <option value="">Assign employee...</option>
+                  <option value="">{t("orders.assignEmployee")}...</option>
                   {employeeOptions.map((emp) => (
                     <option key={emp.id} value={emp.id}>
                       {emp.name}
@@ -854,11 +871,10 @@ export default function SupplierOrderDetailsPage() {
             <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
               <div className="flex gap-2 font-semibold">
                 <PackageCheck className="h-5 w-5" />
-                Customer record updated
+                {t("orders.customerRecordUpdated")}
               </div>
               <p className="mt-1.5">
-                This completed order is available in the restaurant’s customer
-                history.
+                {t("orders.customerRecordUpdatedDesc")}
               </p>
             </div>
           ) : null}

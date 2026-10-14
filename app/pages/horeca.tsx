@@ -18,6 +18,7 @@ import { getHorecaMarketplacePromotions, getPromotionalPrice, getPromotionReward
 import { horecaDashboardMenuLinks } from "~/shared/lib/dashboard-nav";
 import DashboardLayout from "~/shared/ui/dashboard-layout";
 import type { DashboardNotification } from "~/shared/ui";
+import { useTranslation } from "~/shared/lib/i18n";
 import {
   createOrder as createBackendOrder,
   createMultiSupplierOrder,
@@ -52,6 +53,7 @@ function CartButton({ itemCount, onClick }: { itemCount: number; onClick: () => 
 }
 
 export default function HorecaPage() {
+  const { t } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
   const [isPreparingDashboard, setIsPreparingDashboard] = useState(true);
@@ -97,7 +99,7 @@ export default function HorecaPage() {
             const prod = nextCatalogProducts.find(
               (p) => String(p.id) === String(item.productId),
             );
-            if (prod && prod.sellingOptions.length > 0) {
+            if (prod && prod.sellingOptions && prod.sellingOptions.length > 0) {
               const option = prod.sellingOptions[0];
               loadedLines.push({
                 product: prod,
@@ -402,7 +404,7 @@ export default function HorecaPage() {
     setIsCartOpen(false);
   }
 
-  const cartButton = isShoppingRoute ? <CartButton itemCount={itemCount} onClick={() => setIsCartOpen(true)} /> : undefined;
+  const cartButton = <CartButton itemCount={itemCount} onClick={() => setIsCartOpen(true)} />;
 
   if (isPreparingDashboard) {
     return null;
@@ -420,10 +422,10 @@ export default function HorecaPage() {
           <DialogPanel className="flex h-full w-full max-w-md flex-col bg-[#fcfaf5] shadow-2xl transition duration-300 data-closed:translate-x-full sm:w-[28rem]">
             <div className="flex items-center justify-between border-b border-[#e5dfd0] px-5 py-5 sm:px-6">
               <div>
-                <DialogTitle className="text-lg font-bold tracking-tight text-slate-950">Your order</DialogTitle>
-                <p className="mt-0.5 text-sm text-slate-500">{itemCount === 0 ? "Your cart is waiting for ingredients." : `${itemCount} ${itemCount === 1 ? "item" : "items"} ready to review`}</p>
+                <DialogTitle className="text-lg font-bold tracking-tight text-slate-950">{t("cart.yourOrder", "Your order")}</DialogTitle>
+                <p className="mt-0.5 text-sm text-slate-500">{itemCount === 0 ? t("cart.cartWaitingIngredients", "Your cart is waiting for ingredients.") : `${itemCount} ${t("cart.items", "items")} ${t("cart.readyToReview", "ready to review")}`}</p>
               </div>
-              <button type="button" onClick={() => setIsCartOpen(false)} className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary" aria-label="Close cart"><X className="h-5 w-5" aria-hidden="true" /></button>
+              <button type="button" onClick={() => setIsCartOpen(false)} className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary" aria-label={t("cart.closeCart", "Close cart")}><X className="h-5 w-5" aria-hidden="true" /></button>
             </div>
 
             {cartLines.length > 0 ? (
@@ -435,7 +437,7 @@ export default function HorecaPage() {
                     return <section key={supplier} aria-label={`${supplier} products`}>
                       <div className="mb-3 flex items-center justify-between">
                         <h3 className="text-xs font-bold uppercase tracking-[0.12em] text-slate-500">{supplier}</h3>
-                        <span className="text-xs font-medium text-slate-400">{itemCount} {itemCount === 1 ? "item" : "items"}</span>
+                        <span className="text-xs font-medium text-slate-400">{itemCount} {t("cart.items", "items")}</span>
                       </div>
                       <ul className="space-y-4">
                         {lines.map(({ product, option, quantity }) => {
@@ -451,8 +453,8 @@ export default function HorecaPage() {
                       )}
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-semibold text-slate-900">{product.title}</p>
-                        <p className="mt-0.5 text-xs text-slate-500">{getMarketplaceOptionLabel(option)} · {formatMarketplacePrice(unitPrice)} each · {getMarketplaceMinimumOrderLabel(option)}</p>
-                        {pricePromotion ? <p className="mt-1 text-xs font-bold text-rose-700">{promotionTypeLabels[pricePromotion.type]} applied · <span className="line-through tabular-nums">{formatMarketplacePrice(option.price)}</span> each</p> : null}
+                        <p className="mt-0.5 text-xs text-slate-500">{getMarketplaceOptionLabel(option)} · {formatMarketplacePrice(unitPrice)} · {getMarketplaceMinimumOrderLabel(option)}</p>
+                        {pricePromotion ? <p className="mt-1 text-xs font-bold text-rose-700">{promotionTypeLabels[pricePromotion.type]} · <span className="line-through tabular-nums">{formatMarketplacePrice(option.price)}</span></p> : null}
                         <div className="mt-2 flex items-center justify-between gap-2">
                           <div className="flex h-8 items-center rounded-lg border border-primary/20 bg-white p-0.5">
                             <button type="button" onClick={() => setCartLineQuantity(product, option, quantity - 1)} className="inline-flex h-7 w-7 items-center justify-center rounded-md text-primary transition hover:bg-primary/10" aria-label={`Decrease ${product.title} quantity`}><Minus className="h-3.5 w-3.5" aria-hidden="true" /></button>
@@ -478,10 +480,10 @@ export default function HorecaPage() {
                             <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-violet-600 ring-1 ring-violet-200">
                               <Gift className="h-6 w-6" aria-hidden="true" />
                             </div>
-                          )}<div className="min-w-0 flex-1"><div className="flex items-start justify-between gap-2"><div className="min-w-0"><p className="truncate text-sm font-semibold text-slate-900">{giftProduct.title}</p><p className="mt-0.5 text-xs text-slate-500">{getMarketplaceOptionLabel(giftOption)} · {reward.quantity} free {reward.quantity === 1 ? "unit" : "units"}</p></div><span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-violet-100 px-2 py-0.5 text-xs font-bold text-violet-700"><Gift className="h-3 w-3" aria-hidden="true" />BXGY reward</span></div><p className="mt-2 text-xs font-semibold text-violet-700">{reward.promotion.title} · Free / promotion reward</p><div className="mt-2 flex items-center justify-between gap-2"><p className="text-sm font-bold text-violet-950">Free · 0 դրամ</p><button type="button" onClick={() => removePromotionGift(reward.promotion.id, reward.quantity)} className="inline-flex min-h-8 items-center gap-1 rounded-lg border border-rose-200 bg-white px-2 text-xs font-bold text-rose-700 transition hover:bg-rose-50" aria-label={`Remove ${giftProduct.title} free promotion reward`}><Trash2 className="h-3.5 w-3.5" aria-hidden="true" />Remove reward</button></div></div></li>;
+                          )}<div className="min-w-0 flex-1"><div className="flex items-start justify-between gap-2"><div className="min-w-0"><p className="truncate text-sm font-semibold text-slate-900">{giftProduct.title}</p><p className="mt-0.5 text-xs text-slate-500">{getMarketplaceOptionLabel(giftOption)} · {reward.quantity} {t("cart.items", "items")}</p></div><span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-violet-100 px-2 py-0.5 text-xs font-bold text-violet-700"><Gift className="h-3 w-3" aria-hidden="true" />{t("cart.freeReward", "Free / promotion reward")}</span></div><p className="mt-2 text-xs font-semibold text-violet-700">{reward.promotion.title}</p><div className="mt-2 flex items-center justify-between gap-2"><p className="text-sm font-bold text-violet-950">Free · 0 դրամ</p><button type="button" onClick={() => removePromotionGift(reward.promotion.id, reward.quantity)} className="inline-flex min-h-8 items-center gap-1 rounded-lg border border-rose-200 bg-white px-2 text-xs font-bold text-rose-700 transition hover:bg-rose-50" aria-label={`Remove ${giftProduct.title}`}><Trash2 className="h-3.5 w-3.5" aria-hidden="true" />{t("cart.removeReward", "Remove reward")}</button></div></div></li>;
                         })}
                       </ul>
-                      <div className="mt-3 flex justify-between border-t border-[#e5dfd0] pt-3 text-xs text-slate-500"><span>{supplier} subtotal</span><span className="font-bold text-slate-800 tabular-nums">{formatMarketplacePrice(supplierTotal)}</span></div>
+                      <div className="mt-3 flex justify-between border-t border-[#e5dfd0] pt-3 text-xs text-slate-500"><span>{supplier}</span><span className="font-bold text-slate-800 tabular-nums">{formatMarketplacePrice(supplierTotal)}</span></div>
                     </section>
                   })}
                 </div>
@@ -489,14 +491,14 @@ export default function HorecaPage() {
             ) : (
               <div className="flex flex-1 flex-col items-center justify-center px-8 text-center">
                 <span className="grid h-14 w-14 place-items-center rounded-2xl bg-[#e8efe3] text-[#55704d]"><PackageOpen className="h-7 w-7" aria-hidden="true" /></span>
-                <p className="mt-4 font-semibold text-slate-900">Nothing in your cart</p>
-                <p className="mt-1 text-sm leading-6 text-slate-500">Add products from the marketplace when you&apos;re ready.</p>
+                <p className="mt-4 font-semibold text-slate-900">{t("cart.nothingInCart", "Nothing in your cart")}</p>
+                <p className="mt-1 text-sm leading-6 text-slate-500">{t("cart.addProductsPrompt", "Add products from the marketplace when you're ready.")}</p>
               </div>
             )}
 
             <div className="border-t border-[#e5dfd0] bg-white/70 p-5 sm:p-6">
-              <div className="mb-4 flex items-center justify-between text-sm text-slate-600"><span>Products total {giftItemCount > 0 ? `· ${giftItemCount} free` : ""}</span><span className="font-bold text-slate-950 tabular-nums">{formatMarketplacePrice(cartTotal)}</span></div>
-              <Link to="/horeca/cart" onClick={() => setIsCartOpen(false)} className="inline-flex w-full items-center justify-center rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-content shadow-sm transition hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">Review and complete order</Link>
+              <div className="mb-4 flex items-center justify-between text-sm text-slate-600"><span>{t("cart.productsTotal", "Products total")} {giftItemCount > 0 ? `· ${giftItemCount} free` : ""}</span><span className="font-bold text-slate-950 tabular-nums">{formatMarketplacePrice(cartTotal)}</span></div>
+              <Link to="/horeca/cart" onClick={() => setIsCartOpen(false)} className="inline-flex w-full items-center justify-center rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-content shadow-sm transition hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">{t("cart.reviewAndCompleteOrder", "Review and complete order")}</Link>
             </div>
           </DialogPanel>
         </div>
@@ -504,7 +506,7 @@ export default function HorecaPage() {
 
       <Dialog open={Boolean(earnedReward)} onClose={() => setEarnedReward(null)} className="relative z-[60]">
         <DialogBackdrop className="fixed inset-0 bg-slate-950/45 backdrop-blur-sm" />
-        <div className="fixed inset-0 flex items-center justify-center p-4"><DialogPanel className="w-full max-w-sm rounded-3xl bg-white p-6 text-center shadow-2xl"><span className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-violet-100 text-violet-700"><Gift className="h-7 w-7" aria-hidden="true" /></span><DialogTitle className="mt-4 text-xl font-bold text-slate-950">Free gift added</DialogTitle><p className="mt-2 text-sm leading-6 text-slate-600">{earnedReward ? `${earnedReward.quantity} free unit${earnedReward.quantity === 1 ? "" : "s"} from “${earnedReward.promotion.title}” is now separate from your paid quantity in the cart.` : ""}</p><button type="button" onClick={() => setEarnedReward(null)} className="mt-5 w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-content">Continue shopping</button></DialogPanel></div>
+        <div className="fixed inset-0 flex items-center justify-center p-4"><DialogPanel className="w-full max-w-sm rounded-3xl bg-white p-6 text-center shadow-2xl"><span className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-violet-100 text-violet-700"><Gift className="h-7 w-7" aria-hidden="true" /></span><DialogTitle className="mt-4 text-xl font-bold text-slate-950">{t("cart.freeGiftAdded", "Free gift added")}</DialogTitle><p className="mt-2 text-sm leading-6 text-slate-600">{earnedReward ? `${earnedReward.quantity} free unit${earnedReward.quantity === 1 ? "" : "s"} from “${earnedReward.promotion.title}” is now separate from your paid quantity in the cart.` : ""}</p><button type="button" onClick={() => setEarnedReward(null)} className="mt-5 w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-content">{t("cart.continueShopping", "Continue shopping")}</button></DialogPanel></div>
       </Dialog>
     </>
   );

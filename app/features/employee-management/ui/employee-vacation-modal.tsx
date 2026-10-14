@@ -1,5 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useWatch, type SubmitHandler } from "react-hook-form";
+import { useTranslation } from "~/shared/lib/i18n";
 import Button from "~/shared/ui/button";
 import { Input } from "~/shared/ui/form";
 import Modal from "~/shared/ui/modal";
@@ -22,6 +23,7 @@ export default function EmployeeVacationModal({
   onClose,
   onSave,
 }: EmployeeVacationModalProps) {
+  const { t } = useTranslation();
   const form = useForm<VacationFormValues>({
     resolver: zodResolver(vacationFormSchema),
     defaultValues: {
@@ -40,8 +42,8 @@ export default function EmployeeVacationModal({
     <Modal
       isOpen={isOpen}
       size="sm"
-      title="Set vacation"
-      description={employee ? `Choose when ${employee.name} will be unavailable.` : undefined}
+      title={t("employees.setVacation")}
+      description={employee ? t("employees.chooseWhenUnavailable").replace("{name}", employee.name) : undefined}
       onClose={onClose}
     >
       <form className="flex flex-col gap-5" noValidate onSubmit={form.handleSubmit(onSave)}>
@@ -49,28 +51,28 @@ export default function EmployeeVacationModal({
           <Input
             id="vacationStartDate"
             type="date"
-            label="Start date"
+            label={t("employees.startDate")}
             errorMessage={errors.startDate?.message}
             {...register("startDate")}
           />
           <Input
             id="vacationEndDate"
             type="date"
-            label="End date"
+            label={t("employees.endDate")}
             min={startDate || undefined}
             errorMessage={errors.endDate?.message}
             {...register("endDate")}
           />
         </div>
         <p className="rounded-xl bg-amber-50 px-3 py-2.5 text-sm text-amber-800">
-          The employee will be marked unavailable for the selected dates.
+          {t("employees.vacationNote")}
         </p>
         <div className="flex flex-wrap justify-end gap-3 border-t border-slate-200 pt-5">
           <Button type="button" variant="ghost" className="w-full sm:w-32" onClick={onClose}>
-            Cancel
+            {t("common.cancel")}
           </Button>
           <Button type="submit" className="w-full sm:w-40">
-            Set vacation
+            {t("employees.setVacation")}
           </Button>
         </div>
       </form>

@@ -6,6 +6,7 @@ import SearchFilter, {
   type SearchFilterDefinition,
   type SearchFilterValue,
 } from "./search-filter";
+import { useTranslation } from "~/shared/lib/i18n";
 
 export type TableColumn<Row> = {
   id: string;
@@ -96,7 +97,7 @@ export default function TableLayout<Row>({
   rowLink,
   isLoading = false,
   errorMessage,
-  emptyMessage = "No results found.",
+  emptyMessage,
   page,
   defaultPage = 1,
   onPageChange,
@@ -108,6 +109,8 @@ export default function TableLayout<Row>({
   totalCount = rows.length,
   className,
 }: TableLayoutProps<Row>) {
+  const { t } = useTranslation();
+  const effectiveEmptyMessage = emptyMessage ?? t("common.noResults");
   const [uncontrolledSearchValue, setUncontrolledSearchValue] =
     useState(defaultSearchValue);
   const [uncontrolledPage, setUncontrolledPage] = useState(defaultPage);
@@ -216,7 +219,7 @@ export default function TableLayout<Row>({
                     scope="col"
                     className="border-b border-slate-200 px-5 py-3.5 text-right sm:px-6"
                   >
-                    Actions
+                    {t("common.actions")}
                   </th>
                 ) : null}
               </tr>
@@ -233,7 +236,7 @@ export default function TableLayout<Row>({
                         className="h-4 w-4 animate-spin"
                         aria-hidden="true"
                       />
-                      Loading...
+                      {t("common.loading")}
                     </span>
                   </td>
                 </tr>
@@ -252,7 +255,7 @@ export default function TableLayout<Row>({
                     colSpan={columnCount}
                     className="px-5 py-14 text-center text-sm text-slate-500 sm:px-6"
                   >
-                    {emptyMessage}
+                    {effectiveEmptyMessage}
                   </td>
                 </tr>
               ) : (
@@ -337,18 +340,18 @@ export default function TableLayout<Row>({
         <footer className="flex flex-col gap-3 border-t border-slate-200 px-5 py-4 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <div className="flex flex-wrap items-center gap-3 text-slate-500">
             <p>
-              Showing{" "}
+              {t("common.showing")}{" "}
               <span className="font-semibold text-slate-700 tabular-nums">
                 {currentPageStart}-{currentPageEnd}
               </span>{" "}
-              of{" "}
+              {t("common.of")}{" "}
               <span className="font-semibold text-slate-700 tabular-nums">{totalCount}</span>
             </p>
 
             {showPageSizeSelector && pageSizeOptions.length > 0 ? (
               <div className="flex items-center gap-1.5 border-l border-slate-200 pl-3">
                 <label htmlFor="table-page-size" className="text-xs font-medium text-slate-500">
-                  Per page:
+                  {t("common.perPage")}
                 </label>
                 <select
                   id="table-page-size"
@@ -369,7 +372,7 @@ export default function TableLayout<Row>({
           <div className="flex items-center gap-1">
             <IconButton
               icon={<ChevronLeft aria-hidden="true" />}
-              label="Previous page"
+              label={t("common.previousPage")}
               className="rounded-full border border-slate-200 hover:border-slate-300"
               onClick={() => changePage(currentPage - 1)}
               disabled={currentPage <= 1}
@@ -379,7 +382,7 @@ export default function TableLayout<Row>({
             </span>
             <IconButton
               icon={<ChevronRight aria-hidden="true" />}
-              label="Next page"
+              label={t("common.nextPage")}
               className="rounded-full border border-slate-200 hover:border-slate-300"
               onClick={() => changePage(currentPage + 1)}
               disabled={currentPage >= totalPages}

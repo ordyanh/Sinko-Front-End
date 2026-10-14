@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { AlertCircle, Building2, CheckCircle2, Lock, MapPin, PencilLine, Plus, RefreshCw } from "lucide-react";
 import { useForm, type SubmitHandler } from "react-hook-form";
@@ -23,6 +23,7 @@ import {
   type CompanyInfoDto,
   type UpdateCompanyRequest,
 } from "~/shared/api";
+import { useTranslation } from "~/shared/lib/i18n";
 
 const companyInfoSchema = z.object({
   companyName: z.string().trim().min(1, "Company name is required."),
@@ -75,6 +76,7 @@ function getDeliveryAddressFormDefaults(
 }
 
 export default function HorecaCompanyInformationPage() {
+  const { t } = useTranslation();
   const { showToast } = useToast();
   const [companyInfo, setCompanyInfo] = useState<CompanyInfoState>(initialCompanyInfo);
   const [rawCompanyData, setRawCompanyData] = useState<CompanyInfoDto | null>(null);
@@ -407,13 +409,13 @@ export default function HorecaCompanyInformationPage() {
         <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-1.5">
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary">
-              Settings
+              {t("settings.account")}
             </p>
             <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
-              Company Information
+              {t("settings.companyInfoTitle")}
             </h1>
             <p className="max-w-xl text-sm leading-6 text-slate-600">
-              Manage your legal entity details, contact information, and delivery locations connected to Synko.
+              {t("settings.companyInfoSubtitle")}
             </p>
           </div>
 
@@ -427,24 +429,24 @@ export default function HorecaCompanyInformationPage() {
               className="gap-1.5 text-slate-600"
             >
               <RefreshCw className={`h-4 w-4 ${isLoadingCompany ? "animate-spin" : ""}`} />
-              Refresh
+              {t("settings.refresh")}
             </Button>
             <Button
               type="button"
               className="gap-2 sm:w-auto"
               onClick={openEditModal}
               disabled={isPurchasingEmployee || isLoadingCompany}
-              title={isPurchasingEmployee ? "Purchasing employees cannot modify company settings." : undefined}
+              title={isPurchasingEmployee ? t("settings.editRestricted") : undefined}
             >
               {isPurchasingEmployee ? (
                 <>
                   <Lock className="h-4 w-4" aria-hidden="true" />
-                  Edit Restricted
+                  {t("settings.editRestricted")}
                 </>
               ) : (
                 <>
                   <PencilLine className="h-4 w-4" aria-hidden="true" />
-                  Edit details
+                  {t("settings.editDetails")}
                 </>
               )}
             </Button>
@@ -458,7 +460,7 @@ export default function HorecaCompanyInformationPage() {
               <span>{companyLoadError}</span>
             </div>
             <Button type="button" size="sm" variant="secondary" className="border-rose-300 text-rose-800 hover:bg-rose-100" onClick={() => void loadCompanyData()}>
-              Retry
+              {t("common.reset")}
             </Button>
           </div>
         )}
@@ -480,9 +482,9 @@ export default function HorecaCompanyInformationPage() {
               </span>
               <div>
                 <h2 className="text-lg font-semibold tracking-tight text-slate-900">
-                  Company Details
+                  {t("settings.companyDetails")}
                 </h2>
-                <p className="text-xs text-slate-500">Official business profile verified on the Synko platform.</p>
+                <p className="text-xs text-slate-500">{t("settings.officialProfileVerified")}</p>
               </div>
             </div>
 
@@ -496,17 +498,17 @@ export default function HorecaCompanyInformationPage() {
           {isLoadingCompany ? (
             <div className="mt-8 flex items-center justify-center py-12 text-slate-400">
               <RefreshCw className="mr-2 h-5 w-5 animate-spin" />
-              <span>Loading company profile from server...</span>
+              <span>{t("settings.loadingCompanyProfile")}</span>
             </div>
           ) : (
             <dl className="mt-6 grid grid-cols-1 gap-x-8 sm:grid-cols-2">
-              <CompanyInfoDetail label="Company name" value={companyInfo.companyName} />
-              <CompanyInfoDetail label="Phone number" value={companyInfo.phoneNumber} />
-              <CompanyInfoDetail label="Company address" value={companyInfo.companyAddress} />
-              <CompanyInfoDetail label="Tax ID (HVHH)" value={companyInfo.taxId} />
-              <CompanyInfoDetail label="Email address" value={companyInfo.email} />
-              <CompanyInfoDetail label="Product categories" value={companyInfo.productCategories} />
-              <CompanyInfoDetail label="Service areas" value={companyInfo.serviceAreas} />
+              <CompanyInfoDetail label={t("auth.companyName")} value={companyInfo.companyName} />
+              <CompanyInfoDetail label={t("auth.mobile")} value={companyInfo.phoneNumber} />
+              <CompanyInfoDetail label={t("auth.address")} value={companyInfo.companyAddress} />
+              <CompanyInfoDetail label={t("auth.taxCode")} value={companyInfo.taxId} />
+              <CompanyInfoDetail label={t("auth.email")} value={companyInfo.email} />
+              <CompanyInfoDetail label={t("auth.categories")} value={companyInfo.productCategories} />
+              <CompanyInfoDetail label={t("auth.activityType")} value={companyInfo.serviceAreas} />
             </dl>
           )}
         </section>
@@ -519,9 +521,9 @@ export default function HorecaCompanyInformationPage() {
               </span>
               <div>
                 <h2 className="text-lg font-semibold tracking-tight text-slate-900">
-                  Delivery addresses
+                  {t("settings.deliveryAddresses")}
                 </h2>
-                <p className="text-xs text-slate-500">Receiving addresses configured for orders and logistics.</p>
+                <p className="text-xs text-slate-500">{t("settings.deliveryAddressesDesc")}</p>
               </div>
             </div>
             <Button
@@ -532,18 +534,18 @@ export default function HorecaCompanyInformationPage() {
               onClick={() => openDeliveryAddressModal()}
             >
               <Plus className="h-4 w-4" aria-hidden="true" />
-              Add delivery address
+              {t("settings.addDeliveryAddress")}
             </Button>
           </div>
 
           {isLoadingDeliveryAddresses ? (
-            <p className="mt-7 text-sm text-slate-500">Loading delivery addresses...</p>
+            <p className="mt-7 text-sm text-slate-500">{t("settings.loadingDeliveryAddresses")}</p>
           ) : deliveryAddressLoadError ? (
             <p className="mt-7 rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700">{deliveryAddressLoadError}</p>
           ) : deliveryAddresses.length === 0 ? (
             <div className="mt-7 rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-5 py-8 text-center">
-              <p className="font-semibold text-slate-900">No delivery addresses yet</p>
-              <p className="mt-1 text-sm text-slate-500">Add a receiving location before placing an order.</p>
+              <p className="font-semibold text-slate-900">{t("settings.noDeliveryAddresses")}</p>
+              <p className="mt-1 text-sm text-slate-500">{t("settings.addReceivingLocationPrompt")}</p>
             </div>
           ) : (
             <ul className="mt-7 divide-y divide-slate-100 rounded-2xl border border-slate-200">
@@ -551,13 +553,13 @@ export default function HorecaCompanyInformationPage() {
                 <li key={address.id} className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-semibold text-slate-900">{address.label ?? "Delivery address"}</p>
+                      <p className="font-semibold text-slate-900">{address.label ?? t("settings.deliveryAddresses")}</p>
                       <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${address.approved ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-800"}`}>
                         <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
-                        {address.approved ? "Approved" : "Awaiting approval"}
+                        {address.approved ? t("settings.approved") : t("settings.awaitingApproval")}
                       </span>
                       <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${address.active ? "bg-primary/10 text-primary" : "bg-slate-100 text-slate-600"}`}>
-                        {address.active ? "Active" : "Inactive"}
+                        {address.active ? t("common.active") : t("common.inactive")}
                       </span>
                     </div>
                     <p className="mt-1 text-sm text-slate-600">{address.fullAddress}</p>
@@ -565,10 +567,10 @@ export default function HorecaCompanyInformationPage() {
                   </div>
                   <div className="flex shrink-0 flex-wrap gap-2">
                     <Button type="button" size="sm" variant="secondary" className="sm:w-auto" onClick={() => openDeliveryAddressModal(address)}>
-                      <PencilLine className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />Edit
+                      <PencilLine className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />{t("common.edit")}
                     </Button>
                     <Button type="button" size="sm" variant="ghost" className="border border-slate-200 sm:w-auto" disabled={changingAddressId === address.id} onClick={() => void setDeliveryAddressActive(address, !address.active)}>
-                      {changingAddressId === address.id ? "Saving..." : address.active ? "Deactivate" : "Activate"}
+                      {changingAddressId === address.id ? t("common.saving") : address.active ? t("settings.inactive") : t("settings.active")}
                     </Button>
                   </div>
                 </li>
@@ -580,8 +582,8 @@ export default function HorecaCompanyInformationPage() {
 
       <Modal
         isOpen={isEditModalOpen}
-        title="Edit company information"
-        description="Update the details suppliers and buyers use to identify and contact your business."
+        title={t("settings.editCompanyInfo")}
+        description={t("settings.companyInfoSubtitle")}
         onClose={closeEditModal}
       >
         <form
@@ -592,7 +594,7 @@ export default function HorecaCompanyInformationPage() {
           <div className="grid gap-5 sm:grid-cols-2">
             <Input
               id="companyName"
-              label="Company name"
+              label={t("auth.companyName")}
               autoComplete="organization"
               errorMessage={errors.companyName?.message}
               {...register("companyName")}
@@ -600,14 +602,14 @@ export default function HorecaCompanyInformationPage() {
             <Input
               id="phoneNumber"
               type="tel"
-              label="Phone number"
+              label={t("auth.mobile")}
               autoComplete="tel"
               errorMessage={errors.phoneNumber?.message}
               {...register("phoneNumber")}
             />
             <Input
               id="companyAddress"
-              label="Company address"
+              label={t("auth.address")}
               autoComplete="street-address"
               className="sm:col-span-2"
               errorMessage={errors.companyAddress?.message}
@@ -615,23 +617,21 @@ export default function HorecaCompanyInformationPage() {
             />
             <Input
               id="taxId"
-              label="Tax ID (HVHH)"
-              
+              label={t("auth.taxCode")}
               errorMessage={errors.taxId?.message}
               {...register("taxId")}
             />
             <Input
               id="email"
               type="email"
-              label="Email address"
+              label={t("auth.email")}
               autoComplete="email"
-              
               errorMessage={errors.email?.message}
               {...register("email")}
             />
             <Input
               id="productCategories"
-              label="Product categories"
+              label={t("auth.categories")}
               className="sm:col-span-2"
               placeholder="e.g. Armenian Cuisine, Beverages, Bakery"
               errorMessage={errors.productCategories?.message}
@@ -639,7 +639,7 @@ export default function HorecaCompanyInformationPage() {
             />
             <Input
               id="serviceAreas"
-              label="Service areas"
+              label={t("auth.activityType")}
               className="sm:col-span-2"
               placeholder="e.g. Kentron, Arabkir, Ajapnyak"
               errorMessage={errors.serviceAreas?.message}
@@ -655,10 +655,10 @@ export default function HorecaCompanyInformationPage() {
               onClick={closeEditModal}
               disabled={isSubmitting}
             >
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button type="submit" className="w-full sm:w-40" loading={isSubmitting}>
-              Save changes
+              {t("common.save")}
             </Button>
           </div>
         </form>
@@ -667,21 +667,21 @@ export default function HorecaCompanyInformationPage() {
       <Modal
         isOpen={isDeliveryAddressModalOpen}
         size="sm"
-        title={editingDeliveryAddress ? "Edit delivery address" : "Add delivery address"}
-        description="This is the receiving location and contact the supplier will see on the order."
+        title={editingDeliveryAddress ? t("settings.editDeliveryAddress") : t("settings.addDeliveryAddress")}
+        description={t("settings.deliveryAddressModalDesc")}
         onClose={closeDeliveryAddressModal}
       >
         <form className="flex flex-col gap-5" noValidate onSubmit={deliveryAddressForm.handleSubmit(handleSaveDeliveryAddress)}>
           <div className="grid gap-5">
-            <Input id="deliveryAddressLabel" label="Address name (optional)" placeholder="e.g. Main receiving dock" errorMessage={deliveryAddressErrors.label?.message} {...registerDeliveryAddress("label")} />
-            <Input id="deliveryAddressFullAddress" label="Full address" autoComplete="street-address" errorMessage={deliveryAddressErrors.fullAddress?.message} {...registerDeliveryAddress("fullAddress")} />
-            <Input id="deliveryAddressContactPerson" label="Contact person" autoComplete="name" errorMessage={deliveryAddressErrors.contactPerson?.message} {...registerDeliveryAddress("contactPerson")} />
-            <Input id="deliveryAddressContactPhone" type="tel" label="Contact phone" autoComplete="tel" errorMessage={deliveryAddressErrors.contactPhone?.message} {...registerDeliveryAddress("contactPhone")} />
+            <Input id="deliveryAddressLabel" label={t("settings.addressNameOptional")} placeholder="e.g. Main receiving dock" errorMessage={deliveryAddressErrors.label?.message} {...registerDeliveryAddress("label")} />
+            <Input id="deliveryAddressFullAddress" label={t("settings.fullAddress")} autoComplete="street-address" errorMessage={deliveryAddressErrors.fullAddress?.message} {...registerDeliveryAddress("fullAddress")} />
+            <Input id="deliveryAddressContactPerson" label={t("settings.contactPerson")} autoComplete="name" errorMessage={deliveryAddressErrors.contactPerson?.message} {...registerDeliveryAddress("contactPerson")} />
+            <Input id="deliveryAddressContactPhone" type="tel" label={t("settings.contactPhone")} autoComplete="tel" errorMessage={deliveryAddressErrors.contactPhone?.message} {...registerDeliveryAddress("contactPhone")} />
             <FieldError message={deliveryAddressErrors.root?.serverError?.message} />
           </div>
           <div className="flex flex-wrap justify-end gap-3 border-t border-slate-200 pt-5">
-            <Button type="button" variant="ghost" className="w-full sm:w-32" onClick={closeDeliveryAddressModal} disabled={isSavingDeliveryAddress}>Cancel</Button>
-            <Button type="submit" className="w-full sm:w-40" loading={isSavingDeliveryAddress}>{editingDeliveryAddress ? "Save changes" : "Add address"}</Button>
+            <Button type="button" variant="ghost" className="w-full sm:w-32" onClick={closeDeliveryAddressModal} disabled={isSavingDeliveryAddress}>{t("common.cancel")}</Button>
+            <Button type="submit" className="w-full sm:w-40" loading={isSavingDeliveryAddress}>{editingDeliveryAddress ? t("common.save") : t("settings.addAddress")}</Button>
           </div>
         </form>
       </Modal>

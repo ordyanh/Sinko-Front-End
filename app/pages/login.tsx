@@ -10,11 +10,13 @@ import {
   signInWithSeedUser,
 } from "~/shared/lib/indexed-db";
 import { useToast } from "~/shared/ui/toast";
+import { LanguageSwitcher } from "~/shared/ui";
+import { useTranslation } from "~/shared/lib/i18n";
 
 export default function LoginPage() {
   const navigate = useNavigate();
   const { showToast } = useToast();
-  const [role, setRole] = useState<"horeca" | "supplier">("horeca");
+  const { t } = useTranslation();
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isResettingData, setIsResettingData] = useState(false);
@@ -42,18 +44,16 @@ export default function LoginPage() {
     const password = String(formData.get("password") ?? "");
 
     if (!identifier || !password) {
-      setError("Email/username and password are required.");
+      setError(t("common.required"));
       return;
     }
 
     setIsSubmitting(true);
     try {
-      const user = await signInWithSeedUser(identifier, password, role);
+      const user = await signInWithSeedUser(identifier, password);
 
       if (!user) {
-        setError(
-          "We couldn't sign you in. Please check your credentials and try again.",
-        );
+        setError(t("auth.checkCredentials"));
         return;
       }
 
@@ -62,7 +62,7 @@ export default function LoginPage() {
       const message =
         err instanceof Error
           ? err.message
-          : "We couldn't sign you in. Please check your credentials and try again.";
+          : t("auth.checkCredentials");
       setError(message);
     } finally {
       setIsSubmitting(false);
@@ -76,14 +76,14 @@ export default function LoginPage() {
     try {
       await resetDatabase();
       showToast({
-        title: "Data reset",
-        description: "Your local data has been restored to its default state.",
+        title: t("auth.dataResetSuccessTitle"),
+        description: t("auth.dataResetSuccessDesc"),
         variant: "success",
       });
     } catch {
       showToast({
-        title: "Couldn't reset data",
-        description: "Please try again.",
+        title: t("auth.dataResetFailedTitle"),
+        description: t("auth.dataResetFailedDesc"),
         variant: "error",
       });
     } finally {
@@ -93,44 +93,32 @@ export default function LoginPage() {
 
   return (
     <main
-      data-account-type={role}
+      data-account-type="horeca"
       className="flex min-h-screen items-center justify-center bg-[#f3f6f4] px-4 py-10 text-slate-950"
     >
       <div className="relative mx-auto w-full max-w-xl">
-        <a
-          href="/"
-          className="mb-4 inline-flex items-center gap-2 text-sm font-semibold text-primary transition hover:opacity-80"
-        >
-          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-          <span>Back to Home</span>
-        </a>
+        <div className="mb-4 flex items-center justify-between">
+          <a
+            href="/"
+            className="inline-flex items-center gap-2 text-sm font-semibold text-primary transition hover:opacity-80"
+          >
+            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+            <span>{t("common.backToHome")}</span>
+          </a>
+
+          <LanguageSwitcher />
+        </div>
 
         <div className="w-full rounded-4xl border border-slate-200/80 bg-white p-8 shadow-2xl shadow-slate-900/10 sm:p-10">
           <p className="text-xs font-semibold uppercase tracking-[0.26em] text-slate-500">
-            Sign In
+            {t("auth.loginEyebrow")}
           </p>
           <h2 className="mt-3 text-2xl font-semibold tracking-tight text-slate-950">
-            Log in to Synko
+            {t("auth.loginTitle")}
           </h2>
-
-          <div className="mt-6 grid grid-cols-2 rounded-xl border border-slate-200 bg-slate-100/80 p-1.5">
-            <button
-              type="button"
-              onClick={() => setRole("horeca")}
-              className={`rounded-lg py-2.5 text-sm font-semibold transition ${role === "horeca" ? "bg-white text-primary shadow-sm" : "text-slate-600 hover:text-slate-800"}`}
-              aria-pressed={role === "horeca"}
-            >
-              HoReCa
-            </button>
-            <button
-              type="button"
-              onClick={() => setRole("supplier")}
-              className={`rounded-lg py-2.5 text-sm font-semibold transition ${role === "supplier" ? "bg-white text-primary shadow-sm" : "text-slate-600 hover:text-slate-800"}`}
-              aria-pressed={role === "supplier"}
-            >
-              Supplier
-            </button>
-          </div>
+          <p className="mt-2 text-sm text-slate-500">
+            {t("auth.loginSubtitle")}
+          </p>
 
           <form
             className="mt-6 space-y-4"
@@ -138,14 +126,13 @@ export default function LoginPage() {
               void handleSubmit(event);
             }}
           >
-            <input type="hidden" name="role" value={role} readOnly />
             <Input
               id="identifier"
               name="identifier"
               type="text"
-              label="Email or Username"
+              label={t("auth.emailOrUsername")}
               labelClassName="text-slate-700"
-              placeholder="john.smith or john@restaurant.am"
+              placeholder={t("auth.emailOrUsernamePlaceholder")}
             />
 
             <div>
@@ -153,9 +140,9 @@ export default function LoginPage() {
                 id="password"
                 name="password"
                 type="password"
-                label="Password"
+                label={t("auth.password")}
                 labelClassName="text-slate-700"
-                placeholder="••••••••"
+                placeholder={t("auth.passwordPlaceholder")}
                 containerClassName="relative"
               />
             </div>
@@ -172,7 +159,7 @@ export default function LoginPage() {
                     aria-hidden="true"
                   />
                   <div>
-                    <p className="font-semibold">Sign-in failed</p>
+                    <p className="font-semibold">{t("auth.signInFailed")}</p>
                     <p className="mt-1">{error}</p>
                   </div>
                 </div>
@@ -180,19 +167,19 @@ export default function LoginPage() {
             ) : null}
 
             <Button type="submit" loading={isSubmitting} className="mt-2">
-              Log In
+              {isSubmitting ? t("auth.loggingIn") : t("auth.logInButton")}
             </Button>
 
             <div className="mt-3 text-center">
-              <a className="text-sm text-primary" href="#">
-                Forgot Password?
+              <a className="text-sm text-primary hover:underline" href="#">
+                {t("auth.forgotPassword")}
               </a>
             </div>
           </form>
 
           <div className="mt-8 border-t border-slate-200 pt-5 text-center">
             <p className="text-xs text-slate-500">
-              Need a fresh start for this browser?
+              {t("auth.needFreshStart")}
             </p>
             <Button
               type="button"
@@ -205,21 +192,22 @@ export default function LoginPage() {
               }}
               className="mt-2 text-slate-600 hover:bg-slate-100 hover:text-slate-950"
             >
-              Reset data
+              {t("auth.resetData")}
             </Button>
           </div>
         </div>
 
-        <p className="mt-6 text-center text-sm text-slate-600">
-          New to Synko?{" "}
-          <a className="font-semibold text-[#EA580C]" href="/register-horeca">
-            Register as HoReCa
-          </a>{" "}
-          or{" "}
-          <a className="font-semibold text-[#0284C7]" href="/register-supplier">
-            Register as Supplier
-          </a>
-        </p>
+        <div className="mt-6 text-center text-sm text-slate-600">
+          <p>
+            {t("auth.newToSynko")}{" "}
+            <a
+              className="font-semibold text-primary underline underline-offset-4 hover:opacity-80"
+              href="/register"
+            >
+              {t("auth.createAccount")}
+            </a>
+          </p>
+        </div>
       </div>
     </main>
   );

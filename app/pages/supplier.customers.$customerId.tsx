@@ -31,6 +31,7 @@ import {
   type IndividualPrice,
   type IndividualPriceResource,
 } from "~/features/individual-prices";
+import { useTranslation } from "~/shared/lib/i18n";
 
 const orderStatusClasses: Record<CustomerOrderStatus, string> = {
   New: "bg-amber-50 text-amber-700",
@@ -98,6 +99,7 @@ function sellingOptionResourceId(productId: string, sellingOptionId: string) {
 }
 
 export default function SupplierCustomerProfilePage() {
+  const { t } = useTranslation();
   const { customerId } = useParams();
   const navigate = useNavigate();
   const [customer, setCustomer] = useState<SupplierCustomerProfile | null>();
@@ -280,7 +282,7 @@ export default function SupplierCustomerProfilePage() {
     return (
       <DashboardPageContent>
         <p className="py-8 text-center text-sm text-slate-500">
-          Loading customer...
+          {t("customers.loadingCustomer")}
         </p>
       </DashboardPageContent>
     );
@@ -291,17 +293,17 @@ export default function SupplierCustomerProfilePage() {
       <DashboardPageContent>
         <section className="rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-sm">
           <p className="text-lg font-semibold text-slate-900">
-            Customer not found
+            {t("customers.customerNotFound")}
           </p>
           <p className="mt-2 text-sm text-slate-600">
-            This customer may no longer exist.
+            {t("customers.customerNotFoundDesc")}
           </p>
           <Link
             to="/supplier/customers"
             className="mt-6 inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
           >
             <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-            Back to customers
+            {t("customers.backToCustomers")}
           </Link>
         </section>
       </DashboardPageContent>
@@ -317,7 +319,7 @@ export default function SupplierCustomerProfilePage() {
             className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 transition hover:text-slate-900"
           >
             <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-            Back to customers
+            {t("customers.backToCustomers")}
           </Link>
         </div>
 
@@ -341,7 +343,7 @@ export default function SupplierCustomerProfilePage() {
               </span>
             </div>
             <p className="mt-1 text-sm text-slate-500">
-              HORECA customer · {customer.totalOrders} total orders
+              HORECA · {customer.totalOrders} {t("customers.totalOrders").toLowerCase()}
             </p>
           </div>
         </div>
@@ -352,10 +354,10 @@ export default function SupplierCustomerProfilePage() {
               <div className="mb-6 flex items-start justify-between gap-4">
                 <div>
                   <h2 className="text-lg font-semibold text-slate-900">
-                    Order history
+                    {t("customers.orderHistory")}
                   </h2>
                   <p className="mt-1 text-sm text-slate-500">
-                    The 5 most recent orders placed by this customer.
+                    {t("customers.recentOrdersDesc")}
                   </p>
                 </div>
                 <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
@@ -365,7 +367,7 @@ export default function SupplierCustomerProfilePage() {
 
               {customer.recentOrders.length === 0 ? (
                 <p className="rounded-xl bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
-                  This customer hasn&apos;t placed any orders yet.
+                  {t("customers.noOrdersYet")}
                 </p>
               ) : (
                 <ul className="divide-y divide-slate-100">
@@ -379,7 +381,7 @@ export default function SupplierCustomerProfilePage() {
                           {order.id}
                         </p>
                         <p className="mt-0.5 text-xs text-slate-500">
-                          {formatDate(order.date)} · {order.itemCount} items
+                          {formatDate(order.date)} · {order.itemCount} {t("orders.items")}
                         </p>
                       </div>
                       <div className="flex items-center gap-3">
@@ -404,7 +406,7 @@ export default function SupplierCustomerProfilePage() {
                 }
                 className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 sm:w-auto"
               >
-                View all orders
+                {t("suppliers.viewAllOrders")}
               </button>
             </section>
 
@@ -416,8 +418,8 @@ export default function SupplierCustomerProfilePage() {
               <IndividualPricesSection
                 resourceLabel="Selling option"
                 resourceLabelPlural="selling options"
-                title="Company prices"
-                description="Set a fixed price for a specific product packaging option. It applies only when this company orders that unit."
+                title={t("common.individualPrices")}
+                description={t("common.overridePriceDesc")}
                 resources={individualPriceResources}
                 initialPrices={customerPrices}
                 resetKey={customer.id}
@@ -436,7 +438,7 @@ export default function SupplierCustomerProfilePage() {
 
           <section className="h-fit space-y-5 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-7">
             <h2 className="text-lg font-semibold text-slate-900">
-              Customer profile
+              {t("customers.customerProfile")}
             </h2>
 
             <dl className="space-y-4 text-sm">
@@ -446,7 +448,7 @@ export default function SupplierCustomerProfilePage() {
                   aria-hidden="true"
                 />
                 <div>
-                  <dt className="text-xs font-medium text-slate-500">Email</dt>
+                  <dt className="text-xs font-medium text-slate-500">{t("common.email")}</dt>
                   <dd className="text-slate-900">{customer.email}</dd>
                 </div>
               </div>
@@ -456,7 +458,7 @@ export default function SupplierCustomerProfilePage() {
                   aria-hidden="true"
                 />
                 <div>
-                  <dt className="text-xs font-medium text-slate-500">Phone</dt>
+                  <dt className="text-xs font-medium text-slate-500">{t("common.phone")}</dt>
                   <dd className="text-slate-900">{customer.phone}</dd>
                 </div>
               </div>
@@ -467,7 +469,7 @@ export default function SupplierCustomerProfilePage() {
                 />
                 <div>
                   <dt className="text-xs font-medium text-slate-500">
-                    Address
+                    {t("common.address")}
                   </dt>
                   <dd className="text-slate-900">{customer.address}</dd>
                 </div>
@@ -479,7 +481,7 @@ export default function SupplierCustomerProfilePage() {
                 />
                 <div>
                   <dt className="text-xs font-medium text-slate-500">
-                    Activity type
+                    {t("customers.activityType")}
                   </dt>
                   <dd className="text-slate-900">{customer.activityType}</dd>
                 </div>
@@ -491,7 +493,7 @@ export default function SupplierCustomerProfilePage() {
                 />
                 <div>
                   <dt className="text-xs font-medium text-slate-500">
-                    Tax code
+                    {t("customers.taxCode")}
                   </dt>
                   <dd className="text-slate-900">{customer.taxCode}</dd>
                 </div>

@@ -20,6 +20,7 @@ import {
   type SearchFilterDefinition,
   type SearchFilterValue,
 } from "~/shared/ui";
+import { useTranslation } from "~/shared/lib/i18n";
 
 function getDiscountDetails(originalPrice: number, discountedPrice: number) {
   const saving = originalPrice - discountedPrice;
@@ -40,6 +41,7 @@ function ProductCard({
   selectedPackageCount: number;
   onOpen: () => void;
 }) {
+  const { t } = useTranslation();
   const availableOptions = getMarketplaceSellingOptions(product);
   const startingOption = availableOptions[0];
   const { price: productPrice, promotion: pricePromotion } = getPromotionalPrice(product, startingOption);
@@ -111,7 +113,7 @@ function ProductCard({
             className="inline-flex min-h-10 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl bg-primary px-3 py-2 text-sm font-semibold text-primary-content shadow-sm transition hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           >
             <ShoppingBasket className="h-4 w-4" aria-hidden="true" />
-            {selectedPackageCount > 0 ? `${selectedPackageCount} in cart` : "Add"}
+            {selectedPackageCount > 0 ? `${selectedPackageCount} in cart` : t("products.addToCart")}
           </button>
         </div>
       </div>
@@ -120,6 +122,7 @@ function ProductCard({
 }
 
 export default function HorecaProductsPage() {
+  const { t } = useTranslation();
   const [searchParams] = useSearchParams();
   const [searchValue, setSearchValue] = useState("");
   const [products, setProducts] = useState<MarketplaceProduct[]>([]);
@@ -191,18 +194,18 @@ export default function HorecaProductsPage() {
     () => [
       {
         id: "supplier",
-        label: "Supplier",
+        label: t("products.supplier"),
         options: Array.from(new Set(products.map((product) => product.supplier))).map((supplier) => ({ value: supplier, label: supplier })),
       },
       {
         id: "category",
-        label: "Category",
+        label: t("products.category"),
         options: Array.from(
           new Set(products.flatMap((product) => product.category.split(", "))),
         ).map((category) => ({ value: category, label: category })),
       },
     ],
-    [products],
+    [products, t],
   );
   const normalizedSearchValue = searchValue.trim().toLowerCase();
   const visibleProducts = useMemo(
@@ -289,13 +292,13 @@ export default function HorecaProductsPage() {
             <div>
               <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-primary">
                 <span className="h-2 w-2 rounded-full bg-primary" />
-                Supplier marketplace
+                {t("products.supplierMarketplace")}
               </div>
               <h1 className="mt-3 text-3xl font-bold tracking-[-0.045em] text-slate-950 sm:text-4xl">
-                Stock the kitchen, simply.
+                {t("products.stockKitchenSimply")}
               </h1>
               <p className="mt-2 max-w-xl text-sm leading-6 text-slate-600 sm:text-base">
-                {selectedPromotion ? `${selectedPromotion.title}: ${selectedPromotion.benefitLabel}. ${selectedPromotion.conditions}` : "Browse ingredients and essentials from your trusted suppliers."}
+                {selectedPromotion ? `${selectedPromotion.title}: ${selectedPromotion.benefitLabel}. ${selectedPromotion.conditions}` : t("products.browseIngredients")}
               </p>
             </div>
           </div>
@@ -304,7 +307,7 @@ export default function HorecaProductsPage() {
             className="mt-7 max-w-2xl"
             value={searchValue}
             onValueChange={setSearchValue}
-            placeholder="Search products, suppliers, or categories"
+            placeholder={t("products.searchProductsSuppliersCategories")}
             filters={marketplaceSearchFilters}
             selectedFilters={selectedFilters}
             onSelectedFiltersChange={setSelectedFilters}
@@ -317,20 +320,20 @@ export default function HorecaProductsPage() {
               <span className="font-semibold text-slate-900 tabular-nums">
                 {visibleProducts.length}
               </span>{" "}
-              {visibleProducts.length === 1 ? "product" : "products"} available
+              {t("nav.products")}
             </p>
             <span className="hidden text-xs font-semibold uppercase tracking-[0.14em] text-slate-400 sm:block">
-              Today&apos;s selection
+              {t("products.todaysSelection")}
             </span>
           </div>
 
           {isLoadingProducts ? (
             <div className="flex min-h-56 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 px-6 text-center text-sm font-medium text-slate-500">
-              Loading supplier catalog…
+              {t("products.loadingCatalog")}
             </div>
           ) : productsError ? (
             <div className="flex min-h-56 flex-col items-center justify-center rounded-2xl border border-dashed border-rose-200 bg-rose-50 px-6 text-center">
-              <h2 className="font-semibold text-rose-950">Catalog unavailable</h2>
+              <h2 className="font-semibold text-rose-950">{t("products.catalogUnavailable")}</h2>
               <p className="mt-1 text-sm text-rose-700">{productsError}</p>
             </div>
           ) : visibleProducts.length > 0 ? (
@@ -362,9 +365,9 @@ export default function HorecaProductsPage() {
           ) : (
             <div className="flex min-h-56 flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-6 text-center">
               <Search className="h-7 w-7 text-slate-400" aria-hidden="true" />
-              <h2 className="mt-3 font-semibold text-slate-900">No products found</h2>
+              <h2 className="mt-3 font-semibold text-slate-900">{t("products.noProductsFound")}</h2>
               <p className="mt-1 text-sm text-slate-500">
-                Try a different product, supplier, or category name.
+                {t("products.subtitle")}
               </p>
             </div>
           )}
@@ -382,9 +385,9 @@ export default function HorecaProductsPage() {
                     <div className="flex min-w-0 gap-4">
                       <img src={selectedProduct.image} alt="" className="h-16 w-16 rounded-2xl object-cover" />
                       <div>
-                        <p className="text-xs font-bold uppercase tracking-[0.14em] text-primary">Choose packaging</p>
+                        <p className="text-xs font-bold uppercase tracking-[0.14em] text-primary">{t("products.packaging")}</p>
                         <DialogTitle className="mt-1 text-xl font-bold tracking-tight text-slate-950">{selectedProduct.title}</DialogTitle>
-                        <p className="mt-1 text-sm text-slate-500">Select the selling unit, then how many to order.</p>
+                        <p className="mt-1 text-sm text-slate-500">{t("products.subtitle")}</p>
                       </div>
                     </div>
                     <button type="button" onClick={() => setSelectedProduct(null)} className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-slate-500 transition hover:bg-slate-100" aria-label="Close product options"><X className="h-5 w-5" aria-hidden="true" /></button>
@@ -400,13 +403,13 @@ export default function HorecaProductsPage() {
                       </button>;
                     })}
                     {getPromotionsForProduct(selectedProduct.id).length > 0 ? <div className="rounded-2xl border border-violet-100 bg-violet-50 px-4 py-3 text-sm text-violet-950">{selectedPricePromotion ? <p><span className="font-bold">{promotionTypeLabels[selectedPricePromotion.type]}:</span> {selectedPricePromotion.benefitLabel} applies to this product.</p> : null}{selectedBxgyPromotion ? <p className={selectedPricePromotion ? "mt-1" : ""}><span className="font-bold">Buy X, get Y:</span> {selectedBxgyPromotion.conditions}</p> : null}</div> : null}
-                    {activeQuickGiftPromotion && quickGiftChoices.length > 0 ? <fieldset className="rounded-2xl border border-violet-200 bg-violet-50/70 p-4"><legend className="px-1 text-sm font-bold text-violet-950">Choose your free gift</legend><p className="mt-1 text-xs text-violet-700">It is added separately once the required paid quantity is in your cart.</p><div className="mt-3 grid gap-2 sm:grid-cols-2">{quickGiftChoices.map((choice) => { const giftProduct = products.find((product) => product.id === choice.productId); if (!giftProduct) return null; const active = choice.productId === selectedQuickGiftProductId; return <button key={choice.productId} type="button" onClick={() => setPromotionGiftProductId(activeQuickGiftPromotion.id, choice.productId)} className={`flex items-center gap-2 rounded-xl border p-2 text-left transition ${active ? "border-violet-500 bg-white ring-1 ring-violet-300" : "border-violet-100 bg-white/70 hover:border-violet-300"}`} aria-pressed={active}><img src={giftProduct.image} alt="" className="h-9 w-9 rounded-lg object-cover" /><span className="min-w-0"><span className="block truncate text-xs font-bold text-slate-900">{giftProduct.title}</span><span className="block text-[11px] text-violet-700">Free gift</span></span></button>; })}</div></fieldset> : null}
+                    {activeQuickGiftPromotion && quickGiftChoices.length > 0 ? <fieldset className="rounded-2xl border border-violet-200 bg-violet-50/70 p-4"><legend className="px-1 text-sm font-bold text-violet-950">{t("promotions.activePromotions")}</legend><p className="mt-1 text-xs text-violet-700">It is added separately once the required paid quantity is in your cart.</p><div className="mt-3 grid gap-2 sm:grid-cols-2">{quickGiftChoices.map((choice) => { const giftProduct = products.find((product) => product.id === choice.productId); if (!giftProduct) return null; const active = choice.productId === selectedQuickGiftProductId; return <button key={choice.productId} type="button" onClick={() => setPromotionGiftProductId(activeQuickGiftPromotion.id, choice.productId)} className={`flex items-center gap-2 rounded-xl border p-2 text-left transition ${active ? "border-violet-500 bg-white ring-1 ring-violet-300" : "border-violet-100 bg-white/70 hover:border-violet-300"}`} aria-pressed={active}><img src={giftProduct.image} alt="" className="h-9 w-9 rounded-lg object-cover" /><span className="min-w-0"><span className="block truncate text-xs font-bold text-slate-900">{giftProduct.title}</span><span className="block text-[11px] text-violet-700">Free gift</span></span></button>; })}</div></fieldset> : null}
                     <div className="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3">
-                      <span><span className="block text-sm font-semibold text-slate-700">Quantity</span><span className="mt-0.5 block text-xs text-slate-500">{getMarketplaceMinimumOrderLabel(selectedOption)}</span></span>
+                      <span><span className="block text-sm font-semibold text-slate-700">{t("products.quantity")}</span><span className="mt-0.5 block text-xs text-slate-500">{getMarketplaceMinimumOrderLabel(selectedOption)}</span></span>
                       <div className="flex h-10 items-center rounded-xl border border-primary/20 bg-white p-0.5"><button type="button" onClick={() => setSelectionQuantity((current) => Math.max(selectedOption.minimumOrderQuantity, current - 1))} className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-primary hover:bg-primary/10" aria-label="Decrease selected unit quantity"><Minus className="h-4 w-4" aria-hidden="true" /></button><span className="w-9 text-center text-sm font-bold tabular-nums">{selectionQuantity}</span><button type="button" onClick={() => setSelectionQuantity((current) => current + 1)} className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-primary hover:bg-primary/10" aria-label="Increase selected unit quantity"><Plus className="h-4 w-4" aria-hidden="true" /></button></div>
                     </div>
                   </div>
-                  <div className="flex items-center justify-between gap-4 border-t border-slate-100 bg-slate-50 px-5 py-4 sm:px-6"><span className="text-sm text-slate-600">{selectionQuantity} × {getMarketplaceOptionLabel(selectedOption)}</span><button type="button" onClick={addSelectedOptionToCart} className="rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-content transition hover:brightness-95">Add for {formatMarketplacePrice(getPromotionalPrice(selectedProduct, selectedOption).price * selectionQuantity)}</button></div>
+                  <div className="flex items-center justify-between gap-4 border-t border-slate-100 bg-slate-50 px-5 py-4 sm:px-6"><span className="text-sm text-slate-600">{selectionQuantity} × {getMarketplaceOptionLabel(selectedOption)}</span><button type="button" onClick={addSelectedOptionToCart} className="rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-content transition hover:brightness-95">{t("products.addToCart")} ({formatMarketplacePrice(getPromotionalPrice(selectedProduct, selectedOption).price * selectionQuantity)})</button></div>
                 </>
               ) : null}
             </DialogPanel>

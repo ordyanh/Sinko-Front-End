@@ -25,6 +25,7 @@ import {
   ORDERS_UPDATED_EVENT,
   type StoredOrder,
 } from "~/shared/lib/indexed-db";
+import { useTranslation } from "~/shared/lib/i18n";
 
 type DashboardNotificationView = {
   title: string;
@@ -36,30 +37,6 @@ type DashboardNotificationView = {
 };
 
 const defaultNotifications: DashboardNotificationView[] = [];
-
-const quickActions = [
-  {
-    label: "Add product",
-    description: "Create a product for your catalogue",
-    href: "/supplier/products/new",
-    icon: PackagePlus,
-    accent: "bg-sky-50 text-sky-700 ring-sky-100",
-  },
-  {
-    label: "Add employee",
-    description: "Invite someone to your team",
-    href: "/supplier/employees?create=true",
-    icon: UsersRound,
-    accent: "bg-violet-50 text-violet-700 ring-violet-100",
-  },
-  {
-    label: "Create promotion",
-    description: "Set up a new offer for customers",
-    href: "/supplier/promotions/new",
-    icon: Megaphone,
-    accent: "bg-amber-50 text-amber-700 ring-amber-100",
-  },
-];
 
 type OrderCounts = Record<"new" | "inProgress" | "closed", number>;
 
@@ -89,6 +66,7 @@ function countOrdersByStatus(orders: StoredOrder[]): OrderCounts {
 }
 
 export default function SupplierPage() {
+  const { t } = useTranslation();
   const [orderCounts, setOrderCounts] = useState<OrderCounts>({
     new: 0,
     inProgress: 0,
@@ -158,31 +136,55 @@ export default function SupplierPage() {
 
   const orderStates = [
     {
-      label: "New orders",
+      label: t("dashboard.newOrders"),
       value: orderCounts.new,
-      description: "Need your attention",
+      description: t("dashboard.newOrdersDesc"),
       href: "/supplier/orders?overview=new",
       icon: BellRing,
       iconClass: "bg-sky-100 text-sky-700",
       barClass: "bg-sky-500",
     },
     {
-      label: "Orders in progress",
+      label: t("dashboard.inProgressOrders"),
       value: orderCounts.inProgress,
-      description: "Awaiting confirmation, preparing, or on delivery",
+      description: t("dashboard.inProgressOrdersDesc"),
       href: "/supplier/orders?overview=in-progress",
       icon: Clock3,
       iconClass: "bg-amber-100 text-amber-700",
       barClass: "bg-amber-400",
     },
     {
-      label: "Closed orders",
+      label: t("dashboard.completedOrders"),
       value: orderCounts.closed,
-      description: "Completed or closed without fulfilment",
+      description: t("dashboard.completedOrdersDesc"),
       href: "/supplier/orders?overview=closed",
       icon: Truck,
       iconClass: "bg-emerald-100 text-emerald-700",
       barClass: "bg-emerald-500",
+    },
+  ];
+
+  const quickActions = [
+    {
+      label: t("dashboard.addProduct"),
+      description: t("dashboard.addProductDesc"),
+      href: "/supplier/products/new",
+      icon: PackagePlus,
+      accent: "bg-sky-50 text-sky-700 ring-sky-100",
+    },
+    {
+      label: t("dashboard.addEmployee"),
+      description: t("dashboard.addEmployeeDesc"),
+      href: "/supplier/employees?create=true",
+      icon: UsersRound,
+      accent: "bg-violet-50 text-violet-700 ring-violet-100",
+    },
+    {
+      label: t("dashboard.createPromotion"),
+      description: t("dashboard.createPromotionDesc"),
+      href: "/supplier/promotions/new",
+      icon: Megaphone,
+      accent: "bg-amber-50 text-amber-700 ring-amber-100",
     },
   ];
 
@@ -191,13 +193,13 @@ export default function SupplierPage() {
       <header className="flex flex-col justify-between gap-5 border-b border-slate-200/80 pb-7 sm:flex-row sm:items-end">
         <div>
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-primary">
-            Supplier workspace
+            {t("dashboard.supplierWorkspace")}
           </p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl">
-            Good morning, {companyName}
+            {t("dashboard.goodMorning")}{companyName ? `, ${companyName}` : ""}
           </h1>
           <p className="mt-2 text-sm text-slate-600">
-            Here&apos;s the pulse of your business today.
+            {t("dashboard.businessPulse")}
           </p>
         </div>
       </header>
@@ -206,17 +208,17 @@ export default function SupplierPage() {
         <div className="mb-4 flex items-center justify-between gap-4">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">
-              Fulfilment queue
+              {t("dashboard.fulfilmentQueue")}
             </p>
             <h2
               id="order-overview-heading"
               className="mt-1 text-lg font-semibold text-slate-900"
             >
-              Order overview
+              {t("dashboard.orderOverview")}
             </h2>
           </div>
           <span className="hidden text-sm text-slate-500 sm:block">
-            {isLoadingOrders ? "Syncing orders…" : "Updated just now"}
+            {isLoadingOrders ? t("dashboard.syncingOrders") : t("dashboard.updatedJustNow")}
           </span>
         </div>
 
@@ -267,18 +269,18 @@ export default function SupplierPage() {
           <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
             <div>
               <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">
-                Stay informed
+                {t("dashboard.stayInformed")}
               </p>
               <h2
                 id="notifications-heading"
                 className="mt-1 text-lg font-semibold text-slate-900"
               >
-                Recent notifications
+                {t("dashboard.recentNotifications")}
               </h2>
             </div>
             {notifications.length > 0 ? (
               <span className="rounded-full bg-sky-50 px-2.5 py-1 text-xs font-semibold text-primary">
-                {notifications.length} recent
+                {notifications.length} {t("common.details")}
               </span>
             ) : null}
           </div>
@@ -315,7 +317,7 @@ export default function SupplierPage() {
             </ul>
           ) : (
             <div className="p-8 text-center">
-              <p className="text-sm text-slate-500">No recent notifications</p>
+              <p className="text-sm text-slate-500">{t("dashboard.noRecentNotifications")}</p>
             </div>
           )}
         </section>
@@ -325,13 +327,13 @@ export default function SupplierPage() {
           aria-labelledby="quick-actions-heading"
         >
           <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">
-            Shortcuts
+            {t("dashboard.shortcuts")}
           </p>
           <h2
             id="quick-actions-heading"
             className="mt-1 text-lg font-semibold text-slate-900"
           >
-            Quick actions
+            {t("dashboard.quickActions")}
           </h2>
           <div className="mt-5 space-y-3">
             {quickActions.map((action) => {

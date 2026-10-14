@@ -4,6 +4,7 @@ import { Controller, useForm, type SubmitHandler } from "react-hook-form";
 import Button from "~/shared/ui/button";
 import { FieldError, Input, Select } from "~/shared/ui/form";
 import Modal from "~/shared/ui/modal";
+import { useTranslation } from "~/shared/lib/i18n";
 import {
   employeeFormSchema,
   getEmployeeFormDefaults,
@@ -29,6 +30,7 @@ export default function EmployeeFormModal({
   onClose,
   onSave,
 }: EmployeeFormModalProps) {
+  const { t } = useTranslation();
   const isEditing = Boolean(employee);
   const isSupplier = companyType === "supplier";
   const defaults = getEmployeeFormDefaults(employee);
@@ -68,11 +70,11 @@ export default function EmployeeFormModal({
   return (
     <Modal
       isOpen={isOpen}
-      title={isEditing ? "Edit employee" : "Add employee"}
+      title={isEditing ? t("employees.editEmployee", "Edit employee") : t("employees.addEmployee", "Add employee")}
       description={
         isEditing
-          ? "Update this employee's details."
-          : "Add the employee details used to manage access and availability."
+          ? t("employees.updateEmployeeDetails", "Update this employee's details.")
+          : t("employees.addEmployeeDetails", "Add the employee details used to manage access and availability.")
       }
       onClose={onClose}
     >
@@ -84,14 +86,14 @@ export default function EmployeeFormModal({
         <div className="grid gap-5 sm:grid-cols-2">
           <Input
             id="firstName"
-            label="First name"
+            label={t("employees.firstName", "First name")}
             autoComplete="given-name"
             errorMessage={errors.firstName?.message}
             {...register("firstName")}
           />
           <Input
             id="lastName"
-            label="Last name"
+            label={t("employees.lastName", "Last name")}
             autoComplete="family-name"
             errorMessage={errors.lastName?.message}
             {...register("lastName")}
@@ -99,7 +101,7 @@ export default function EmployeeFormModal({
           <Input
             id="email"
             type="email"
-            label="Email address"
+            label={t("common.email", "Email address")}
             autoComplete="email"
             errorMessage={errors.email?.message}
             {...register("email")}
@@ -107,7 +109,7 @@ export default function EmployeeFormModal({
           <Input
             id="phoneNumber"
             type="tel"
-            label="Phone number"
+            label={t("common.phone", "Phone number")}
             placeholder="+374 00 000000"
             errorMessage={errors.phoneNumber?.message}
             {...register("phoneNumber")}
@@ -118,7 +120,7 @@ export default function EmployeeFormModal({
                 className="mb-2 block text-sm font-medium text-slate-900"
                 htmlFor="role"
               >
-                Role
+                {t("employees.role", "Role")}
               </label>
               <Controller
                 control={control}
@@ -150,7 +152,7 @@ export default function EmployeeFormModal({
                 className="mb-2 block text-sm font-medium text-slate-900"
                 htmlFor="location"
               >
-                Region
+                {t("employees.location", "Region")}
               </label>
               <Controller
                 control={control}
@@ -187,10 +189,10 @@ export default function EmployeeFormModal({
             className="w-full sm:w-32"
             onClick={onClose}
           >
-            Cancel
+            {t("common.cancel", "Cancel")}
           </Button>
           <Button type="submit" className="w-full sm:w-40">
-            {isEditing ? "Save changes" : "Add employee"}
+            {isEditing ? t("common.saveChanges", "Save changes") : t("employees.addEmployee", "Add employee")}
           </Button>
         </div>
       </form>

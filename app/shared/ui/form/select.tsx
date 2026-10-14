@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { Listbox } from "@headlessui/react";
 import { Check, ChevronDown } from "lucide-react";
+import { useTranslation } from "~/shared/lib/i18n";
 
 export type SelectProps = Omit<
   React.ButtonHTMLAttributes<HTMLButtonElement>,
@@ -78,6 +79,7 @@ const Select = React.forwardRef<HTMLButtonElement, SelectProps>(
     },
     ref,
   ) => {
+    const { t } = useTranslation();
     const options = parseOptions(children);
     const [query, setQuery] = useState("");
     const normalizedQuery = query.trim();
@@ -189,7 +191,7 @@ const Select = React.forwardRef<HTMLButtonElement, SelectProps>(
             {creatable ? (
               <div className="sticky top-0 z-10 bg-white pb-2">
                 <input
-                  aria-label="Search or add an option"
+                  aria-label={t("common.searchOrAddOption", "Search or add an option")}
                   autoFocus
                   className="w-full rounded-xl border border-base-300 bg-base-100 px-3 py-2 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
                   onChange={(event) => setQuery(event.target.value)}
@@ -200,7 +202,7 @@ const Select = React.forwardRef<HTMLButtonElement, SelectProps>(
                       handleCreate();
                     }
                   }}
-                  placeholder="Search or add an option"
+                  placeholder={t("common.searchOrAddOption", "Search or add an option")}
                   value={query}
                 />
               </div>

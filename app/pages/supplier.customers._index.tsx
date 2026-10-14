@@ -13,6 +13,7 @@ import {
   type SearchFilterDefinition,
   type SearchFilterValue,
 } from "~/shared/ui";
+import { useTranslation } from "~/shared/lib/i18n";
 
 type SupplierCustomer = {
   id: string;
@@ -25,51 +26,55 @@ type SupplierCustomer = {
   status: "Active";
 };
 
-const columns: TableColumn<SupplierCustomer>[] = [
-  {
-    id: "customer",
-    header: "Customer",
-    cell: (customer) => (
-      <div>
-        <p className="font-semibold text-slate-900">{customer.companyName}</p>
-        <p className="mt-0.5 text-xs text-slate-500">{customer.email}</p>
-      </div>
-    ),
-  },
-  {
-    id: "activity-type",
-    header: "Activity Type",
-    cell: (customer) => customer.activityType,
-  },
-  {
-    id: "location",
-    header: "Location",
-    cell: (customer) => customer.address,
-  },
-  {
-    id: "orders",
-    header: "Orders",
-    cell: (customer) => customer.totalOrders,
-  },
-  {
-    id: "status",
-    header: "Status",
-    cell: (customer) => (
-      <span
-        className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
-          customer.status === "Active"
-            ? "bg-emerald-50 text-emerald-700"
-            : "bg-slate-200 text-slate-700"
-        }`}
-      >
-        {customer.status}
-      </span>
-    ),
-  },
-];
-
 export default function SupplierCustomersPage() {
+  const { t } = useTranslation();
   const [customers, setCustomers] = useState<SupplierCustomer[]>([]);
+
+  const columns: TableColumn<SupplierCustomer>[] = useMemo(
+    () => [
+      {
+        id: "customer",
+        header: t("orders.customer"),
+        cell: (customer) => (
+          <div>
+            <p className="font-semibold text-slate-900">{customer.companyName}</p>
+            <p className="mt-0.5 text-xs text-slate-500">{customer.email}</p>
+          </div>
+        ),
+      },
+      {
+        id: "activity-type",
+        header: t("auth.activityType"),
+        cell: (customer) => customer.activityType,
+      },
+      {
+        id: "location",
+        header: t("common.address"),
+        cell: (customer) => customer.address,
+      },
+      {
+        id: "orders",
+        header: t("nav.orders"),
+        cell: (customer) => customer.totalOrders,
+      },
+      {
+        id: "status",
+        header: t("common.status"),
+        cell: (customer) => (
+          <span
+            className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
+              customer.status === "Active"
+                ? "bg-emerald-50 text-emerald-700"
+                : "bg-slate-200 text-slate-700"
+            }`}
+          >
+            {customer.status === "Active" ? t("employees.active") : customer.status}
+          </span>
+        ),
+      },
+    ],
+    [t],
+  );
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string>();
   const [searchValue, setSearchValue] = useState("");
@@ -210,11 +215,11 @@ export default function SupplierCustomersPage() {
   return (
     <DashboardTableContent>
       <TableLayout
-        title="Customers"
+        title={t("customers.title")}
         icon={<Users className="h-5 w-5" aria-hidden="true" />}
         searchValue={searchValue}
         onSearchChange={handleSearchChange}
-        searchPlaceholder="Search customers"
+        searchPlaceholder={t("customers.searchPlaceholder")}
         searchFilters={customerSearchFilters}
         selectedSearchFilters={selectedFilters}
         onSelectedSearchFiltersChange={handleSelectedFiltersChange}
@@ -230,7 +235,7 @@ export default function SupplierCustomersPage() {
         onPageSizeChange={setPageSize}
         pageSizeOptions={[5, 10, 25, 50, 100]}
         totalCount={filteredCustomers.length}
-        emptyMessage="No HORECA customers match your search."
+        emptyMessage={t("common.noResults")}
       />
     </DashboardTableContent>
   );

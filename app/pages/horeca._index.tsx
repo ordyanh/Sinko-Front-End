@@ -23,6 +23,7 @@ import {
 } from "~/entities/promotion";
 import { getMarketplaceSuppliers } from "~/shared/api";
 import { DashboardPageContent } from "~/shared/ui";
+import { useTranslation } from "~/shared/lib/i18n";
 
 type RecommendedSupplier = {
   name: string;
@@ -39,6 +40,7 @@ type RecommendedSupplier = {
 const recommendedSuppliers: RecommendedSupplier[] = [];
 
 function SupplierCard({ supplier }: { supplier: RecommendedSupplier }) {
+  const { t } = useTranslation();
   return (
     <article className="group relative flex min-h-72 flex-col overflow-hidden rounded-[1.35rem] border border-slate-200 bg-white p-5 shadow-[0_2px_3px_rgba(15,23,42,0.02)] transition duration-300 hover:-translate-y-1 hover:border-slate-300 hover:shadow-[0_18px_36px_rgba(15,23,42,0.09)]">
       <div
@@ -52,7 +54,7 @@ function SupplierCard({ supplier }: { supplier: RecommendedSupplier }) {
         </div>
         <div className="flex items-center gap-1.5 rounded-full bg-[#f1f6ef] px-2.5 py-1 text-[11px] font-bold text-[#406a45]">
           <BadgeCheck className="h-3.5 w-3.5" aria-hidden="true" />
-          Recommended
+          {t("suppliers.verified")}
         </div>
       </div>
 
@@ -147,6 +149,7 @@ function PopularProductCard({
 }
 
 export default function HorecaDashboardPage() {
+  const { t } = useTranslation();
   const { promotions, catalogProducts } = useOutletContext<{
     promotions: MarketplacePromotion[];
     catalogProducts?: MarketplaceProduct[];
@@ -194,14 +197,13 @@ export default function HorecaDashboardPage() {
             <div>
               <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-primary">
                 <span className="h-2 w-2 rounded-full bg-primary" />
-                Today&apos;s sourcing board
+                {t("dashboard.sourcingBoard")}
               </div>
               <h1 className="mt-3 max-w-2xl text-3xl font-bold tracking-[-0.05em] text-slate-950 sm:text-4xl">
-                The kitchen starts with good suppliers.
+                {t("dashboard.kitchenStarts")}
               </h1>
               <p className="mt-3 max-w-xl text-sm leading-6 text-slate-600 sm:text-base">
-                A focused shortlist of dependable partners and ingredients for
-                your next service.
+                {t("dashboard.kitchenSubtitle")}
               </p>
             </div>
             <div className="flex items-center gap-3 rounded-2xl border border-[#dce7d7] bg-white/80 px-4 py-3 shadow-sm backdrop-blur">
@@ -210,9 +212,9 @@ export default function HorecaDashboardPage() {
               </span>
               <p className="text-sm leading-5 text-slate-600">
                 <span className="block font-bold text-slate-950">
-                  Fresh stock, ready to order
+                  {t("dashboard.freshStock")}
                 </span>
-                Browse suppliers and add what you need.
+                {t("dashboard.browseSuppliers")}
               </p>
             </div>
           </div>
@@ -223,20 +225,20 @@ export default function HorecaDashboardPage() {
             <div>
               <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-primary">
                 <Tag className="h-4 w-4" aria-hidden="true" />
-                Supplier promotions
+                {t("dashboard.supplierPromotions")}
               </div>
               <h2 className="mt-2 text-2xl font-bold tracking-[-0.04em] text-slate-950 sm:text-3xl">
-                Offers from your suppliers
+                {t("dashboard.offersFromSuppliers")}
               </h2>
               <p className="mt-2 text-sm text-slate-600">
-                The active promotions each supplier chose to feature.
+                {t("dashboard.activePromotionsSubtitle")}
               </p>
             </div>
             <Link
               to="/horeca/promotions"
               className="hidden items-center gap-1.5 text-sm font-semibold text-primary transition hover:text-primary/75 sm:inline-flex"
             >
-              View all offers{" "}
+              {t("dashboard.viewAllOffers")}{" "}
               <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </Link>
           </div>
@@ -252,20 +254,20 @@ export default function HorecaDashboardPage() {
             <div>
               <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-primary">
                 <Sparkles className="h-4 w-4" aria-hidden="true" />
-                Handpicked for your kitchen
+                {t("dashboard.handpickedForKitchen")}
               </div>
               <h2 className="mt-2 text-2xl font-bold tracking-[-0.04em] text-slate-950 sm:text-3xl">
-                Recommended suppliers
+                {t("dashboard.recommendedSuppliers")}
               </h2>
               <p className="mt-2 text-sm text-slate-600">
-                A trusted mix for produce, pantry, and daily staples.
+                {t("dashboard.trustedMixSubtitle")}
               </p>
             </div>
             <Link
               to="/horeca/suppliers"
               className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 shadow-sm transition hover:border-primary hover:bg-primary hover:text-primary-content focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
             >
-              View all suppliers{" "}
+              {t("dashboard.viewAllSuppliers")}{" "}
               <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </Link>
           </div>
@@ -280,17 +282,17 @@ export default function HorecaDashboardPage() {
           <div className="flex items-end justify-between gap-4">
             <div>
               <div className="text-xs font-bold uppercase tracking-[0.16em] text-primary">
-                Most ordered this week
+                {t("dashboard.mostOrderedThisWeek")}
               </div>
               <h2 className="mt-2 text-2xl font-bold tracking-[-0.04em] text-slate-950 sm:text-3xl">
-                Popular products
+                {t("dashboard.popularProducts")}
               </h2>
             </div>
             <Link
               to="/horeca/products"
               className="hidden items-center gap-1.5 text-sm font-semibold text-primary transition hover:text-primary/75 sm:inline-flex"
             >
-              Browse products{" "}
+              {t("dashboard.browseProducts")}{" "}
               <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </Link>
           </div>
@@ -303,7 +305,7 @@ export default function HorecaDashboardPage() {
             to="/horeca/products"
             className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-800 transition hover:border-primary hover:text-primary sm:hidden"
           >
-            Browse all products{" "}
+            {t("dashboard.browseAllProducts")}{" "}
             <ArrowRight className="h-4 w-4" aria-hidden="true" />
           </Link>
         </section>

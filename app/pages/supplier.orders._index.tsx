@@ -1,6 +1,7 @@
 import { ClipboardList, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
+import { useTranslation, getLocalizedOrderStatus } from "~/shared/lib/i18n";
 import { type CustomerOrderStatus } from "~/entities/horeca";
 import { getLoggedInUser, getOrdersForSupplier } from "~/shared/lib/indexed-db";
 import {
@@ -32,9 +33,11 @@ const orderStatusClasses: Record<CustomerOrderStatus, string> = {
   Cancelled: "bg-red-50 text-red-700",
 };
 
-const supplierOrderStatusFilters = Object.keys(orderStatusClasses).map(
-  (status) => ({ value: status, label: status }),
-);
+function getSupplierOrderStatusFilters(t: (k: string, f?: string) => string) {
+  return (Object.keys(orderStatusClasses) as CustomerOrderStatus[]).map(
+    (status) => ({ value: status, label: getLocalizedOrderStatus(status, t) }),
+  );
+}
 
 const orderOverviewValues = [
   "new",
@@ -44,11 +47,13 @@ const orderOverviewValues = [
 
 type OrderOverview = (typeof orderOverviewValues)[number];
 
-const orderOverviewFilters: Array<{ value: OrderOverview; label: string }> = [
-  { value: "new", label: "New orders" },
-  { value: "in-progress", label: "Orders in progress" },
-  { value: "closed", label: "Closed orders" },
-];
+function getOrderOverviewFilters(t: (k: string, f?: string) => string): Array<{ value: OrderOverview; label: string }> {
+  return [
+    { value: "new", label: t("orders.newOrdersGroup", "New orders") },
+    { value: "in-progress", label: t("orders.inProgressOrdersGroup", "Orders in progress") },
+    { value: "closed", label: t("orders.closedOrdersGroup", "Closed orders") },
+  ];
+}
 
 const statusesByOverview: Record<OrderOverview, CustomerOrderStatus[]> = {
   new: ["New", "Rejected"],
@@ -73,44 +78,8 @@ function formatCurrency(amount: number) {
   }).format(amount);
 }
 
-const columns: TableColumn<SupplierOrderRow>[] = [
-  {
-    id: "order",
-    header: "Order",
-    cell: (order) => (
-      <div>
-        <span className="font-semibold text-slate-900">{order.id}</span>
-        <p className="mt-0.5 text-xs text-slate-500">
-          {new Date(order.date).toLocaleDateString("en-US", {
-            year: "numeric",
-            month: "short",
-            day: "numeric",
-          })}
-        </p>
-      </div>
-    ),
-  },
-  { id: "customer", header: "Customer", cell: (order) => order.customerName },
-  { id: "items", header: "Items", cell: (order) => order.itemCount },
-  {
-    id: "status",
-    header: "Status",
-    cell: (order) => (
-      <span
-        className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${orderStatusClasses[order.status]}`}
-      >
-        {order.status}
-      </span>
-    ),
-  },
-  {
-    id: "total",
-    header: "Total",
-    cell: (order) => formatCurrency(order.total),
-  },
-];
-
 export default function SupplierOrdersPage() {
+  const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchValue, setSearchValue] = useState("");
   const [selectedFilters, setSelectedFilters] = useState<SearchFilterValue[]>(
@@ -125,6 +94,54 @@ export default function SupplierOrdersPage() {
     : null;
   const [allOrders, setAllOrders] = useState<SupplierOrderRow[]>([]);
   const [isLoadingOrders, setIsLoadingOrders] = useState(true);
+
+  const columns: TableColumn<SupplierOrderRow>[] = useMemo(
+    () => [
+      {
+        id: "order",
+        header: t("orders.orderId"),
+        cell: (order) => (
+          <div>
+            <span className="font-semibold text-slate-900">{order.id}</span>
+            <p className="mt-0.5 text-xs text-slate-500">
+              {new Date(order.date).toLocaleDateString("en-US", {
+                year: "numeric",
+                month: "short",
+                day: "numeric",
+              })}
+            </p>
+          </div>
+        ),
+      },
+      {
+        id: "customer",
+        header: t("orders.customer"),
+        cell: (order) => order.customerName,
+      },
+      {
+        id: "items",
+        header: t("orders.items"),
+        cell: (order) => order.itemCount,
+      },
+      {
+        id: "status",
+        header: t("orders.status"),
+        cell: (order) => (
+          <span
+            className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${orderStatusClasses[order.status]}`}
+          >
+            {getLocalizedOrderStatus(order.status, t)}
+          </span>
+        ),
+      },
+      {
+        id: "total",
+        header: t("orders.total"),
+        cell: (order) => formatCurrency(order.total),
+      },
+    ],
+    [t],
+  );
 
   useEffect(() => {
     let isCurrent = true;
@@ -173,25 +190,28 @@ export default function SupplierOrdersPage() {
     ? allOrders.filter((order) => order.customerId === customerId)
     : allOrders;
   const customerName = customerFilteredOrders[0]?.customerName;
-  const supplierOrderSearchFilters: SearchFilterDefinition[] = [
-    {
-      id: "status",
-      label: "Status",
-      options: supplierOrderStatusFilters,
-    },
-    {
-      id: "overview",
-      label: "Order group",
-      options: orderOverviewFilters,
-    },
-    {
-      id: "customer",
-      label: "Customer",
-      options: Array.from(
-        new Set(customerFilteredOrders.map((order) => order.customerName)),
-      ).map((customer) => ({ value: customer, label: customer })),
-    },
-  ];
+  const supplierOrderSearchFilters: SearchFilterDefinition[] = useMemo(
+    () => [
+      {
+        id: "status",
+        label: t("orders.status", "Status"),
+        options: getSupplierOrderStatusFilters(t),
+      },
+      {
+        id: "overview",
+        label: t("orders.orderGroup", "Order group"),
+        options: getOrderOverviewFilters(t),
+      },
+      {
+        id: "customer",
+        label: t("orders.customer", "Customer"),
+        options: Array.from(
+          new Set(customerFilteredOrders.map((order) => order.customerName)),
+        ).map((customer) => ({ value: customer, label: customer })),
+      },
+    ],
+    [customerFilteredOrders, t],
+  );
 
   const normalizedSearchValue = searchValue.trim().toLowerCase();
   const filteredOrders = customerFilteredOrders.filter((order) => {
@@ -254,7 +274,7 @@ export default function SupplierOrdersPage() {
   return (
     <DashboardTableContent>
       <TableLayout
-        title="Orders"
+        title={t("orders.title")}
         icon={<ClipboardList className="h-5 w-5" aria-hidden="true" />}
         additionalContent={
           customerId ? (
@@ -263,7 +283,7 @@ export default function SupplierOrdersPage() {
               className="flex items-center justify-between gap-3 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm text-slate-700"
             >
               <span>
-                Filtered by customer:{" "}
+                {t("orders.filteredByCustomer", "Filtered by customer:")}{" "}
                 <span className="font-semibold text-slate-900">
                   {customerName ?? customerId}
                 </span>
@@ -272,7 +292,7 @@ export default function SupplierOrdersPage() {
                 type="button"
                 onClick={clearCustomerFilter}
                 className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-200/60"
-                aria-label="Clear customer filter"
+                aria-label={t("orders.clearCustomerFilter", "Clear customer filter")}
               >
                 <X className="h-4 w-4" aria-hidden="true" />
               </button>
@@ -281,7 +301,7 @@ export default function SupplierOrdersPage() {
         }
         searchValue={searchValue}
         onSearchChange={handleSearchChange}
-        searchPlaceholder="Search orders"
+        searchPlaceholder={t("orders.searchOrdersPlaceholder", "Search orders")}
         searchFilters={supplierOrderSearchFilters}
         selectedSearchFilters={selectedFilters}
         onSelectedSearchFiltersChange={handleSelectedFiltersChange}
@@ -295,7 +315,7 @@ export default function SupplierOrdersPage() {
         onPageSizeChange={setPageSize}
         pageSizeOptions={[5, 10, 25, 50, 100]}
         totalCount={filteredOrders.length}
-        emptyMessage={isLoadingOrders ? "Loading orders…" : "No orders match your search."}
+        emptyMessage={isLoadingOrders ? t("orders.loadingOrders", "Loading orders…") : t("orders.noOrdersMatch", "No orders match your search.")}
       />
     </DashboardTableContent>
   );

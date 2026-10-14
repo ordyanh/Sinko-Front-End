@@ -19,3 +19,4 @@ export { default as Button } from "./button";
 export type { ButtonProps } from "./button";
 export { default as Pagination } from "./pagination";
 export type { PaginationProps } from "./pagination";
+export { default as LanguageSwitcher } from "./language-switcher";

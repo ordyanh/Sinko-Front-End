@@ -4,6 +4,7 @@ import { Link } from "react-router";
 // Removed mock IndexedDB imports
 import { getMarketplaceSuppliers } from "~/shared/api";
 import { DashboardPageContent, Pagination } from "~/shared/ui";
+import { useTranslation } from "~/shared/lib/i18n";
 
 type DirectorySupplier = {
   id: string;
@@ -26,6 +27,7 @@ function getSupplierInitials(companyName: string) {
 }
 
 function SupplierCard({ supplier }: { supplier: DirectorySupplier }) {
+  const { t } = useTranslation();
   return (
     <Link
       to={`/horeca/suppliers/${supplier.id}`}
@@ -57,7 +59,7 @@ function SupplierCard({ supplier }: { supplier: DirectorySupplier }) {
       <div className="mt-5 border-t border-slate-100 pt-4">
         <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.12em] text-slate-500">
           <Layers3 className="h-4 w-4 text-primary" aria-hidden="true" />
-          Product categories
+          {t("auth.categories")}
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
           {supplier.categories.map((category) => (
@@ -70,7 +72,7 @@ function SupplierCard({ supplier }: { supplier: DirectorySupplier }) {
           ))}
         </div>
         <span className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-primary transition group-hover:gap-2">
-          View supplier <ArrowRight className="h-4 w-4" aria-hidden="true" />
+          {t("suppliers.viewCatalog")} <ArrowRight className="h-4 w-4" aria-hidden="true" />
         </span>
       </div>
     </Link>
@@ -78,6 +80,7 @@ function SupplierCard({ supplier }: { supplier: DirectorySupplier }) {
 }
 
 export default function HorecaSuppliersPage() {
+  const { t } = useTranslation();
   const [suppliers, setSuppliers] = useState<DirectorySupplier[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -176,18 +179,18 @@ export default function HorecaSuppliersPage() {
           <div>
             <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-primary">
               <Store className="h-4 w-4" aria-hidden="true" />
-              Supplier directory
+              {t("nav.suppliers")}
             </div>
             <h1 className="mt-3 text-3xl font-bold tracking-[-0.045em] text-slate-950 sm:text-4xl">
-              Your supply network
+              {t("suppliers.title")}
             </h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600 sm:text-base">
-              Browse the suppliers available to your kitchen and see what each one delivers.
+              {t("suppliers.subtitle")}
             </p>
           </div>
           <p className="shrink-0 text-sm font-semibold text-slate-500">
             {isLoading ? (
-              "Loading suppliers…"
+              t("common.loading")
             ) : searchQuery.trim() || selectedCategory !== "All" ? (
               <>
                 Showing <span className="font-bold text-slate-950 tabular-nums">{filteredSuppliers.length}</span> of{" "}
@@ -212,9 +215,9 @@ export default function HorecaSuppliersPage() {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search suppliers by name, category, or location..."
+                placeholder={t("suppliers.searchPlaceholder")}
                 className="w-full rounded-2xl border border-slate-200 bg-slate-50/60 py-2.5 pl-10 pr-10 text-sm text-slate-900 transition placeholder:text-slate-400 focus:border-primary focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/20"
-                aria-label="Search suppliers"
+                aria-label={t("nav.suppliers")}
               />
               {searchQuery && (
                 <button

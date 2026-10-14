@@ -1,5 +1,6 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import React from "react";
+import { useTranslation } from "~/shared/lib/i18n";
 
 export type PaginationProps = {
   page: number;
@@ -23,9 +24,10 @@ export default function Pagination({
   onPageSizeChange,
   pageSizeOptions = DEFAULT_PAGE_SIZE_OPTIONS,
   className = "",
-  itemName = "items",
+  itemName,
   showPageNumbers = true,
 }: PaginationProps) {
+  const { t } = useTranslation();
   const safePageSize = pageSize > 0 ? pageSize : 10;
   const totalPages = Math.max(1, Math.ceil(totalCount / safePageSize));
   const currentPage = Math.min(Math.max(1, page), totalPages);
@@ -70,15 +72,15 @@ export default function Pagination({
     >
       <div className="flex flex-wrap items-center gap-3 text-sm text-slate-500">
         <p>
-          Showing{" "}
+          {t("common.showing", "Showing")}{" "}
           <span className="font-semibold text-slate-800 tabular-nums">
             {startItem}-{endItem}
           </span>{" "}
-          of{" "}
+          {t("common.of", "of")}{" "}
           <span className="font-semibold text-slate-800 tabular-nums">
             {totalCount}
           </span>{" "}
-          {itemName}
+          {itemName ?? t("cart.items", "items")}
         </p>
 
         {onPageSizeChange && pageSizeOptions.length > 0 ? (
@@ -87,11 +89,11 @@ export default function Pagination({
               htmlFor="pagination-page-size"
               className="text-xs font-medium text-slate-500"
             >
-              Per page:
+              {t("common.perPage", "Per page:")}
             </label>
             <select
               id="pagination-page-size"
-              aria-label="Select number of items per page"
+              aria-label={t("common.perPage", "Select number of items per page")}
               value={safePageSize}
               onChange={(e) => handlePageSizeChange(Number(e.target.value))}
               className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 focus:border-primary focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/20"
@@ -111,7 +113,7 @@ export default function Pagination({
           type="button"
           onClick={() => onPageChange(currentPage - 1)}
           disabled={currentPage <= 1}
-          aria-label="Previous page"
+          aria-label={t("common.previousPage", "Previous page")}
           className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-600 shadow-sm transition hover:bg-slate-50 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-slate-600 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary"
         >
           <ChevronLeft className="h-4 w-4" aria-hidden="true" />
@@ -158,7 +160,7 @@ export default function Pagination({
           type="button"
           onClick={() => onPageChange(currentPage + 1)}
           disabled={currentPage >= totalPages}
-          aria-label="Next page"
+          aria-label={t("common.nextPage", "Next page")}
           className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-600 shadow-sm transition hover:bg-slate-50 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-slate-600 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary"
         >
           <ChevronRight className="h-4 w-4" aria-hidden="true" />

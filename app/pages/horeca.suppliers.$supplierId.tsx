@@ -1,4 +1,4 @@
-﻿import {
+import {
   ArrowLeft,
   ArrowRight,
   AtSign,
@@ -35,6 +35,7 @@ import {
 } from "~/shared/api";
 import { getVisibleSupplierPromotions, PromotionCard } from "~/entities/promotion";
 import { DashboardPageContent, Pagination } from "~/shared/ui";
+import { useTranslation } from "~/shared/lib/i18n";
 
 function DetailLink({
   to,
@@ -55,6 +56,7 @@ function DetailLink({
 }
 
 export default function HorecaSupplierDetailsPage() {
+  const { t } = useTranslation();
   const { supplierId = "" } = useParams();
   const [supplier, setSupplier] = useState<MarketplaceSupplier | null>(null);
   const [supplierProducts, setSupplierProducts] = useState<MarketplaceProduct[]>([]);
@@ -224,7 +226,7 @@ export default function HorecaSupplierDetailsPage() {
     return (
       <DashboardPageContent>
         <div className="rounded-3xl border border-slate-200 bg-white px-6 py-16 text-center text-sm font-medium text-slate-500">
-          Loading supplier details…
+          {t("suppliers.loadingSupplier")}
         </div>
       </DashboardPageContent>
     );
@@ -235,24 +237,24 @@ export default function HorecaSupplierDetailsPage() {
       <DashboardPageContent>
         <section className="rounded-3xl border border-slate-200 bg-white px-6 py-16 text-center shadow-sm">
           <h1 className="text-2xl font-bold tracking-tight text-slate-950">
-            Supplier not found
+            {t("common.noResults")}
           </h1>
           <p className="mt-2 text-sm text-slate-600">
-            Choose a supplier from your directory to see their details.
+            {t("suppliers.subtitle")}
           </p>
           <Link
             to="/horeca/suppliers"
             className="mt-6 inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-content transition hover:brightness-95"
           >
             <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-            Back to suppliers
+            {t("suppliers.backToSuppliers")}
           </Link>
         </section>
       </DashboardPageContent>
     );
   }
 
-    const supplierPromotions = getVisibleSupplierPromotions(supplier.name);
+  const supplierPromotions = getVisibleSupplierPromotions(supplier.name);
   const productsHref = `/horeca/products?supplier=${encodeURIComponent(supplier.name)}`;
   const ordersHref = `/horeca/orders?supplier=${encodeURIComponent(supplier.name)}`;
 
@@ -264,7 +266,7 @@ export default function HorecaSupplierDetailsPage() {
           className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600 transition hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
         >
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-          All suppliers
+          {t("suppliers.backToSuppliers")}
         </Link>
 
         <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
@@ -281,7 +283,7 @@ export default function HorecaSupplierDetailsPage() {
                 </div>
                 <div className="min-w-0">
                   <p className="text-xs font-bold uppercase tracking-[0.16em] text-primary">
-                    Supplier profile
+                    {t("nav.supplierProfile")}
                   </p>
                   <h1 className="mt-2 break-words text-3xl font-bold tracking-[-0.045em] text-slate-950 sm:text-4xl">
                     {supplier.name}
@@ -294,7 +296,7 @@ export default function HorecaSupplierDetailsPage() {
               <div className="rounded-2xl border border-[#dce7d7] bg-[#f5f8f2] px-4 py-3 text-sm sm:min-w-56">
                 <span className="flex items-center gap-2 font-semibold text-slate-900">
                   <Clock3 className="h-4 w-4 text-primary" aria-hidden="true" />
-                  Delivery {supplier.deliveryWindow}
+                  {t("common.delivery")} {supplier.deliveryWindow}
                 </span>
                 <p className="mt-1.5 text-xs leading-5 text-slate-600">
                   {supplier.deliveryNote}
@@ -319,7 +321,7 @@ export default function HorecaSupplierDetailsPage() {
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
             <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.14em] text-slate-500">
               <MapPin className="h-4 w-4 text-primary" aria-hidden="true" />
-              Delivery area
+              {t("suppliers.deliveryArea")}
             </div>
             <p className="mt-3 text-lg font-bold tracking-tight text-slate-950">
               {supplier.serviceArea}
@@ -329,7 +331,7 @@ export default function HorecaSupplierDetailsPage() {
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
             <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.14em] text-slate-500">
               <Phone className="h-4 w-4 text-primary" aria-hidden="true" />
-              Ordering contact
+              {t("suppliers.orderingContact")}
             </div>
             <p className="mt-3 text-lg font-bold tracking-tight text-slate-950">
               {supplier.contactName}
@@ -365,13 +367,13 @@ export default function HorecaSupplierDetailsPage() {
             <div>
               <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-primary">
                 <Package className="h-4 w-4" aria-hidden="true" />
-                Current catalogue
+                {t("suppliers.currentCatalogue")}
               </div>
               <h2 className="mt-2 break-words text-2xl font-bold tracking-[-0.035em] text-slate-950">
-                Products from {supplier.name}
+                {t("suppliers.productsFrom", { name: supplier.name })}
               </h2>
             </div>
-            <DetailLink to={productsHref}>View all products</DetailLink>
+            <DetailLink to={productsHref}>{t("suppliers.viewAllProducts")}</DetailLink>
           </div>
 
           {supplierProducts.length > 0 ? (
@@ -423,12 +425,12 @@ export default function HorecaSupplierDetailsPage() {
                   onPageChange={setProductsPage}
                   onPageSizeChange={setProductsPageSize}
                   pageSizeOptions={[5, 10, 25, 50, 100]}
-                  itemName="products"
+                  itemName={t("nav.products")}
                 />
               </div>
             </>
           ) : (
-            <p className="mt-5 text-sm text-slate-500">No products are listed yet.</p>
+            <p className="mt-5 text-sm text-slate-500">{t("suppliers.noProductsListed")}</p>
           )}
         </section>
 
@@ -438,12 +440,12 @@ export default function HorecaSupplierDetailsPage() {
               <div>
                 <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-primary">
                   <Tag className="h-4 w-4" aria-hidden="true" />
-                  Supplier offers
+                  {t("suppliers.supplierOffers")}
                 </div>
-                <h2 className="mt-2 break-words text-2xl font-bold tracking-[-0.035em] text-slate-950">Current offers from {supplier.name}</h2>
-                <p className="mt-2 text-sm leading-6 text-slate-600">Review this supplier&apos;s active promotions before adding products to your order.</p>
+                <h2 className="mt-2 break-words text-2xl font-bold tracking-[-0.035em] text-slate-950">{t("suppliers.currentOffersFrom", { name: supplier.name })}</h2>
+                <p className="mt-2 text-sm leading-6 text-slate-600">{t("suppliers.reviewSupplierPromotions")}</p>
               </div>
-              <span className="text-sm font-semibold text-slate-500"><span className="font-bold text-slate-950">{supplierPromotions.length}</span> active {supplierPromotions.length === 1 ? "offer" : "offers"}</span>
+              <span className="text-sm font-semibold text-slate-500"><span className="font-bold text-slate-950">{supplierPromotions.length}</span> {t("suppliers.activeOffersCount", { count: supplierPromotions.length })}</span>
             </div>
             <div className="mt-5 grid gap-4 md:grid-cols-2">{supplierPromotions.map((promotion) => <PromotionCard key={promotion.id} promotion={promotion} />)}</div>
           </section>
@@ -454,13 +456,13 @@ export default function HorecaSupplierDetailsPage() {
             <div>
               <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-primary">
                 <ReceiptText className="h-4 w-4" aria-hidden="true" />
-                Purchase history
+                {t("suppliers.recentOrders")}
               </div>
               <h2 className="mt-2 break-words text-2xl font-bold tracking-[-0.035em] text-slate-950">
-                Orders to {supplier.name}
+                {t("suppliers.pastOrdersSupplier", { name: supplier.name })}
               </h2>
             </div>
-            <DetailLink to={ordersHref}>View all orders</DetailLink>
+            <DetailLink to={ordersHref}>{t("suppliers.viewAllOrders")}</DetailLink>
           </div>
 
           {supplierOrders.length > 0 ? (
@@ -475,7 +477,7 @@ export default function HorecaSupplierDetailsPage() {
                     <p className="font-semibold text-slate-950 tabular-nums">{order.id}</p>
                     <p className="mt-1 text-sm text-slate-500">
                       Placed {order.placedAt ? formatOrderDate(order.placedAt) : "Recently"} ·{" "}
-                      {(order.lines || order.items || []).length} items
+                      {(order.lines || order.items || []).length} {t("orders.items")}
                     </p>
                   </div>
                   <div className="flex w-full items-center justify-between gap-3 sm:w-auto sm:justify-start">
@@ -499,7 +501,7 @@ export default function HorecaSupplierDetailsPage() {
               ))}
             </div>
           ) : (
-            <p className="mt-5 text-sm text-slate-500">No orders have been placed with this supplier yet.</p>
+            <p className="mt-5 text-sm text-slate-500">{t("suppliers.noOrdersPlaced")}</p>
           )}
         </section>
       </div>

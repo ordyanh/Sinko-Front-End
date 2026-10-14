@@ -4,6 +4,7 @@ import {
   type MarketplaceProductFilter,
 } from "~/shared/api/marketplace";
 import type { MarketplaceProduct, MarketplaceSellingOption } from "./product";
+import { getAllActiveSupplierProducts } from "~/shared/lib/indexed-db";
 
 export function mapBackendMarketplaceProduct(p: MarketplaceProductDto): MarketplaceProduct {
   const defaultPrice = p.price ?? (p as any).standardPrice ?? 0;
@@ -63,14 +64,60 @@ export function mapBackendMarketplaceProduct(p: MarketplaceProductDto): Marketpl
 export async function getHorecaMarketplaceProducts(
   filter?: MarketplaceProductFilter,
 ): Promise<MarketplaceProduct[]> {
+  let backendProducts: MarketplaceProductDto[] = [];
   try {
-    const backendProducts = await getMarketplaceProducts(filter);
-    if (Array.isArray(backendProducts) && backendProducts.length > 0) {
-      return backendProducts.map(mapBackendMarketplaceProduct);
-    }
+    backendProducts = await getMarketplaceProducts(filter);
   } catch (err) {
     console.error("Failed to load products from marketplace API:", err);
   }
 
-  return [];
+  const results: MarketplaceProduct[] = Array.isArray(backendProducts) && backendProducts.length > 0
+    ? backendProducts.map(mapBackendMarketplaceProduct)
+    : [];
+
+  const existingIds = new Set(results.map((p) => String(p.id)));
+
+  try {
+    const localActive = await getAllActiveSupplierProducts();
+    for (const local of localActive) {
+      if (!existingIds.has(String(local.id))) {
+        const defaultPrice = (local.sellingOptions && local.sellingOptions[0]?.price) ?? 0;
+        const firstOpt = local.sellingOptions?.[0];
+        const unitLabel = firstOpt?.customUnit || firstOpt?.unitType || "unit";
+
+        const sellingOptions: MarketplaceSellingOption[] = (local.sellingOptions || []).map((opt) => ({
+          id: opt.id,
+          quantity: opt.quantity,
+          unitType: opt.customUnit || opt.unitType,
+          piecesPerPackage: opt.piecesPerPackage,
+          price: opt.price,
+          minimumOrderQuantity: opt.minimumOrderQuantity || 1,
+        }));
+
+        results.push({
+          id: String(local.id),
+          supplierId: local.accountId || "supplier",
+          title: local.name,
+          price: defaultPrice,
+          unit: unitLabel,
+          supplier: "Direct Supplier",
+          category: local.categoryIds && local.categoryIds.length > 0 ? local.categoryIds.join(", ") : "General",
+          image: local.imageUrl || "",
+          sellingOptions: sellingOptions.length > 0 ? sellingOptions : [
+            {
+              id: `opt-${local.id}`,
+              quantity: 1,
+              unitType: unitLabel,
+              price: defaultPrice,
+              minimumOrderQuantity: 1,
+            },
+          ],
+        });
+      }
+    }
+  } catch (err) {
+    console.warn("Failed to merge local active products:", err);
+  }
+
+  return results;
 }

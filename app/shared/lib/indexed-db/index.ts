@@ -132,6 +132,10 @@ function requestResult<T>(request: IDBRequest<T>): Promise<T> {
 
 function transactionComplete(transaction: IDBTransaction): Promise<void> {
   return new Promise((resolve, reject) => {
+    if ((transaction as any).readyState === "complete" || (transaction as any).finished) {
+      resolve();
+      return;
+    }
     transaction.oncomplete = () => resolve();
     transaction.onabort = () =>
       reject(
@@ -629,19 +633,27 @@ export async function getSupplierCategories(
   accountId: string,
 ): Promise<StoredSupplierCategory[]> {
   await initializeDatabase();
-  const database = await openDatabase();
-  const transaction = database.transaction(
-    SUPPLIER_CATEGORIES_STORE,
-    "readwrite",
-  );
-  const store = transaction.objectStore(SUPPLIER_CATEGORIES_STORE);
-  const records = (await requestResult(
-    store.index("accountId").getAll(IDBKeyRange.only(accountId)),
-  )) as StoredSupplierCategory[];
+  let records: StoredSupplierCategory[] = [];
+  try {
+    const database = await openDatabase();
+    const transaction = database.transaction(
+      SUPPLIER_CATEGORIES_STORE,
+      "readonly",
+    );
+    const store = transaction.objectStore(SUPPLIER_CATEGORIES_STORE);
+    const allRecords = (await requestResult(
+      store.index("accountId").getAll(IDBKeyRange.only(accountId)),
+    )) as StoredSupplierCategory[];
+    database.close();
+    records = allRecords || [];
+  } catch (err) {
+    console.warn("Failed to read local supplier categories:", err);
+  }
 
-  // Also fetch dictionary categories from backend and sync into local store
+  // Also fetch dictionary categories from backend (OUTSIDE of IDB transaction!)
   try {
     const dictCats = await getDictionaryCategories();
+    const toAdd: StoredSupplierCategory[] = [];
     for (const dictCat of dictCats) {
       const existing = records.find(
         (r) =>
@@ -655,15 +667,57 @@ export async function getSupplierCategories(
           name: dictCat.name,
         };
         records.push(newCat);
-        store.put(newCat);
+        toAdd.push(newCat);
       }
+    }
+
+    if (toAdd.length > 0) {
+      const database = await openDatabase();
+      const transaction = database.transaction(
+        SUPPLIER_CATEGORIES_STORE,
+        "readwrite",
+      );
+      const store = transaction.objectStore(SUPPLIER_CATEGORIES_STORE);
+      for (const cat of toAdd) {
+        store.put(cat);
+      }
+      await transactionComplete(transaction);
+      database.close();
     }
   } catch {
     // fallback to local records
   }
 
-  await transactionComplete(transaction);
-  database.close();
+  // Ensure default categories are always available if empty
+  if (records.length === 0) {
+    const defaultCategories: StoredSupplierCategory[] = [
+      { id: "1", accountId, name: "Dairy Products (Կաթնամթերք)" },
+      { id: "2", accountId, name: "Meat & Poultry (Միս և թռչնամիս)" },
+      { id: "3", accountId, name: "Produce & Vegetables (Բանջարեղեն և մրգեր)" },
+      { id: "4", accountId, name: "Beverages & Drinks (Խմիչքներ)" },
+      { id: "5", accountId, name: "Bakery & Pastry (Հացաբուլկեղեն)" },
+      { id: "6", accountId, name: "Groceries & Spices (Նպարեղեն և համեմունքներ)" },
+      { id: "7", accountId, name: "Frozen Foods (Սառեցված սնունդ)" },
+      { id: "8", accountId, name: "Packaging & Supplies (Փաթեթավորում)" },
+      { id: "9", accountId, name: "General" },
+    ];
+    records = defaultCategories;
+    try {
+      const database = await openDatabase();
+      const transaction = database.transaction(
+        SUPPLIER_CATEGORIES_STORE,
+        "readwrite",
+      );
+      const store = transaction.objectStore(SUPPLIER_CATEGORIES_STORE);
+      for (const cat of records) {
+        store.put(cat);
+      }
+      await transactionComplete(transaction);
+      database.close();
+    } catch {
+      // ignore
+    }
+  }
 
   return records.sort((first, second) => first.name.localeCompare(second.name));
 }
@@ -862,6 +916,9 @@ export async function getSupplierProducts(
     const records = (await requestResult(store.getAll())) as StoredSupplierProduct[];
     database.close();
     localProducts = (records || []).filter((p) => p.accountId === accountId);
+    if (localProducts.length === 0 && records && records.length > 0) {
+      localProducts = records;
+    }
   } catch {
     // ignore
   }
@@ -873,7 +930,7 @@ export async function getSupplierProducts(
 
   try {
     const backendProducts = await getSupplierCatalog();
-    if (Array.isArray(backendProducts)) {
+    if (Array.isArray(backendProducts) && backendProducts.length > 0) {
       const mapped = backendProducts.map((p) => {
         const stored = mapBackendProductToStored(p, accountId);
         const existing =
@@ -925,27 +982,50 @@ export async function getSupplierProducts(
       }
 
       // Cache in IndexedDB
-      const database = await openDatabase();
-      const transaction = database.transaction(
-        SUPPLIER_PRODUCTS_STORE,
-        "readwrite",
-      );
-      const store = transaction.objectStore(SUPPLIER_PRODUCTS_STORE);
-      for (const prod of mapped) {
-        store.put(prod);
+      try {
+        const database = await openDatabase();
+        const transaction = database.transaction(
+          SUPPLIER_PRODUCTS_STORE,
+          "readwrite",
+        );
+        const store = transaction.objectStore(SUPPLIER_PRODUCTS_STORE);
+        for (const prod of mapped) {
+          store.put(prod);
+        }
+        await transactionComplete(transaction);
+        database.close();
+      } catch {
+        // ignore cache write error
       }
-      await transactionComplete(transaction);
-      database.close();
 
       return mapped.sort((first, second) =>
-        second.createdAt.localeCompare(first.createdAt),
+        String(second.createdAt || "").localeCompare(String(first.createdAt || "")),
       );
     }
   } catch {
     // fallback
   }
 
-  return localProducts;
+  return localProducts.sort((first, second) =>
+    String(second.createdAt || "").localeCompare(String(first.createdAt || "")),
+  );
+}
+
+export async function getAllActiveSupplierProducts(): Promise<StoredSupplierProduct[]> {
+  try {
+    await initializeDatabase();
+    const database = await openDatabase();
+    const transaction = database.transaction(
+      SUPPLIER_PRODUCTS_STORE,
+      "readonly",
+    );
+    const store = transaction.objectStore(SUPPLIER_PRODUCTS_STORE);
+    const records = (await requestResult(store.getAll())) as StoredSupplierProduct[];
+    database.close();
+    return (records || []).filter((p) => p.status === "Active");
+  } catch {
+    return [];
+  }
 }
 
 export async function getSupplierProduct(
@@ -1243,7 +1323,6 @@ export async function getSupplierPromotions(
             giftChoices:
               existing.giftChoices?.length ? existing.giftChoices : base.giftChoices,
             bannerImage: existing.bannerImage ?? base.bannerImage,
-            visualUrl: existing.bannerImage?.dataUrl || existing.visualUrl,
           };
         }
         return base;

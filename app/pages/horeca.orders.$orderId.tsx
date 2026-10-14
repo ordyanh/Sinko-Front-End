@@ -26,6 +26,7 @@ import {
   repeatOrder as backendRepeatOrder,
 } from "~/shared/api/orders";
 import { getCurrentUserEmployeeRole } from "~/shared/lib/auth-token";
+import { useTranslation, getLocalizedOrderStatus } from "~/shared/lib/i18n";
 import {
   formatAmd,
   formatAmdDelta,
@@ -82,9 +83,11 @@ function DeltaText({
 function StatusBanner({
   order,
   isEditing,
+  t,
 }: {
   order: HorecaOrder;
   isEditing: boolean;
+  t: (k: string, f?: string, params?: Record<string, string | number>) => string;
 }) {
   const supplierNote = [...order.history]
     .reverse()
@@ -95,13 +98,15 @@ function StatusBanner({
       <div className="mt-6 rounded-2xl border border-primary/25 bg-primary/5 px-5 py-4">
         <p className="font-semibold text-slate-900">
           {isEditing
-            ? "Sending changes back"
-            : `Offer received ${order.offerReceivedAt ? formatOrderDateTime(order.offerReceivedAt) : ""}`}
+            ? t("orders.sendingChangesBack")
+            : t("orders.offerReceived", `Offer received ${order.offerReceivedAt ? formatOrderDateTime(order.offerReceivedAt) : ""}`, {
+                date: order.offerReceivedAt ? formatOrderDateTime(order.offerReceivedAt) : "",
+              })}
         </p>
         <p className="mt-1 text-sm text-slate-600">
           {isEditing
-            ? "Adjust quantities, prices and notes, then send them to the supplier."
-            : "Accept it to move the order into preparation, or send back the changes you need."}
+            ? t("orders.adjustQuantitiesSubtitle")
+            : t("orders.acceptToMoveOrderSubtitle")}
         </p>
         {supplierNote && !isEditing ? (
           <p className="mt-3 border-l-2 border-primary/30 pl-3 text-sm italic text-slate-600">
@@ -113,13 +118,13 @@ function StatusBanner({
   }
 
   const message: Partial<Record<HorecaOrderStatus, string>> = {
-    New: `${order.supplierName} has not sent an offer yet. You will be able to review it here.`,
-    Rejected: `Your changes are with ${order.supplierName}. They will send a revised offer for you to review.`,
-    Confirmed: `${order.supplierName} confirmed this order and will start preparing it.`,
-    Preparing: `${order.supplierName} is preparing this order for ${formatOrderDate(order.deliveryDate)}.`,
-    Shipped: `This order is on its way and is due ${formatOrderDate(order.deliveryDate)}.`,
-    Delivered: `Delivered on ${formatOrderDate(order.deliveryDate)}. Prices and quantities are final.`,
-    Cancelled: "This order was cancelled. Nothing was delivered or charged.",
+    New: t("orders.orderNewNotice", `${order.supplierName} has not sent an offer yet.`, { supplier: order.supplierName }),
+    Rejected: t("orders.orderRejectedNotice", `Your changes are with ${order.supplierName}.`, { supplier: order.supplierName }),
+    Confirmed: t("orders.orderConfirmedNotice", `${order.supplierName} confirmed this order.`, { supplier: order.supplierName }),
+    Preparing: t("orders.orderPreparingNotice", `${order.supplierName} is preparing this order for ${formatOrderDate(order.deliveryDate)}.`, { supplier: order.supplierName, date: formatOrderDate(order.deliveryDate) }),
+    Shipped: t("orders.orderShippedNotice", `This order is on its way and is due ${formatOrderDate(order.deliveryDate)}.`, { date: formatOrderDate(order.deliveryDate) }),
+    Delivered: t("orders.orderDeliveredNotice", `Delivered on ${formatOrderDate(order.deliveryDate)}.`, { date: formatOrderDate(order.deliveryDate) }),
+    Cancelled: t("orders.orderCancelledNotice", "This order was cancelled."),
   };
 
   return (
@@ -129,7 +134,7 @@ function StatusBanner({
   );
 }
 
-function FulfilmentProgress({ status }: { status: HorecaOrderStatus }) {
+function FulfilmentProgress({ status, t }: { status: HorecaOrderStatus; t: (k: string, f?: string) => string }) {
   const currentStep = fulfilmentSteps.indexOf(
     status as (typeof fulfilmentSteps)[number],
   );
@@ -138,8 +143,8 @@ function FulfilmentProgress({ status }: { status: HorecaOrderStatus }) {
 
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-      <SectionLabel>Delivery progress</SectionLabel>
-      <ol className="mt-4 grid grid-cols-4 gap-1" aria-label="Delivery progress">
+      <SectionLabel>{t("orders.deliveryProgress")}</SectionLabel>
+      <ol className="mt-4 grid grid-cols-4 gap-1" aria-label={t("orders.deliveryProgress")}>
         {fulfilmentSteps.map((step, index) => {
           const isComplete = index <= currentStep;
 
@@ -151,7 +156,7 @@ function FulfilmentProgress({ status }: { status: HorecaOrderStatus }) {
               <p
                 className={`mt-2 text-xs font-semibold ${isComplete ? "text-slate-800" : "text-slate-400"}`}
               >
-                {step}
+                {getLocalizedOrderStatus(step, t)}
               </p>
             </li>
           );
@@ -162,6 +167,7 @@ function FulfilmentProgress({ status }: { status: HorecaOrderStatus }) {
 }
 
 export default function HorecaOrderDetailsPage() {
+  const { t } = useTranslation();
   const { orderId } = useParams();
   const navigate = useNavigate();
   const { showToast } = useToast();
@@ -202,7 +208,7 @@ export default function HorecaOrderDetailsPage() {
     return (
       <DashboardPageContent>
         <section className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm font-medium text-slate-500 shadow-sm">
-          Loading order…
+          {t("orders.loadingOrders")}
         </section>
       </DashboardPageContent>
     );
@@ -213,17 +219,17 @@ export default function HorecaOrderDetailsPage() {
       <DashboardPageContent>
         <section className="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
           <h1 className="text-lg font-semibold text-slate-900">
-            This order is no longer available
+            {t("orders.orderUnavailable")}
           </h1>
           <p className="mt-2 text-sm text-slate-600">
-            It may have been removed by your supplier.
+            {t("orders.orderUnavailableDesc")}
           </p>
           <Link
             to="/horeca/orders"
             className="mt-5 inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-content transition hover:brightness-95"
           >
             <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-            Back to orders
+            {t("orders.backToOrders")}
           </Link>
         </section>
       </DashboardPageContent>
@@ -468,7 +474,7 @@ export default function HorecaOrderDetailsPage() {
             to="/horeca/orders"
             className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 transition hover:text-slate-900"
           >
-            <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Back to orders
+            <ArrowLeft className="h-4 w-4" aria-hidden="true" /> {t("orders.backToOrders")}
           </Link>
 
           <div className="flex flex-wrap items-center gap-3">
@@ -482,7 +488,7 @@ export default function HorecaOrderDetailsPage() {
                     className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
                   >
                     <X className="h-4 w-4" aria-hidden="true" />
-                    Cancel
+                    {t("common.cancel")}
                   </button>
                   <button
                     type="button"
@@ -491,7 +497,7 @@ export default function HorecaOrderDetailsPage() {
                     className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-content transition hover:brightness-95 disabled:opacity-50"
                   >
                     <Send className="h-4 w-4" aria-hidden="true" />
-                    {isActionLoading ? "Sending..." : "Send changes to supplier"}
+                    {isActionLoading ? t("orders.sendingChanges") : t("orders.sendChangesToSupplier")}
                   </button>
                 </>
               ) : (
@@ -503,7 +509,7 @@ export default function HorecaOrderDetailsPage() {
                     className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
                   >
                     <Pencil className="h-4 w-4" aria-hidden="true" />
-                    Request changes
+                    {t("orders.requestChanges")}
                   </button>
                   <button
                     type="button"
@@ -512,7 +518,7 @@ export default function HorecaOrderDetailsPage() {
                     className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-content transition hover:brightness-95 disabled:opacity-50"
                   >
                     <CircleCheck className="h-4 w-4" aria-hidden="true" />
-                    {isActionLoading ? "Accepting..." : "Accept offer"}
+                    {isActionLoading ? t("orders.acceptingOffer") : t("orders.acceptOffer")}
                   </button>
                 </>
               )
@@ -527,7 +533,7 @@ export default function HorecaOrderDetailsPage() {
                 className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-content transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <CheckCheck className="h-4 w-4" aria-hidden="true" />
-                {isActionLoading ? "Approving..." : "Approve order"}
+                {isActionLoading ? t("orders.approvingOrder") : t("orders.approveOrder")}
               </button>
             ) : null}
 
@@ -540,7 +546,7 @@ export default function HorecaOrderDetailsPage() {
                 className="inline-flex items-center gap-2 rounded-lg border border-rose-200 bg-white px-4 py-2.5 text-sm font-semibold text-rose-700 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <XCircle className="h-4 w-4" aria-hidden="true" />
-                Cancel order
+                {t("orders.cancelOrder")}
               </button>
             ) : null}
 
@@ -552,7 +558,7 @@ export default function HorecaOrderDetailsPage() {
                 className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
               >
                 <RotateCcw className="h-4 w-4" aria-hidden="true" />
-                {isActionLoading ? "Repeating..." : "Repeat order"}
+                {t("orders.repeatOrder")}
               </button>
             ) : null}
           </div>
@@ -567,35 +573,35 @@ export default function HorecaOrderDetailsPage() {
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
-                Order {order.id}
+                {t("orders.title")} {order.id}
               </h1>
               <span
                 className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${horecaOrderStatusClasses[status]}`}
               >
-                {horecaOrderStatusLabels[status]}
+                {getLocalizedOrderStatus(status, t)}
               </span>
             </div>
             <p className="mt-1 text-sm text-slate-500">
-              {order.supplierName} · Placed {formatOrderDate(order.placedAt)}
+              {order.supplierName} · {t("orders.placedAtDate")} {formatOrderDate(order.placedAt)}
             </p>
           </div>
         </div>
       </header>
 
-      <StatusBanner order={{ ...order, status }} isEditing={isEditing} />
+      <StatusBanner order={{ ...order, status }} isEditing={isEditing} t={t} />
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
         <div className="min-w-0 space-y-6">
           <section className="min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4 sm:px-6">
               <div>
-                <SectionLabel>Order items</SectionLabel>
+                <SectionLabel>{t("orders.orderItems")}</SectionLabel>
                 <p className="mt-1 text-sm text-slate-600">
                   {isEditing
-                    ? "Set the quantities and prices you can accept."
+                    ? t("orders.setQuantitiesAndPrices")
                     : hasOffer
-                      ? "What you asked for, next to what the supplier offered."
-                      : "What you asked for. Prices are confirmed when the offer arrives."}
+                      ? t("orders.whatYouAskedForNextToOffer")
+                      : t("orders.whatYouAskedForPricesConfirmed")}
                 </p>
               </div>
               <p className="text-lg font-semibold text-slate-900 tabular-nums">
@@ -608,21 +614,21 @@ export default function HorecaOrderDetailsPage() {
                 <thead className="bg-slate-50 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
                   <tr>
                     <th className="sticky left-0 z-10 min-w-56 whitespace-nowrap border-b border-r border-slate-200 bg-slate-50 px-5 py-3.5 sm:px-6">
-                      Product
+                      {t("common.product")}
                     </th>
                     <th className="min-w-32 whitespace-nowrap border-b border-slate-200 px-4 py-3.5">
-                      You requested
+                      {t("orders.youRequested")}
                     </th>
                     {hasOffer ? (
                       <th className="min-w-48 whitespace-nowrap border-b border-slate-200 px-4 py-3.5">
-                        {isEditing ? "Your counter" : "Supplier offer"}
+                        {isEditing ? t("orders.yourCounter") : t("orders.supplierOffer")}
                       </th>
                     ) : null}
                     <th className="whitespace-nowrap border-b border-slate-200 px-4 py-3.5">
-                      Comment
+                      {t("common.comment")}
                     </th>
                     <th className="min-w-32 whitespace-nowrap border-b border-slate-200 px-6 py-3.5 text-right">
-                      Amount
+                      {t("common.amount")}
                     </th>
                   </tr>
                 </thead>
@@ -652,13 +658,13 @@ export default function HorecaOrderDetailsPage() {
                                 {line.name}
                               </p>
                               {line.isPromotionGift ? (
-                                <p className="mt-1 inline-flex items-center gap-1 rounded-full bg-violet-50 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-violet-700"><Gift className="h-3 w-3" aria-hidden="true" />Free gift{line.promotionTitle ? ` · ${line.promotionTitle}` : ""}</p>
+                                <p className="mt-1 inline-flex items-center gap-1 rounded-full bg-violet-50 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-violet-700"><Gift className="h-3 w-3" aria-hidden="true" />{t("orders.freeGift")}{line.promotionTitle ? ` · ${line.promotionTitle}` : ""}</p>
                               ) : null}
                               <p className="mt-0.5 text-xs text-slate-500">
                                 {line.unit}
                               </p>
                               <p className="mt-0.5 text-xs text-slate-400">
-                                Minimum order: {line.minimumOrderQuantity} {line.minimumOrderQuantity === 1 ? "unit" : "units"}
+                                {t("products.minOrder")}: {line.minimumOrderQuantity} {line.minimumOrderQuantity === 1 ? t("common.unit") : t("common.units")}
                               </p>
                             </div>
                           </div>
@@ -716,7 +722,7 @@ export default function HorecaOrderDetailsPage() {
                                   <p className="mt-0.5 text-xs font-medium text-rose-600">
                                     {line.requestedQuantity -
                                       line.offeredQuantity}{" "}
-                                    short of your request
+                                    {t("orders.shortOfRequest")}
                                   </p>
                                 ) : null}
                               </div>
@@ -732,7 +738,7 @@ export default function HorecaOrderDetailsPage() {
                               onChange={(event) =>
                                 updateLine(line.id, "comment", event.target.value)
                               }
-                              placeholder="Add a note"
+                              placeholder={t("orders.addNote")}
                               size="sm"
                               className="h-9 px-2"
                             />
@@ -770,25 +776,25 @@ export default function HorecaOrderDetailsPage() {
               <div className="flex justify-end border-t border-slate-100 bg-slate-50/60 px-5 py-4 sm:px-6">
                 <dl className="w-full max-w-xs space-y-2 text-sm">
                   <div className="flex items-baseline justify-between gap-6">
-                    <dt className="text-slate-500">You requested</dt>
+                    <dt className="text-slate-500">{t("orders.youRequested")}</dt>
                     <dd className="tabular-nums text-slate-600">
                       {formatAmd(requestedTotal)}
                     </dd>
                   </div>
                   <div className="flex items-baseline justify-between gap-6">
                     <dt className="text-slate-500">
-                      {isEditing ? "Your counter" : "Supplier offer"}
+                      {isEditing ? t("orders.yourCounter") : t("orders.supplierOffer")}
                     </dt>
                     <dd className="font-semibold tabular-nums text-slate-900">
                       {formatAmd(offeredTotal)}
                     </dd>
                   </div>
                   <div className="flex items-baseline justify-between gap-6 border-t border-slate-200 pt-2">
-                    <dt className="text-slate-500">Difference</dt>
+                    <dt className="text-slate-500">{t("orders.difference")}</dt>
                     <dd>
                       {totalDelta === 0 ? (
                         <span className="tabular-nums text-slate-500">
-                          No change
+                          {t("orders.noChange")}
                         </span>
                       ) : (
                         <DeltaText
@@ -805,27 +811,26 @@ export default function HorecaOrderDetailsPage() {
 
           {isEditing ? (
             <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-              <SectionLabel>Message to supplier</SectionLabel>
+              <SectionLabel>{t("orders.messageToSupplier")}</SectionLabel>
               <p className="mt-1 text-sm text-slate-600">
-                Explain what you changed so {order.supplierContactName} can
-                respond quickly.
+                {t("orders.messageToSupplierSubtitle", undefined, { name: order.supplierContactName })}
               </p>
               <textarea
                 value={messageToSupplier}
                 onChange={(event) => setMessageToSupplier(event.target.value)}
                 rows={3}
-                placeholder="We need the full six crates for the weekend service."
+                placeholder={t("orders.messageToSupplierPlaceholder")}
                 className="mt-4 block w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 transition-[border-color,box-shadow] duration-200 placeholder:text-slate-400 focus:outline-none focus-visible:border-primary focus-visible:ring-4 focus-visible:ring-primary/15"
               />
             </section>
           ) : null}
 
-          <FulfilmentProgress status={status} />
+          <FulfilmentProgress status={status} t={t} />
         </div>
 
         <aside className="space-y-6">
           <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <SectionLabel>Supplier</SectionLabel>
+            <SectionLabel>{t("orders.supplier")}</SectionLabel>
             <p className="mt-3 font-semibold text-slate-900">
               {order.supplierName}
             </p>
@@ -862,7 +867,7 @@ export default function HorecaOrderDetailsPage() {
           </section>
 
           <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <SectionLabel>Delivery</SectionLabel>
+            <SectionLabel>{t("orders.delivery")}</SectionLabel>
             <div className="mt-3 space-y-3 text-sm text-slate-600">
               <p className="flex gap-2">
                 <CalendarDays
@@ -874,7 +879,7 @@ export default function HorecaOrderDetailsPage() {
                     {formatOrderDate(order.deliveryDate)}
                   </span>
                   <span className="text-xs text-slate-500">
-                    Requested delivery date
+                    {t("orders.requestedDeliveryDate")}
                   </span>
                 </span>
               </p>
@@ -888,14 +893,14 @@ export default function HorecaOrderDetailsPage() {
                     <span className="block font-semibold text-slate-900">{deliveryAddress.label}</span>
                   ) : null}
                   <span className="block">{deliveryAddress.fullAddress}</span>
-                  <span className="mt-1 block text-xs text-slate-500">Contact: {deliveryAddress.contactPerson} · {deliveryAddress.contactPhone}</span>
+                  <span className="mt-1 block text-xs text-slate-500">{t("common.contact")}: {deliveryAddress.contactPerson} · {deliveryAddress.contactPhone}</span>
                 </span>
               </p>
             </div>
           </section>
 
           <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <SectionLabel>Activity</SectionLabel>
+            <SectionLabel>{t("orders.activity")}</SectionLabel>
             <ol className="mt-4 space-y-4">
               {history.map((event) => (
                 <li key={event.id} className="flex gap-3">

@@ -23,6 +23,8 @@ import { useEffect, useState, type ReactNode } from "react";
 import NotificationDrawer, {
   type DashboardNotification,
 } from "./notification-drawer";
+import LanguageSwitcher from "./language-switcher";
+import { useTranslation } from "~/shared/lib/i18n";
 import {
   DashboardHeaderActionsContext,
   type DashboardHeaderActionContent,
@@ -67,6 +69,25 @@ function getIconForLabel(label: string) {
   return menuIcons[label] ?? ChevronRight;
 }
 
+function getNavLabel(label: string, t: (k: string, f?: string) => string): string {
+  const map: Record<string, string> = {
+    Dashboard: "nav.dashboard",
+    Products: "nav.products",
+    Suppliers: "nav.suppliers",
+    Customers: "nav.customers",
+    Orders: "nav.orders",
+    Employees: "nav.employees",
+    Promotions: "nav.promotions",
+    Settings: "nav.settings",
+    "Company Information": "nav.companyInformation",
+    "Supplier profile": "nav.supplierProfile",
+    Account: "nav.account",
+    Notifications: "nav.notifications",
+    Cart: "nav.cart",
+  };
+  return map[label] ? t(map[label], label) : label;
+}
+
 type DashboardLayoutProps = {
   accountType: DashboardAccountType;
   menuLinks: DashboardMenuLink[];
@@ -105,6 +126,7 @@ export default function DashboardLayout({
   children,
 }: DashboardLayoutProps) {
   const initials = getInitials(userName);
+  const { t } = useTranslation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [pageHeaderActions, setPageHeaderActions] =
@@ -187,7 +209,7 @@ export default function DashboardLayout({
 
           <div className="mt-8 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
-              Company
+              {t("nav.company")}
             </p>
             <p className="mt-2 truncate text-sm font-semibold text-slate-900">
               {companyName}
@@ -223,7 +245,7 @@ export default function DashboardLayout({
                       className="flex min-w-0 flex-1 items-center gap-3 rounded-xl px-2 py-2 text-sm font-medium transition"
                     >
                       <ItemIcon size={16} className="shrink-0" />
-                      <span className="truncate">{item.label}</span>
+                      <span className="truncate">{getNavLabel(item.label, t)}</span>
                     </NavLink>
 
                     {showsSubmenu ? (
@@ -271,7 +293,7 @@ export default function DashboardLayout({
                           >
                             <SubmenuIcon size={14} className="shrink-0" />
                             <span className="truncate">
-                              {submenuItem.label}
+                              {getNavLabel(submenuItem.label, t)}
                             </span>
                           </NavLink>
                         );
@@ -296,7 +318,7 @@ export default function DashboardLayout({
               href={logoutHref}
               className="mt-3 inline-flex w-full items-center justify-center rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
             >
-              Logout
+              {t("nav.logout")}
             </a>
           </div>
         </aside>
@@ -323,6 +345,7 @@ export default function DashboardLayout({
               </a>
 
               <div className="ml-auto flex shrink-0 items-center gap-2">
+                <LanguageSwitcher />
                 {notificationButton}
                 {mobileHeaderAction ?? (
                   <div className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
@@ -352,6 +375,7 @@ export default function DashboardLayout({
               <div className="min-w-0 flex-1">{pageHeaderActions?.back}</div>
               <div className="ml-auto flex shrink-0 items-center gap-3">
                 {pageHeaderActions?.actions ?? desktopHeaderAction}
+                <LanguageSwitcher />
                 {notificationButton}
               </div>
             </div>
@@ -390,7 +414,7 @@ export default function DashboardLayout({
 
               <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
                 <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
-                  Company
+                  {t("nav.company")}
                 </p>
                 <p className="mt-2 truncate text-sm font-semibold text-slate-900">
                   {companyName}
@@ -430,7 +454,7 @@ export default function DashboardLayout({
                           className="flex min-w-0 flex-1 items-center gap-3 rounded-xl px-2 py-2 text-sm font-medium transition"
                         >
                           <ItemIcon size={16} className="shrink-0" />
-                          <span className="truncate">{item.label}</span>
+                          <span className="truncate">{getNavLabel(item.label, t)}</span>
                         </NavLink>
 
                         {showsSubmenu ? (
@@ -481,7 +505,7 @@ export default function DashboardLayout({
                               >
                                 <SubmenuIcon size={14} className="shrink-0" />
                                 <span className="truncate">
-                                  {submenuItem.label}
+                                  {getNavLabel(submenuItem.label, t)}
                                 </span>
                               </NavLink>
                             );
@@ -497,7 +521,7 @@ export default function DashboardLayout({
                 href={logoutHref}
                 className="mt-6 inline-flex w-full items-center justify-center rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
               >
-                Logout
+                {t("nav.logout")}
               </a>
             </DialogPanel>
           </div>

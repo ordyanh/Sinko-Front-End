@@ -14,6 +14,7 @@ import {
   getSupplierPromotions,
   type StoredSupplierPromotion,
 } from "~/shared/lib/indexed-db";
+import { useTranslation } from "~/shared/lib/i18n";
 
 type PromotionType = "FixedPrice" | "Percentage" | "BuyXGetY";
 type PromotionStatus = "Draft" | "Scheduled" | "Active" | "Expired" | "Disabled";
@@ -104,65 +105,66 @@ function formatDate(date: string) {
   }).format(new Date(date));
 }
 
-const columns: TableColumn<Promotion>[] = [
-  {
-    id: "name",
-    header: "Promotion name",
-    cell: (promotion) => (
-      <div className="min-w-48">
-        <p className="font-semibold text-slate-900">
-          {promotion.name ?? "Untitled promotion"}
-        </p>
-        <p className="mt-0.5 text-xs text-slate-500">{promotion.id}</p>
-      </div>
-    ),
-  },
-  {
-    id: "type",
-    header: "Promotion type",
-    cell: (promotion) => promotionTypeLabels[promotion.type],
-  },
-  {
-    id: "description",
-    header: "Promotion description",
-    className: "min-w-72 max-w-96",
-    cell: (promotion) => (
-      <p className="line-clamp-2 text-slate-600">{promotion.description ?? "—"}</p>
-    ),
-  },
-  {
-    id: "products",
-    header: "Products included",
-    cell: (promotion) => {
-      const count = promotion.products?.length ?? 0;
-      return `${count} ${count === 1 ? "product" : "products"}`;
-    },
-  },
-  {
-    id: "start-date",
-    header: "Start date",
-    cell: (promotion) => formatDate(promotion.startDate),
-  },
-  {
-    id: "end-date",
-    header: "End date",
-    cell: (promotion) => formatDate(promotion.endDate),
-  },
-  {
-    id: "status",
-    header: "Status",
-    cell: (promotion) => (
-      <span
-        className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${statusClasses[promotion.status]}`}
-      >
-        {promotion.status}
-      </span>
-    ),
-  },
-];
-
 export default function SupplierPromotionsPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
+
+  const columns: TableColumn<Promotion>[] = [
+    {
+      id: "name",
+      header: t("common.name"),
+      cell: (promotion) => (
+        <div className="min-w-48">
+          <p className="font-semibold text-slate-900">
+            {promotion.name ?? t("promotions.untitledPromotion")}
+          </p>
+          <p className="mt-0.5 text-xs text-slate-500">{promotion.id}</p>
+        </div>
+      ),
+    },
+    {
+      id: "type",
+      header: t("promotions.title"),
+      cell: (promotion) => promotionTypeLabels[promotion.type],
+    },
+    {
+      id: "description",
+      header: t("products.description"),
+      className: "min-w-72 max-w-96",
+      cell: (promotion) => (
+        <p className="line-clamp-2 text-slate-600">{promotion.description ?? "—"}</p>
+      ),
+    },
+    {
+      id: "products",
+      header: t("nav.products"),
+      cell: (promotion) => {
+        const count = promotion.products?.length ?? 0;
+        return `${count} ${count === 1 ? t("common.product") : t("nav.products")}`;
+      },
+    },
+    {
+      id: "start-date",
+      header: t("common.date"),
+      cell: (promotion) => formatDate(promotion.startDate),
+    },
+    {
+      id: "end-date",
+      header: t("promotions.validUntil"),
+      cell: (promotion) => formatDate(promotion.endDate),
+    },
+    {
+      id: "status",
+      header: t("common.status"),
+      cell: (promotion) => (
+        <span
+          className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${statusClasses[promotion.status]}`}
+        >
+          {promotion.status}
+        </span>
+      ),
+    },
+  ];
   const [searchValue, setSearchValue] = useState("");
   const [selectedFilters, setSelectedFilters] = useState<SearchFilterValue[]>(
     [],
@@ -238,7 +240,7 @@ export default function SupplierPromotionsPage() {
   return (
     <DashboardTableContent>
       <TableLayout
-        title="Promotions"
+        title={t("promotions.title")}
         icon={<BadgePercent className="h-5 w-5" aria-hidden="true" />}
         primaryAction={
           <button
@@ -250,13 +252,12 @@ export default function SupplierPromotionsPage() {
             className="inline-flex items-center gap-2 rounded-lg bg-primary px-3.5 py-2.5 text-sm font-semibold text-primary-content transition hover:brightness-95"
           >
             <Plus className="h-4 w-4" aria-hidden="true" />
-            Add promotion
+            {t("promotions.createPromotion")}
           </button>
-
         }
         searchValue={searchValue}
         onSearchChange={handleSearchChange}
-        searchPlaceholder="Search promotions"
+        searchPlaceholder={t("common.search")}
         searchFilters={promotionSearchFilters}
         selectedSearchFilters={selectedFilters}
         onSelectedSearchFiltersChange={handleSelectedFiltersChange}
@@ -270,13 +271,13 @@ export default function SupplierPromotionsPage() {
         onPageSizeChange={setPageSize}
         pageSizeOptions={[5, 10, 25, 50, 100]}
         totalCount={filteredPromotions.length}
-        emptyMessage="No promotions match your search."
+        emptyMessage={t("common.noResults")}
       />
 
       <Modal
         isOpen={isTypeModalOpen}
-        title="Choose a promotion type"
-        description="Choose how this offer changes the price of selected products."
+        title={t("promotions.chooseOfferType")}
+        description={t("promotions.createPromotionDesc")}
         onClose={() => setIsTypeModalOpen(false)}
         size="sm"
       >
@@ -297,10 +298,10 @@ export default function SupplierPromotionsPage() {
               </span>
               <span>
                 <span className="block font-semibold text-slate-900">
-                  Product discount
+                  {t("promotions.productDiscount")}
                 </span>
                 <span className="mt-1 block text-sm leading-6 text-slate-600">
-                  Set either a fixed promotional price or a percentage discount.
+                  {t("promotions.productDiscountDesc")}
                 </span>
               </span>
             </span>
@@ -322,10 +323,10 @@ export default function SupplierPromotionsPage() {
               </span>
               <span>
                 <span className="block font-semibold text-slate-900">
-                  Buy X, get Y
+                  {t("promotions.buyXGetY")}
                 </span>
                 <span className="mt-1 block text-sm leading-6 text-slate-600">
-                  Reward customers with a product after they buy a qualifying quantity.
+                  {t("promotions.buyXGetYDesc")}
                 </span>
               </span>
             </span>
@@ -337,7 +338,7 @@ export default function SupplierPromotionsPage() {
               onClick={() => setIsTypeModalOpen(false)}
               className="rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
             >
-              Cancel
+              {t("common.cancel")}
             </button>
             <button
               type="button"
@@ -345,7 +346,7 @@ export default function SupplierPromotionsPage() {
               disabled={!selectedPromotionType}
               className="rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-content transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Continue
+              {t("common.next")}
             </button>
           </div>
         </div>

@@ -13,6 +13,7 @@ import "./app.css";
 import { ToastProvider } from "~/shared/ui/toast";
 import { initializeDatabase } from "~/shared/lib/indexed-db";
 import { BackendEnvironmentBadge } from "~/shared/ui/backend-indicator";
+import { I18nProvider } from "~/shared/lib/i18n";
 
 export const links: Route.LinksFunction = () => [
   { rel: "preconnect", href: "https://fonts.googleapis.com" },
@@ -23,13 +24,13 @@ export const links: Route.LinksFunction = () => [
   },
   {
     rel: "stylesheet",
-    href: "https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@500;600;700;800&display=swap",
+    href: "https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Noto+Sans+Armenian:wght@400;500;600;700&family=Sora:wght@500;600;700;800&display=swap",
   },
 ];
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" data-theme="light">
+    <html lang="hy" data-theme="light">
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -51,10 +52,12 @@ export default function App() {
   }, []);
 
   return (
-    <ToastProvider>
-      <Outlet />
-      <BackendEnvironmentBadge />
-    </ToastProvider>
+    <I18nProvider>
+      <ToastProvider>
+        <Outlet />
+        <BackendEnvironmentBadge />
+      </ToastProvider>
+    </I18nProvider>
   );
 }
 

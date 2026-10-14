@@ -1,5 +1,6 @@
 import Button from "~/shared/ui/button";
 import Modal from "~/shared/ui/modal";
+import { useTranslation } from "~/shared/lib/i18n";
 import type { ManagedEmployee } from "../model/employee-management";
 
 type DeleteEmployeeModalProps = {
@@ -15,32 +16,34 @@ export default function DeleteEmployeeModal({
   onClose,
   onConfirm,
 }: DeleteEmployeeModalProps) {
+  const { t } = useTranslation();
+
   return (
     <Modal
       isOpen={isOpen}
       size="sm"
-      title="Delete employee?"
+      title={t("employees.deleteEmployee", "Delete employee?")}
       description={
         employee
-          ? `This will permanently remove ${employee.name} from the employee list.`
+          ? t("employees.deleteConfirmDesc", `This will permanently remove ${employee.name} from the employee list.`, { name: employee.name })
           : undefined
       }
       onClose={onClose}
     >
       <div className="flex flex-col gap-5">
         <p className="rounded-xl bg-red-50 px-3 py-2.5 text-sm text-red-800">
-          This action cannot be undone.
+          {t("employees.cannotBeUndone", "This action cannot be undone.")}
         </p>
         <div className="flex flex-wrap justify-end gap-3 border-t border-slate-200 pt-5">
           <Button type="button" variant="ghost" className="w-full sm:w-32" onClick={onClose}>
-            Cancel
+            {t("common.cancel", "Cancel")}
           </Button>
           <button
             type="button"
             className="w-full rounded-md bg-red-600 px-6 py-3 text-base font-medium text-white transition hover:bg-red-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-red-200 sm:w-32"
             onClick={onConfirm}
           >
-            Delete
+            {t("common.delete", "Delete")}
           </button>
         </div>
       </div>

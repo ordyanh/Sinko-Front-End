@@ -12,6 +12,7 @@ import { useCallback, useEffect, useState } from "react";
 import Input from "~/shared/ui/form/input";
 import Select from "~/shared/ui/form/select";
 import { DashboardHeaderActions, DashboardPageContent } from "~/shared/ui";
+import { useTranslation } from "~/shared/lib/i18n";
 import {
   IndividualPricesSection,
   type IndividualPrice,
@@ -83,6 +84,7 @@ function createSellingOption(id: string): SellingOptionDraft {
 }
 
 export default function SupplierProductDetailPage() {
+  const { t } = useTranslation();
   const { productId } = useParams();
   const navigate = useNavigate();
   const isNewProduct = productId === "new";
@@ -94,7 +96,7 @@ export default function SupplierProductDetailPage() {
   const [description, setDescription] = useState("");
   const [code, setCode] = useState("");
   const [categoryIds, setCategoryIds] = useState<string[]>([]);
-  const [status, setStatus] = useState<SupplierProductStatus>("Draft");
+  const [status, setStatus] = useState<SupplierProductStatus>("Active");
   const [sellingOptions, setSellingOptions] = useState<SellingOptionDraft[]>([
     createSellingOption("option-1"),
   ]);
@@ -111,54 +113,68 @@ export default function SupplierProductDetailPage() {
 
     void (async () => {
       const user = await getLoggedInUser();
-      if (!user || user.role !== "supplier") return;
-
-      const [categories, profile, product, customers] = await Promise.all([
-        getSupplierCategories(user.id),
-        getSupplierProfile(user.id),
-        isNewProduct || !productId ? Promise.resolve(null) : getSupplierProduct(user.id, productId),
-        getHorecaUsers(),
-      ]);
+      const currentAccountId = user?.id || "supplier";
       if (!isCurrent) return;
+      setAccountId(currentAccountId);
 
-      setAccountId(user.id);
-      setHorecaCustomers(customers);
-      setIsLoadingHorecaCustomers(false);
-      setCategoryOptions(
-        categories.sort((first, second) => first.name.localeCompare(second.name)),
-      );
-      setCategoriesError(null);
-      if (!isNewProduct && !product) {
-        setProductError("This product couldn't be found in your catalog.");
-      } else if (product) {
-        setTitle(product.name);
-        setDescription(product.description);
-        setCode(product.code ?? "");
-        setCategoryIds(product.categoryIds);
-        setStatus(product.status);
-        setImagePreviewUrl(product.imageUrl ?? null);
-        setCreatedAt(product.createdAt);
-        setSellingOptions(
-          product.sellingOptions.map((option) => ({
-            id: option.id,
-            quantity: String(option.quantity),
-            unitType: option.unitType as PackageUnitType,
-            piecesPerPackage: option.piecesPerPackage ? String(option.piecesPerPackage) : "",
-            customUnit: option.customUnit ?? "",
-            price: String(option.price),
-            compareAtPrice: option.compareAtPrice ? String(option.compareAtPrice) : "",
-            minimumOrderQuantity: String(option.minimumOrderQuantity),
-            companyPrices: option.companyPrices,
-          })),
+      try {
+        const [categories, profile, product] = await Promise.all([
+          getSupplierCategories(currentAccountId),
+          getSupplierProfile(currentAccountId),
+          isNewProduct || !productId ? Promise.resolve(null) : getSupplierProduct(currentAccountId, productId),
+        ]);
+        if (!isCurrent) return;
+
+        setCategoryOptions(
+          categories.sort((first, second) => first.name.localeCompare(second.name)),
         );
+        setCategoriesError(null);
+        if (!isNewProduct && !product) {
+          setProductError("This product couldn't be found in your catalog.");
+        } else if (product) {
+          setTitle(product.name);
+          setDescription(product.description);
+          setCode(product.code ?? "");
+          setCategoryIds(product.categoryIds || []);
+          setStatus(product.status);
+          setImagePreviewUrl(product.imageUrl ?? null);
+          setCreatedAt(product.createdAt);
+          setSellingOptions(
+            product.sellingOptions.map((option) => ({
+              id: option.id,
+              quantity: String(option.quantity),
+              unitType: option.unitType as PackageUnitType,
+              piecesPerPackage: option.piecesPerPackage ? String(option.piecesPerPackage) : "",
+              customUnit: option.customUnit ?? "",
+              price: String(option.price),
+              compareAtPrice: option.compareAtPrice ? String(option.compareAtPrice) : "",
+              minimumOrderQuantity: String(option.minimumOrderQuantity),
+              companyPrices: option.companyPrices,
+            })),
+          );
+        }
+      } catch {
+        if (!isCurrent) return;
+        setCategoriesError("We couldn't load your supplier categories.");
+      } finally {
+        if (isCurrent) {
+          setIsLoadingCategories(false);
+        }
       }
-      setIsLoadingCategories(false);
-    })().catch(() => {
-      if (!isCurrent) return;
-      setCategoriesError("We couldn't load your supplier categories.");
-      setIsLoadingCategories(false);
-      setIsLoadingHorecaCustomers(false);
-    });
+
+      try {
+        const customers = await getHorecaUsers();
+        if (isCurrent) {
+          setHorecaCustomers(customers);
+        }
+      } catch {
+        // ignore
+      } finally {
+        if (isCurrent) {
+          setIsLoadingHorecaCustomers(false);
+        }
+      }
+    })();
 
     return () => {
       isCurrent = false;
@@ -166,7 +182,7 @@ export default function SupplierProductDetailPage() {
   }, [isNewProduct, productId]);
 
   async function handleCategoryChange(nextValue: string | string[]) {
-    if (!accountId) return;
+    const targetAccountId = accountId || "supplier";
 
     const nextValues = Array.isArray(nextValue) ? nextValue : [nextValue];
     try {
@@ -174,7 +190,7 @@ export default function SupplierProductDetailPage() {
         nextValues.map(async (value) => {
           if (categoryOptions.some((category) => category.id === value)) return value;
 
-          const category = await createSupplierCategory(accountId, value);
+          const category = await createSupplierCategory(targetAccountId, value);
           setCategoryOptions((currentCategories) =>
             currentCategories.some((current) => current.id === category.id)
               ? currentCategories
@@ -187,7 +203,7 @@ export default function SupplierProductDetailPage() {
       );
       const nextCategoryIds = [...new Set(categoryIdsToSave)];
       setCategoryIds(nextCategoryIds);
-      const profile = await getSupplierProfile(accountId);
+      const profile = await getSupplierProfile(targetAccountId);
       await saveSupplierProfile({
         ...profile,
         categoryIds: [...new Set([...profile.categoryIds, ...nextCategoryIds])],
@@ -216,7 +232,8 @@ export default function SupplierProductDetailPage() {
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (!accountId || !title.trim()) return;
+    const targetAccountId = accountId || "supplier";
+    if (!title.trim()) return;
 
     const hasInvalidOption = sellingOptions.some(
       (option) =>
@@ -239,7 +256,7 @@ export default function SupplierProductDetailPage() {
     try {
       await saveSupplierProduct({
         id: isNewProduct ? createSupplierProductId() : productId ?? createSupplierProductId(),
-        accountId,
+        accountId: targetAccountId,
         name: title.trim(),
         description: description.trim(),
         categoryIds,
@@ -303,7 +320,7 @@ export default function SupplierProductDetailPage() {
             className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 transition hover:text-slate-900"
           >
             <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-            Back to products
+            {t("products.backToProducts")}
           </Link>
         }
         actions={
@@ -312,7 +329,7 @@ export default function SupplierProductDetailPage() {
               to="/supplier/products"
               className="rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
             >
-              Cancel
+              {t("common.cancel")}
             </Link>
             <button
               type="submit"
@@ -321,7 +338,7 @@ export default function SupplierProductDetailPage() {
               className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-content transition hover:brightness-95"
             >
               <Save className="h-4 w-4" aria-hidden="true" />
-              {isSaving ? "Saving..." : isNewProduct ? "Add product" : "Save changes"}
+              {isSaving ? t("products.savingProduct") : isNewProduct ? t("dashboard.addProduct") : t("products.saveProduct")}
             </button>
           </>
         }
@@ -329,10 +346,10 @@ export default function SupplierProductDetailPage() {
       <form id="product-editor" onSubmit={handleSubmit} className="space-y-6">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">
-            Catalog / {isNewProduct ? "New product" : "Edit product"}
+            Catalog / {isNewProduct ? t("dashboard.addProduct") : t("products.saveProduct")}
           </p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-900">
-            {isNewProduct ? "Add product" : title || "Edit product"}
+            {isNewProduct ? t("dashboard.addProduct") : title || t("dashboard.addProduct")}
           </h1>
           <p className="mt-2 text-sm text-slate-600">
             Keep the details clear so buyers can find and order the right item.
@@ -345,10 +362,10 @@ export default function SupplierProductDetailPage() {
             <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
               <div className="mb-7">
                 <h2 className="text-lg font-semibold text-slate-900">
-                  Main information
+                  {t("products.generalInfo")}
                 </h2>
                 <p className="mt-1 text-sm text-slate-500">
-                  The essentials customers see first in your catalog.
+                  {t("dashboard.addProductDesc")}
                 </p>
               </div>
 
@@ -358,7 +375,7 @@ export default function SupplierProductDetailPage() {
                     htmlFor="product-category"
                     className="mb-2 block text-sm font-medium text-slate-900"
                   >
-                    Product categories
+                    {t("products.category")}
                   </label>
                   <Select
                     id="product-category"
@@ -367,7 +384,7 @@ export default function SupplierProductDetailPage() {
                     createLabel={(value) => `Add “${value}”`}
                     value={categoryIds}
                     onValueChange={handleCategoryChange}
-                    disabled={isLoadingCategories || !accountId}
+                    disabled={isLoadingCategories}
                   >
                     {categoryOptions.map((category) => (
                       <option key={category.id} value={category.id}>
@@ -383,14 +400,14 @@ export default function SupplierProductDetailPage() {
                     </p>
                   ) : (
                     <p className="mt-2 text-sm text-slate-500">
-                      Your supplier categories appear first. Search or add one to use it here and in future products.
+                      {t("products.productCategoriesDesc")}
                     </p>
                   )}
                 </div>
 
                 <Input
                   id="product-title"
-                  label="Product title"
+                  label={t("products.productTitle")}
                   value={title}
                   onChange={(event) => setTitle(event.target.value)}
                   placeholder="e.g. Organic Citrus Mix"
@@ -399,7 +416,7 @@ export default function SupplierProductDetailPage() {
 
                 <Input
                   id="product-code"
-                  label="Product code"
+                  label={t("products.skuCode")}
                   value={code}
                   onChange={(event) => setCode(event.target.value)}
                   placeholder="e.g. OCM-204"
@@ -410,7 +427,7 @@ export default function SupplierProductDetailPage() {
                     htmlFor="product-description"
                     className="mb-2 block text-sm font-medium text-slate-900"
                   >
-                    Product description
+                    {t("products.productDescription")}
                   </label>
                   <textarea
                     id="product-description"
@@ -428,7 +445,7 @@ export default function SupplierProductDetailPage() {
             <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-7">
               <div className="mb-6 flex items-start justify-between gap-4">
                 <div>
-                  <h2 className="text-lg font-semibold text-slate-900">Selling options</h2>
+                  <h2 className="text-lg font-semibold text-slate-900">{t("products.sellingOptions")}</h2>
                   <p className="mt-1 text-sm text-slate-500">Offer the same product by piece, pack, box, or a unit your business uses.</p>
                 </div>
                 <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-700"><Package className="h-4 w-4" aria-hidden="true" /></span>
@@ -438,32 +455,42 @@ export default function SupplierProductDetailPage() {
                 {sellingOptions.map((option, index) => (
                   <div key={option.id} className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
                     <div className="mb-3 flex items-center justify-between">
-                      <p className="text-sm font-semibold text-slate-800">Option {index + 1}</p>
-                      <button type="button" onClick={() => setSellingOptions((currentOptions) => currentOptions.filter((currentOption) => currentOption.id !== option.id))} className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-rose-50 hover:text-rose-600" aria-label={`Remove selling option ${index + 1}`}><Trash2 className="h-4 w-4" aria-hidden="true" /></button>
+                      <p className="text-sm font-semibold text-slate-800">{t("products.sellingOptionTitle", { number: index + 1 })}</p>
+                      <button type="button" onClick={() => setSellingOptions((currentOptions) => currentOptions.filter((currentOption) => currentOption.id !== option.id))} className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-rose-50 hover:text-rose-600" aria-label={t("products.removeSellingOption", { number: index + 1 })}><Trash2 className="h-4 w-4" aria-hidden="true" /></button>
                     </div>
                     <div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-[0.65fr_1.2fr_0.85fr_0.85fr_0.85fr]">
-                      <Input id={`option-${option.id}-quantity`} label="Quantity" type="number" min="1" step="1" value={option.quantity} onChange={(event) => updateSellingOption(option.id, { quantity: event.target.value })} placeholder="1" required />
+                      <Input id={`option-${option.id}-quantity`} label={t("common.quantity")} type="number" min="1" step="1" value={option.quantity} onChange={(event) => updateSellingOption(option.id, { quantity: event.target.value })} placeholder="1" required />
                       <div>
-                        <label className="mb-2 block text-sm font-medium text-slate-900" htmlFor={`option-${option.id}-unit`}>Unit type</label>
+                        <label className="mb-2 block text-sm font-medium text-slate-900" htmlFor={`option-${option.id}-unit`}>{t("products.unitType")}</label>
                         <Select id={`option-${option.id}-unit`} value={option.unitType} onValueChange={(value) => updateSellingOption(option.id, { unitType: (Array.isArray(value) ? value[0] : value) as PackageUnitType })}>
-                          {packageUnitTypes.map((unitType) => <option key={unitType} value={unitType}>{unitType}</option>)}
+                          {packageUnitTypes.map((unitType) => (
+                            <option key={unitType} value={unitType}>
+                              {unitType === "Piece (հատ)" ? t("products.unitPiece") :
+                               unitType === "Kilogram (կգ)" ? t("products.unitKilogram") :
+                               unitType === "Gram (գ)" ? t("products.unitGram") :
+                               unitType === "Liter (լ)" ? t("products.unitLiter") :
+                               unitType === "Milliliter (մլ)" ? t("products.unitMilliliter") :
+                               unitType === "Package" ? t("products.unitPackage") :
+                               unitType === "Custom selling unit" ? t("products.unitCustom") : unitType}
+                            </option>
+                          ))}
                         </Select>
                       </div>
-                      <Input id={`option-${option.id}-price`} label="Price (AMD)" type="number" min="0" step="1" value={option.price} onChange={(event) => updateSellingOption(option.id, { price: event.target.value })} placeholder="0" required />
-                      <Input id={`option-${option.id}-compare-at-price`} label="Compare-at (AMD)" type="number" min="0" step="1" value={option.compareAtPrice} onChange={(event) => updateSellingOption(option.id, { compareAtPrice: event.target.value })} placeholder="Optional" />
-                      <Input id={`option-${option.id}-minimum-order`} label="Minimum order" type="number" min="1" step="1" value={option.minimumOrderQuantity} onChange={(event) => updateSellingOption(option.id, { minimumOrderQuantity: event.target.value })} placeholder="1" required />
+                      <Input id={`option-${option.id}-price`} label={`${t("common.price")} (AMD)`} type="number" min="0" step="1" value={option.price} onChange={(event) => updateSellingOption(option.id, { price: event.target.value })} placeholder="0" required />
+                      <Input id={`option-${option.id}-compare-at-price`} label={t("products.compareAtPrice")} type="number" min="0" step="1" value={option.compareAtPrice} onChange={(event) => updateSellingOption(option.id, { compareAtPrice: event.target.value })} placeholder="Optional" />
+                      <Input id={`option-${option.id}-minimum-order`} label={t("products.minOrderQuantity")} type="number" min="1" step="1" value={option.minimumOrderQuantity} onChange={(event) => updateSellingOption(option.id, { minimumOrderQuantity: event.target.value })} placeholder="1" required />
                     </div>
-                    {option.unitType === "Package" ? <Input id={`option-${option.id}-pieces-per-package`} label="Pieces per Package" type="number" min="1" step="1" inputMode="numeric" value={option.piecesPerPackage} onChange={(event) => updateSellingOption(option.id, { piecesPerPackage: event.target.value })} placeholder="e.g. 12" required error={Boolean(option.piecesPerPackage) && !isPositiveWholeNumber(option.piecesPerPackage)} errorMessage={Boolean(option.piecesPerPackage) && !isPositiveWholeNumber(option.piecesPerPackage) ? "Enter a positive whole number." : undefined} containerClassName="mt-3" /> : null}
-                    {option.unitType === "Custom selling unit" ? <Input id={`option-${option.id}-custom-unit`} label="Custom unit name" value={option.customUnit} onChange={(event) => updateSellingOption(option.id, { customUnit: event.target.value })} placeholder="e.g. 20 L keg or service tray" containerClassName="mt-3" required /> : null}
-                    <p className="mt-3 text-xs text-slate-500">Buyers see: <span className="font-semibold text-slate-700">{option.quantity || "—"} {option.unitType === "Custom selling unit" ? option.customUnit || "custom unit" : option.unitType}{option.unitType === "Package" && option.piecesPerPackage ? ` (${option.piecesPerPackage} pcs)` : ""}</span>{option.price ? ` — ${formatAmd(Number(option.price))}` : ""}{option.compareAtPrice ? <><span className="mx-1.5 text-slate-400">was</span><span className="text-slate-400 line-through">{formatAmd(Number(option.compareAtPrice))}</span></> : null}<span className="ml-2">Minimum order: {option.minimumOrderQuantity || "—"} selling units</span></p>
+                    {option.unitType === "Package" ? <Input id={`option-${option.id}-pieces-per-package`} label={t("products.piecesPerPackage")} type="number" min="1" step="1" inputMode="numeric" value={option.piecesPerPackage} onChange={(event) => updateSellingOption(option.id, { piecesPerPackage: event.target.value })} placeholder="e.g. 12" required error={Boolean(option.piecesPerPackage) && !isPositiveWholeNumber(option.piecesPerPackage)} errorMessage={Boolean(option.piecesPerPackage) && !isPositiveWholeNumber(option.piecesPerPackage) ? "Enter a positive whole number." : undefined} containerClassName="mt-3" /> : null}
+                    {option.unitType === "Custom selling unit" ? <Input id={`option-${option.id}-custom-unit`} label={t("products.customUnitName")} value={option.customUnit} onChange={(event) => updateSellingOption(option.id, { customUnit: event.target.value })} placeholder="e.g. 20 L keg or service tray" containerClassName="mt-3" required /> : null}
+                    <p className="mt-3 text-xs text-slate-500">{t("products.buyersSee")}{" "}<span className="font-semibold text-slate-700">{option.quantity || "—"} {option.unitType === "Custom selling unit" ? option.customUnit || "custom unit" : option.unitType}{option.unitType === "Package" && option.piecesPerPackage ? ` (${option.piecesPerPackage} pcs)` : ""}</span>{option.price ? ` — ${formatAmd(Number(option.price))}` : ""}{option.compareAtPrice ? <><span className="mx-1.5 text-slate-400">was</span><span className="text-slate-400 line-through">{formatAmd(Number(option.compareAtPrice))}</span></> : null}<span className="ml-2">{t("products.minOrder")}: {option.minimumOrderQuantity || "—"} {t("common.units")}</span></p>
                     {isLoadingHorecaCustomers ? (
                       <p className="mt-4 text-sm text-slate-500">Loading HORECA customers...</p>
                     ) : (
                       <IndividualPricesSection
                         resourceLabel="Company"
                         resourceLabelPlural="companies"
-                        title="Company prices for this option"
-                        description="Set a fixed company price for this exact selling unit. Contract prices do not stack with public discounts."
+                        title={t("products.companyPricesForOption")}
+                        description={t("products.companyPricesForOptionDesc")}
                         variant="embedded"
                         idPrefix={`selling-option-${option.id}-company-price`}
                         resources={horecaCustomers.map((customer) => ({
@@ -484,7 +511,7 @@ export default function SupplierProductDetailPage() {
                 ))}
               </div>
               {sellingOptionsError ? <p role="alert" className="mt-3 text-sm text-red-700">{sellingOptionsError}</p> : null}
-              <button type="button" onClick={addSellingOption} className="mt-4 inline-flex items-center gap-2 rounded-xl border border-primary/25 bg-primary/5 px-3.5 py-2.5 text-sm font-semibold text-primary transition hover:bg-primary/10"><Plus className="h-4 w-4" aria-hidden="true" />Add selling option</button>
+              <button type="button" onClick={addSellingOption} className="mt-4 inline-flex items-center gap-2 rounded-xl border border-primary/25 bg-primary/5 px-3.5 py-2.5 text-sm font-semibold text-primary transition hover:bg-primary/10"><Plus className="h-4 w-4" aria-hidden="true" />{t("products.addSellingOption")}</button>
             </section>
           </div>
 
@@ -493,7 +520,7 @@ export default function SupplierProductDetailPage() {
               <div className="mb-6 flex items-start justify-between gap-4">
                 <div>
                   <h2 className="text-lg font-semibold text-slate-900">
-                    Product media
+                    {t("products.productMedia")}
                   </h2>
                   <p className="mt-1 text-sm text-slate-500">
                     Add one clear product image for buyers.
@@ -527,10 +554,10 @@ export default function SupplierProductDetailPage() {
                     aria-hidden="true"
                   />
                   <span className="text-sm font-semibold text-slate-900">
-                    Upload product image
+                    {t("products.uploadProductImage")}
                   </span>
                   <span className="text-xs text-slate-500">
-                    PNG, JPG, or WEBP up to 10 MB
+                    {t("products.productImageFormats")}
                   </span>
                   <input
                     type="file"
@@ -546,7 +573,7 @@ export default function SupplierProductDetailPage() {
               <div className="mb-6 flex items-start justify-between gap-4">
                 <div>
                   <h2 className="text-lg font-semibold text-slate-900">
-                    Status
+                    {t("common.status")}
                   </h2>
                   <p className="mt-1 text-sm text-slate-500">
                     Control whether buyers can see this product.
@@ -560,7 +587,7 @@ export default function SupplierProductDetailPage() {
                 htmlFor="product-status"
                 className="mb-2 block text-sm font-medium text-slate-900"
               >
-                Product status
+                {t("products.productStatus")}
               </label>
               <Select
                 id="product-status"
@@ -571,10 +598,10 @@ export default function SupplierProductDetailPage() {
                   )
                 }
               >
-                <option value="Active">Active</option>
-                <option value="Draft">Draft</option>
-                <option value="Unlisted">Unlisted</option>
-                <option value="Inactive">Inactive</option>
+                <option value="Active">{t("products.active")}</option>
+                <option value="Draft">{t("products.draft")}</option>
+                <option value="Unlisted">{t("products.unlisted")}</option>
+                <option value="Inactive">{t("products.inactive")}</option>
               </Select>
             </section>
 
