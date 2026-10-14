@@ -62,12 +62,6 @@ function promotionFromStored(promotion: StoredSupplierPromotion): Promotion {
   };
 }
 
-const promotionTypeLabels: Record<PromotionType, string> = {
-  FixedPrice: "Fixed price",
-  Percentage: "Percentage discount",
-  BuyXGetY: "Buy X, get Y",
-};
-
 const statusClasses: Record<PromotionStatus, string> = {
   Draft: "bg-slate-100 text-slate-700",
   Scheduled: "bg-sky-50 text-sky-700",
@@ -76,27 +70,8 @@ const statusClasses: Record<PromotionStatus, string> = {
   Disabled: "bg-red-50 text-red-700",
 };
 
-const promotionSearchFilters: SearchFilterDefinition[] = [
-  {
-    id: "status",
-    label: "Status",
-    options: Object.keys(statusClasses).map((status) => ({
-      value: status,
-      label: status,
-    })),
-  },
-  {
-    id: "type",
-    label: "Promotion type",
-    options: Object.entries(promotionTypeLabels).map(([type, label]) => ({
-      value: type,
-      label,
-    })),
-  },
-];
-
-function formatDate(date: string) {
-  if (!date || date === "—") return "No end date";
+function formatDate(date: string, t: (k: string) => string) {
+  if (!date || date === "—") return t("promotions.noEndDate");
 
   return new Intl.DateTimeFormat("en", {
     day: "numeric",
@@ -108,6 +83,56 @@ function formatDate(date: string) {
 export default function SupplierPromotionsPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+
+  function getPromotionTypeLabel(type: PromotionType): string {
+    switch (type) {
+      case "FixedPrice":
+        return t("promotions.fixedPrice");
+      case "Percentage":
+        return t("promotions.percentageDiscount");
+      case "BuyXGetY":
+        return t("promotions.buyXGetY");
+      default:
+        return type;
+    }
+  }
+
+  function getPromotionStatusLabel(status: PromotionStatus): string {
+    switch (status) {
+      case "Draft":
+        return t("promotions.statusDraft");
+      case "Active":
+        return t("promotions.statusLive");
+      case "Scheduled":
+        return t("promotions.statusScheduled");
+      case "Expired":
+        return t("promotions.statusExpired");
+      case "Disabled":
+        return t("promotions.statusDisabled");
+      default:
+        return status;
+    }
+  }
+
+  const promotionSearchFilters: SearchFilterDefinition[] = [
+    {
+      id: "status",
+      label: t("common.status"),
+      options: (Object.keys(statusClasses) as PromotionStatus[]).map((status) => ({
+        value: status,
+        label: getPromotionStatusLabel(status),
+      })),
+    },
+    {
+      id: "type",
+      label: t("promotions.promotionType"),
+      options: [
+        { value: "FixedPrice", label: t("promotions.fixedPrice") },
+        { value: "Percentage", label: t("promotions.percentageDiscount") },
+        { value: "BuyXGetY", label: t("promotions.buyXGetY") },
+      ],
+    },
+  ];
 
   const columns: TableColumn<Promotion>[] = [
     {
@@ -124,8 +149,8 @@ export default function SupplierPromotionsPage() {
     },
     {
       id: "type",
-      header: t("promotions.title"),
-      cell: (promotion) => promotionTypeLabels[promotion.type],
+      header: t("promotions.promotionType"),
+      cell: (promotion) => getPromotionTypeLabel(promotion.type),
     },
     {
       id: "description",
@@ -145,13 +170,13 @@ export default function SupplierPromotionsPage() {
     },
     {
       id: "start-date",
-      header: t("common.date"),
-      cell: (promotion) => formatDate(promotion.startDate),
+      header: t("promotions.startDate"),
+      cell: (promotion) => formatDate(promotion.startDate, t),
     },
     {
       id: "end-date",
       header: t("promotions.validUntil"),
-      cell: (promotion) => formatDate(promotion.endDate),
+      cell: (promotion) => formatDate(promotion.endDate, t),
     },
     {
       id: "status",
@@ -160,7 +185,7 @@ export default function SupplierPromotionsPage() {
         <span
           className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${statusClasses[promotion.status]}`}
         >
-          {promotion.status}
+          {getPromotionStatusLabel(promotion.status)}
         </span>
       ),
     },
@@ -199,8 +224,8 @@ export default function SupplierPromotionsPage() {
       promotion.id,
       promotion.name ?? "",
       promotion.description ?? "",
-      promotionTypeLabels[promotion.type],
-      promotion.status,
+      getPromotionTypeLabel(promotion.type),
+      getPromotionStatusLabel(promotion.status),
     ]
       .join(" ")
       .toLowerCase()

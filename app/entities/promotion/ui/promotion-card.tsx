@@ -1,6 +1,7 @@
 import { ArrowUpRight, CalendarDays, Gift, Tag } from "lucide-react";
 import { Link } from "react-router";
-import { promotionTypeLabels, type MarketplacePromotion } from "../model/promotion";
+import { type MarketplacePromotion } from "../model/promotion";
+import { useTranslation } from "~/shared/lib/i18n";
 
 const toneClasses: Record<MarketplacePromotion["tone"], { surface: string; halo: string; chip: string }> = {
   green: { surface: "from-[#194d37] to-[#2f7751]", halo: "bg-[#a6d9ae]/30", chip: "bg-[#dcefe0] text-[#245b3c]" },
@@ -9,11 +10,11 @@ const toneClasses: Record<MarketplacePromotion["tone"], { surface: string; halo:
   coral: { surface: "from-[#923d2d] to-[#c85d47]", halo: "bg-[#ffd0c3]/35", chip: "bg-[#fae5df] text-[#97402f]" },
 };
 
-function formatEndDate(date?: string | null) {
+function formatEndDate(date?: string | null, locale: string = "en") {
   if (!date) return "";
   const parsed = new Date(date);
   if (isNaN(parsed.getTime())) return "";
-  return new Intl.DateTimeFormat("en", { day: "numeric", month: "short" }).format(parsed);
+  return new Intl.DateTimeFormat(locale, { day: "numeric", month: "short" }).format(parsed);
 }
 
 /**
@@ -27,8 +28,17 @@ export function PromotionBanner({
   promotion: MarketplacePromotion;
   interactive?: boolean;
 }) {
+  const { t, language } = useTranslation();
+  const dateLocale = language === "ru" ? "ru-RU" : language === "hy" ? "hy-AM" : "en-US";
   const tone = toneClasses[promotion?.tone] || toneClasses.green;
-  const formattedEndDate = formatEndDate(promotion?.endDate);
+  const formattedEndDate = formatEndDate(promotion?.endDate, dateLocale);
+
+  const promotionTypeLabel =
+    promotion.type === "BuyXGetY"
+      ? t("promotions.buyXGetY")
+      : promotion.type === "FixedPrice"
+        ? t("promotions.fixedPrice")
+        : t("promotions.percentageDiscount");
 
   return (
     <div className={`group relative min-h-56 overflow-hidden rounded-[1.5rem] bg-gradient-to-br p-5 text-white shadow-[0_12px_30px_rgba(15,23,42,0.10)] ${interactive ? "transition duration-300 group-hover:-translate-y-1 group-hover:shadow-[0_20px_38px_rgba(15,23,42,0.16)]" : ""} ${tone.surface}`}>
@@ -38,19 +48,19 @@ export function PromotionBanner({
       <div className="relative flex h-full flex-col">
         <div className="flex items-start justify-between gap-3"><span className="max-w-[70%] text-xs font-bold uppercase tracking-[0.15em] text-white/70">{promotion.supplierName}</span><ArrowUpRight className={`h-5 w-5 shrink-0 text-white/80 ${interactive ? "transition duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" : ""}`} aria-hidden="true" /></div>
         <div className="mt-auto pt-8">
-          <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold ${tone.chip}`}><Tag className="h-3.5 w-3.5" aria-hidden="true" />{promotionTypeLabels[promotion.type]}</span>
+          <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold ${tone.chip}`}><Tag className="h-3.5 w-3.5" aria-hidden="true" />{promotionTypeLabel}</span>
           <h2 className="mt-3 text-xl font-bold leading-tight tracking-[-0.04em]">{promotion.title}</h2>
           <p className="mt-2 text-2xl font-extrabold leading-none tracking-[-0.055em]">{promotion.benefitLabel}</p>
           {formattedEndDate ? (
             <p className="mt-4 flex items-center gap-1.5 text-xs font-semibold text-white/75">
               <CalendarDays className="h-3.5 w-3.5" aria-hidden="true" />
-              Ends {formattedEndDate}
-              {promotion.type === "BuyXGetY" ? <><span aria-hidden="true">·</span><Gift className="h-3.5 w-3.5" aria-hidden="true" />Gift included</> : null}
+              {t("promotions.endsDate", { date: formattedEndDate })}
+              {promotion.type === "BuyXGetY" ? <><span aria-hidden="true">·</span><Gift className="h-3.5 w-3.5" aria-hidden="true" />{t("promotions.giftIncluded")}</> : null}
             </p>
           ) : promotion.type === "BuyXGetY" ? (
             <p className="mt-4 flex items-center gap-1.5 text-xs font-semibold text-white/75">
               <Gift className="h-3.5 w-3.5" aria-hidden="true" />
-              Gift included
+              {t("promotions.giftIncluded")}
             </p>
           ) : null}
         </div>
