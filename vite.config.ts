@@ -11,7 +11,10 @@ const LOCAL_CORE_DEFAULT = "http://localhost:5206";
 const REMOTE_AUTH_DEFAULT = "https://lobster-app-zhysf.ondigitalocean.app";
 const REMOTE_CORE_DEFAULT = "https://octopus-app-bomx6.ondigitalocean.app";
 
-function getActiveTarget(cwd: string) {
+function getActiveTarget(cwd: string, mode: string) {
+  if (process.env.VITE_BACKEND_TARGET) {
+    return process.env.VITE_BACKEND_TARGET.trim().toLowerCase();
+  }
   try {
     const envPath = path.resolve(cwd, ".env");
     if (fs.existsSync(envPath)) {
@@ -22,13 +25,13 @@ function getActiveTarget(cwd: string) {
   } catch {
     // fallback
   }
-  return "local";
+  return mode === "production" ? "remote" : "local";
 }
 
 export default defineConfig(({ mode }) => {
   const cwd = process.cwd();
   const env = loadEnv(mode, cwd, "");
-  const target = (getActiveTarget(cwd) || process.env.VITE_BACKEND_TARGET || "local").toLowerCase();
+  const target = (env.VITE_BACKEND_TARGET || getActiveTarget(cwd, mode)).toLowerCase();
   const isLocal = target === "local";
 
   const authUrl = normalizeUrl(

@@ -41,30 +41,41 @@ export const REMOTE_CORE_URL =
 
 export const getBackendTarget = (): "local" | "remote" => {
   const target = getEnvVar("VITE_BACKEND_TARGET");
-  return (target || "local").toLowerCase() === "remote" ? "remote" : "local";
+  if (target) {
+    return target.toLowerCase() === "local" ? "local" : "remote";
+  }
+
+  // In production builds (DigitalOcean, cloud, or Docker), always default to remote
+  const isProduction =
+    (typeof import.meta !== "undefined" && Boolean(import.meta.env?.PROD)) ||
+    (typeof process !== "undefined" && process.env?.NODE_ENV === "production");
+
+  return isProduction ? "remote" : "local";
 };
 
 export const isLocalBackend = (): boolean => getBackendTarget() === "local";
 
 export const getCoreBaseUrl = (): string => {
   const isLocal = isLocalBackend();
+  if (isLocal) {
+    return normalizeUrl(getEnvVar("VITE_LOCAL_CORE_URL") || LOCAL_CORE_URL);
+  }
   return normalizeUrl(
-    (isLocal
-      ? getEnvVar("VITE_LOCAL_CORE_URL") || LOCAL_CORE_URL
-      : getEnvVar("VITE_REMOTE_CORE_URL")) ||
+    getEnvVar("VITE_REMOTE_CORE_URL") ||
     getEnvVar("VITE_CORE_API_URL") ||
-    (isLocal ? LOCAL_CORE_URL : REMOTE_CORE_URL)
+    REMOTE_CORE_URL
   );
 };
 
 export const getAuthBaseUrl = (): string => {
   const isLocal = isLocalBackend();
+  if (isLocal) {
+    return normalizeUrl(getEnvVar("VITE_LOCAL_AUTH_URL") || LOCAL_AUTH_URL);
+  }
   return normalizeUrl(
-    (isLocal
-      ? getEnvVar("VITE_LOCAL_AUTH_URL") || LOCAL_AUTH_URL
-      : getEnvVar("VITE_REMOTE_AUTH_URL")) ||
+    getEnvVar("VITE_REMOTE_AUTH_URL") ||
     getEnvVar("VITE_AUTH_API_URL") ||
-    (isLocal ? LOCAL_AUTH_URL : REMOTE_AUTH_URL)
+    REMOTE_AUTH_URL
   );
 };
 

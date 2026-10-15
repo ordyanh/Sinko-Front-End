@@ -86,6 +86,9 @@ git status --porcelain | findstr /R "." >nul 2>&1
 if %ERRORLEVEL% EQU 0 (
     echo Staging and committing local changes...
     set "COMMIT_MSG=%*"
+    if defined COMMIT_MSG (
+        for /f "tokens=* delims=" %%M in ("!COMMIT_MSG!") do set "COMMIT_MSG=%%~M"
+    )
     if not defined COMMIT_MSG (
         set "COMMIT_MSG=Deploy to DigitalOcean [%DATE% %TIME%]"
     )
