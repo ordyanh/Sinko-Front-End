@@ -35,9 +35,9 @@ const normalizeUrl = (url: string) => url.replace(/\/+$/, "");
 export const LOCAL_AUTH_URL = "http://localhost:5273";
 export const LOCAL_CORE_URL = "http://localhost:5206";
 export const REMOTE_AUTH_URL =
-  "https://syncoauthservice-f0e9fkaqgyczegas.swedencentral-01.azurewebsites.net";
+  "https://lobster-app-zhysf.ondigitalocean.app";
 export const REMOTE_CORE_URL =
-  "https://synco-h4etbseqg4h2ewcw.swedencentral-01.azurewebsites.net";
+  "https://octopus-app-bomx6.ondigitalocean.app";
 
 export const getBackendTarget = (): "local" | "remote" => {
   const target = getEnvVar("VITE_BACKEND_TARGET");

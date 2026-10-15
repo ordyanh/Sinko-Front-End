@@ -11,7 +11,7 @@
     "use:remote": "node scripts/switch-backend.js remote",
     "backend:status": "node scripts/switch-backend.js status",
     "deploy": "sh deploy.sh",
-    "start": "react-router-serve ./build/server/index.js",
+    "start": "node server.js",
     "typecheck": "react-router typegen && tsc"
   },
   "dependencies": {

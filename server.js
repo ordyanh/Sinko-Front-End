@@ -16,8 +16,8 @@ const isLocal = (process.env.VITE_BACKEND_TARGET || defaultTarget).toLowerCase()
 
 const LOCAL_AUTH_DEFAULT = "http://localhost:5273";
 const LOCAL_CORE_DEFAULT = "http://localhost:5206";
-const REMOTE_AUTH_DEFAULT = "https://syncoauthservice-f0e9fkaqgyczegas.swedencentral-01.azurewebsites.net";
-const REMOTE_CORE_DEFAULT = "https://synco-h4etbseqg4h2ewcw.swedencentral-01.azurewebsites.net";
+const REMOTE_AUTH_DEFAULT = "https://lobster-app-zhysf.ondigitalocean.app";
+const REMOTE_CORE_DEFAULT = "https://octopus-app-bomx6.ondigitalocean.app";
 
 const AUTH_SERVICE_URL = normalizeUrl(
   isLocal
@@ -95,7 +95,7 @@ app.all("/{*splat}", async (req, res, next) => {
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
   console.log(`Server listening on port ${port}`);
-  console.log(`Backend Target: ${isLocal ? "LOCAL (C:\\Src\\Horeca)" : "REMOTE (Azure Cloud)"}`);
+  console.log(`Backend Target: ${isLocal ? "LOCAL (C:\\Src\\Horeca)" : "REMOTE (DigitalOcean Cloud)"}`);
   console.log(`  Auth: ${AUTH_SERVICE_URL}`);
   console.log(`  Core: ${CORE_SERVICE_URL}`);
 });

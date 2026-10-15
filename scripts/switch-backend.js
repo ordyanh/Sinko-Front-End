@@ -9,8 +9,8 @@ const envPath = path.join(rootDir, ".env");
 
 const LOCAL_AUTH = "http://localhost:5273";
 const LOCAL_CORE = "http://localhost:5206";
-const REMOTE_AUTH = "https://syncoauthservice-f0e9fkaqgyczegas.swedencentral-01.azurewebsites.net";
-const REMOTE_CORE = "https://synco-h4etbseqg4h2ewcw.swedencentral-01.azurewebsites.net";
+const REMOTE_AUTH = "https://lobster-app-zhysf.ondigitalocean.app";
+const REMOTE_CORE = "https://octopus-app-bomx6.ondigitalocean.app";
 
 const targetArg = (process.argv[2] || "").toLowerCase().trim();
 
@@ -45,14 +45,14 @@ VITE_CORE_API_URL=${isLocal ? LOCAL_CORE : REMOTE_CORE}
 VITE_LOCAL_AUTH_URL=${LOCAL_AUTH}
 VITE_LOCAL_CORE_URL=${LOCAL_CORE}
 
-# Remote Azure endpoints
+# Remote DigitalOcean endpoints
 VITE_REMOTE_AUTH_URL=${REMOTE_AUTH}
 VITE_REMOTE_CORE_URL=${REMOTE_CORE}
 `;
 
   fs.writeFileSync(envPath, content, "utf-8");
   console.log(`\n======================================================`);
-  console.log(` Switched Synco Backend Target to: ${isLocal ? "LOCAL (C:\\Src\\synco-app\\Horeca)" : "REMOTE (Azure Cloud)"}`);
+  console.log(` Switched Synco Backend Target to: ${isLocal ? "LOCAL (C:\\Src\\synco-app\\Horeca)" : "REMOTE (DigitalOcean Cloud)"}`);
   console.log(`======================================================`);
   console.log(` Auth Service: ${isLocal ? LOCAL_AUTH : REMOTE_AUTH}`);
   console.log(` Core Service: ${isLocal ? LOCAL_CORE : REMOTE_CORE}`);
@@ -69,7 +69,7 @@ function showStatus() {
   console.log(` Target Mode : ${target}`);
   console.log(` Auth Service: ${env.VITE_AUTH_API_URL || (isLocal ? LOCAL_AUTH : REMOTE_AUTH)}`);
   console.log(` Core Service: ${env.VITE_CORE_API_URL || (isLocal ? LOCAL_CORE : REMOTE_CORE)}`);
-  console.log(`\nTo switch:\n  npm run use:local   (switch to C:\\Src\\Horeca local backend)\n  npm run use:remote  (switch to Azure remote backend)\n`);
+  console.log(`\nTo switch:\n  npm run use:local   (switch to C:\\Src\\Horeca local backend)\n  npm run use:remote  (switch to DigitalOcean remote backend)\n`);
 }
 
 if (targetArg === "local" || targetArg === "remote") {

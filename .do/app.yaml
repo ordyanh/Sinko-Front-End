@@ -1,0 +1,34 @@
+name: synco-frontend
+region: fra
+services:
+  - name: web
+    environment_slug: node-js
+    github:
+      repo: ordyanh/Sinko-Front-End
+      branch: connect-to-backend
+      deploy_on_push: true
+    source_dir: /
+    build_command: npm run build
+    run_command: node server.js
+    http_port: 3000
+    instance_count: 1
+    instance_size_slug: basic-xxs
+    envs:
+      - key: NODE_ENV
+        value: production
+        scope: RUN_AND_BUILD_TIME
+      - key: VITE_BACKEND_TARGET
+        value: remote
+        scope: RUN_AND_BUILD_TIME
+      - key: VITE_AUTH_API_URL
+        value: https://lobster-app-zhysf.ondigitalocean.app
+        scope: RUN_AND_BUILD_TIME
+      - key: VITE_CORE_API_URL
+        value: https://octopus-app-bomx6.ondigitalocean.app
+        scope: RUN_AND_BUILD_TIME
+      - key: VITE_REMOTE_AUTH_URL
+        value: https://lobster-app-zhysf.ondigitalocean.app
+        scope: RUN_AND_BUILD_TIME
+      - key: VITE_REMOTE_CORE_URL
+        value: https://octopus-app-bomx6.ondigitalocean.app
+        scope: RUN_AND_BUILD_TIME
