@@ -45,7 +45,14 @@ import {
   type HorecaOrderLine,
   type HorecaOrderStatus,
 } from "~/entities/horeca";
-import { getLoggedInUser, getOrderForHoreca, saveOrder, type StoredOrder } from "~/shared/lib/indexed-db";
+import {
+  getLoggedInUser,
+  getOrderForHoreca,
+  saveOrder,
+  getDeliveryAddressesForCurrentHoreca,
+  type StoredOrder,
+} from "~/shared/lib/indexed-db";
+import { getMarketplaceSupplierById, getMarketplaceSuppliers } from "~/shared/api";
 import { DashboardPageContent, DashboardPageHeader } from "~/shared/ui";
 import { Input } from "~/shared/ui/form";
 import { useToast } from "~/shared/ui/toast";
@@ -190,8 +197,72 @@ export default function HorecaOrderDetailsPage() {
     void (async () => {
       const user = await getLoggedInUser();
       if (!user || user.role !== "horeca" || !orderId) return;
-      const storedOrder = await getOrderForHoreca(user.id, orderId);
+      let storedOrder = await getOrderForHoreca(user.id, orderId);
       if (!isCurrent || !storedOrder) return;
+
+      // Enrich missing supplier contact details
+      const missingSupplierContacts =
+        !storedOrder.supplierPhone ||
+        storedOrder.supplierPhone === "—" ||
+        !storedOrder.supplierEmail ||
+        !storedOrder.supplierAddress;
+
+      if (missingSupplierContacts) {
+        try {
+          const suppId = storedOrder.supplierId || storedOrder.supplierAccountId;
+          let suppInfo: any = null;
+          if (suppId && suppId !== "supplier-default") {
+            suppInfo = await getMarketplaceSupplierById(suppId);
+          }
+          if (!suppInfo?.phoneNumber && !suppInfo?.phone) {
+            const allSuppliers = await getMarketplaceSuppliers();
+            suppInfo = (allSuppliers || []).find(
+              (s: any) =>
+                (suppId && String(s.id).toLowerCase() === String(suppId).toLowerCase()) ||
+                (s.companyName && String(s.companyName).toLowerCase() === String(storedOrder?.supplierName || "").toLowerCase())
+            );
+          }
+
+          const rawSupp = suppInfo?.supplier || suppInfo;
+          if (rawSupp) {
+            storedOrder = {
+              ...storedOrder,
+              supplierPhone: storedOrder.supplierPhone && storedOrder.supplierPhone !== "—" ? storedOrder.supplierPhone : (rawSupp.phoneNumber || rawSupp.phone || ""),
+              supplierEmail: storedOrder.supplierEmail || rawSupp.email || "",
+              supplierAddress: storedOrder.supplierAddress || rawSupp.address || rawSupp.jurAddress || rawSupp.serviceArea || "",
+              supplierContactName:
+                storedOrder.supplierContactName && storedOrder.supplierContactName !== storedOrder.supplierName
+                  ? storedOrder.supplierContactName
+                  : (rawSupp.contactName && rawSupp.contactName !== storedOrder.supplierName ? rawSupp.contactName : ""),
+            };
+          }
+        } catch {
+          // ignore enrichment error
+        }
+      }
+
+      // Enrich delivery address if missing or "[No Address]"
+      if (!storedOrder.deliveryAddress || storedOrder.deliveryAddress === "[No Address]") {
+        try {
+          const addresses = await getDeliveryAddressesForCurrentHoreca();
+          const activeAddr = addresses.find((a) => a.active) || addresses[0];
+          if (activeAddr) {
+            storedOrder = {
+              ...storedOrder,
+              deliveryAddress: activeAddr.fullAddress,
+              deliveryAddressSnapshot: {
+                addressId: activeAddr.id,
+                fullAddress: activeAddr.fullAddress,
+                contactPerson: activeAddr.contactPerson || storedOrder.horecaContactName,
+                contactPhone: activeAddr.contactPhone || storedOrder.horecaPhone,
+              },
+            };
+          }
+        } catch {
+          // ignore
+        }
+      }
+
       setOrder(storedOrder);
       setStatus(storedOrder.status);
       setLines(storedOrder.lines);
@@ -835,34 +906,57 @@ export default function HorecaOrderDetailsPage() {
               {order.supplierName}
             </p>
             <div className="mt-4 space-y-3 text-sm text-slate-600">
-              <p className="flex gap-2">
-                <UserRound
-                  className="h-4 w-4 shrink-0 text-slate-400"
-                  aria-hidden="true"
-                />
-                {order.supplierContactName}
-              </p>
-              <p className="flex gap-2">
-                <Phone
-                  className="h-4 w-4 shrink-0 text-slate-400"
-                  aria-hidden="true"
-                />
-                {order.supplierPhone}
-              </p>
-              <p className="flex gap-2 break-all">
-                <Mail
-                  className="h-4 w-4 shrink-0 text-slate-400"
-                  aria-hidden="true"
-                />
-                {order.supplierEmail}
-              </p>
-              <p className="flex gap-2">
-                <MapPin
-                  className="mt-0.5 h-4 w-4 shrink-0 text-slate-400"
-                  aria-hidden="true"
-                />
-                {order.supplierAddress}
-              </p>
+              {order.supplierContactName && order.supplierContactName !== order.supplierName ? (
+                <p className="flex items-center gap-2">
+                  <UserRound
+                    className="h-4 w-4 shrink-0 text-slate-400"
+                    aria-hidden="true"
+                  />
+                  <span>{order.supplierContactName}</span>
+                </p>
+              ) : null}
+              {order.supplierPhone && order.supplierPhone !== "—" ? (
+                <p className="flex items-center gap-2">
+                  <Phone
+                    className="h-4 w-4 shrink-0 text-slate-400"
+                    aria-hidden="true"
+                  />
+                  <a
+                    href={`tel:${String(order.supplierPhone).replace(/\s+/g, "")}`}
+                    className="transition hover:text-primary"
+                  >
+                    {order.supplierPhone}
+                  </a>
+                </p>
+              ) : null}
+              {order.supplierEmail && order.supplierEmail !== "—" ? (
+                <p className="flex items-center gap-2 break-all">
+                  <Mail
+                    className="h-4 w-4 shrink-0 text-slate-400"
+                    aria-hidden="true"
+                  />
+                  <a
+                    href={`mailto:${order.supplierEmail}`}
+                    className="transition hover:text-primary"
+                  >
+                    {order.supplierEmail}
+                  </a>
+                </p>
+              ) : null}
+              {order.supplierAddress && order.supplierAddress !== "—" ? (
+                <p className="flex items-start gap-2">
+                  <MapPin
+                    className="mt-0.5 h-4 w-4 shrink-0 text-slate-400"
+                    aria-hidden="true"
+                  />
+                  <span>{order.supplierAddress}</span>
+                </p>
+              ) : null}
+              {!order.supplierPhone && !order.supplierEmail && !order.supplierAddress ? (
+                <p className="text-xs text-slate-400">
+                  {t("common.noContactDetails", "No contact details available.")}
+                </p>
+              ) : null}
             </div>
           </section>
 
@@ -893,7 +987,11 @@ export default function HorecaOrderDetailsPage() {
                     <span className="block font-semibold text-slate-900">{deliveryAddress.label}</span>
                   ) : null}
                   <span className="block">{deliveryAddress.fullAddress}</span>
-                  <span className="mt-1 block text-xs text-slate-500">{t("common.contact")}: {deliveryAddress.contactPerson} · {deliveryAddress.contactPhone}</span>
+                  {(deliveryAddress.contactPerson || deliveryAddress.contactPhone) ? (
+                    <span className="mt-1 block text-xs text-slate-500">
+                      {t("common.contact")}: {[deliveryAddress.contactPerson, deliveryAddress.contactPhone].filter(Boolean).join(" · ")}
+                    </span>
+                  ) : null}
                 </span>
               </p>
             </div>

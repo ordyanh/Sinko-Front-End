@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { armenianPhoneSchema } from "~/shared/lib/phone-validation";
 import {
   baseEmployeeRoleLabels,
   type BaseEmployee,
@@ -34,10 +35,7 @@ export const horecaRegistrationSchema = z
       .string()
       .min(1, "Email is required.")
       .email("Enter a valid email address."),
-    mobile: z
-      .string()
-      .min(1, "Mobile number is required.")
-      .regex(/^\+?[0-9()\-\s]{7,20}$/, "Enter a valid phone number."),
+    mobile: armenianPhoneSchema,
     address: z.string().min(1, "Address is required."),
     taxCode: z
       .string()

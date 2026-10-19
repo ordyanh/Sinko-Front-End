@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { armenianPhoneOptionalSchema } from "~/shared/lib/phone-validation";
 
 export type ManagedEmployee = {
   id: string;
@@ -39,7 +40,7 @@ export const employeeFormSchema = z.object({
   firstName: z.string().trim().min(1, "First name is required."),
   lastName: z.string().trim().min(1, "Last name is required."),
   email: z.string().trim().min(1, "Email is required.").email("Enter a valid email address."),
-  phoneNumber: z.string().trim().max(30, "Phone number is too long.").optional(),
+  phoneNumber: armenianPhoneOptionalSchema,
   role: z.string().trim().min(1, "Role is required."),
   location: z.string().trim().min(1, "Location is required."),
 });

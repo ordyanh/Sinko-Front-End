@@ -3,6 +3,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Building2, PencilLine } from "lucide-react";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { z } from "zod";
+import { armenianPhoneSchema } from "~/shared/lib/phone-validation";
 import Button from "~/shared/ui/button";
 import { Input } from "~/shared/ui/form";
 import Modal from "~/shared/ui/modal";
@@ -13,7 +14,7 @@ import { useTranslation } from "~/shared/lib/i18n";
 
 const companyInfoSchema = z.object({
   companyName: z.string().trim().min(1, "Company name is required."),
-  phoneNumber: z.string().trim().min(1, "Phone number is required."),
+  phoneNumber: armenianPhoneSchema,
   companyAddress: z.string().trim().min(1, "Company address is required."),
   productCategories: z
     .string()
@@ -187,6 +188,7 @@ export default function SupplierCompanyInformationPage() {
               id="phoneNumber"
               type="tel"
               label={t("auth.mobile")}
+              placeholder={t("auth.mobilePlaceholder")}
               autoComplete="tel"
               errorMessage={errors.phoneNumber?.message}
               {...register("phoneNumber")}

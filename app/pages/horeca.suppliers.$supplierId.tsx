@@ -141,8 +141,22 @@ export default function HorecaSupplierDetailsPage() {
             supplierFound.address ||
             "Yerevan";
 
-          const suppPhone = supplierFound.phoneNumber || supplierFound.phone || "—";
-          const suppEmail = supplierFound.email || "—";
+          const suppPhone =
+            supplierFound.phoneNumber ||
+            supplierFound.phone ||
+            fromDirectory?.phoneNumber ||
+            fromDirectory?.phone ||
+            "—";
+          const suppEmail =
+            supplierFound.email ||
+            fromDirectory?.email ||
+            "—";
+          const suppContactName =
+            (supplierFound.contactName && supplierFound.contactName !== suppName
+              ? supplierFound.contactName
+              : fromDirectory?.contactName && fromDirectory.contactName !== suppName
+                ? fromDirectory.contactName
+                : "") || "";
 
           const supp: MarketplaceSupplier = {
             id: String(supplierFound.id || supplierId),
@@ -155,11 +169,11 @@ export default function HorecaSupplierDetailsPage() {
             description:
               supplierFound.description ||
               `${suppName} is available to receive orders.`,
-            contactName: supplierFound.contactName || suppName,
+            contactName: suppContactName,
             phone: suppPhone,
             email: suppEmail,
-            address: supplierFound.address || serviceArea,
-            deliveryWindow: "08:00â€“14:00",
+            address: supplierFound.address || fromDirectory?.address || serviceArea,
+            deliveryWindow: "08:00-14:00",
             deliveryNote: "Next delivery slot available tomorrow",
             orderSupplierId: String(supplierFound.id || supplierId),
           };
@@ -296,7 +310,7 @@ export default function HorecaSupplierDetailsPage() {
               <div className="rounded-2xl border border-[#dce7d7] bg-[#f5f8f2] px-4 py-3 text-sm sm:min-w-56">
                 <span className="flex items-center gap-2 font-semibold text-slate-900">
                   <Clock3 className="h-4 w-4 text-primary" aria-hidden="true" />
-                  {t("common.delivery")} {supplier.deliveryWindow}
+                  {t("common.delivery")} {supplier.deliveryWindow.replace(/â€“|–/g, "-")}
                 </span>
                 <p className="mt-1.5 text-xs leading-5 text-slate-600">
                   {supplier.deliveryNote}
@@ -333,30 +347,33 @@ export default function HorecaSupplierDetailsPage() {
               <Phone className="h-4 w-4 text-primary" aria-hidden="true" />
               {t("suppliers.orderingContact")}
             </div>
-            <p className="mt-3 text-lg font-bold tracking-tight text-slate-950">
-              {supplier.contactName}
-            </p>
-            <div className="mt-2 space-y-1 text-sm text-slate-600">
+            {supplier.contactName && supplier.contactName !== supplier.name ? (
+              <p className="mt-3 text-lg font-bold tracking-tight text-slate-950">
+                {supplier.contactName}
+              </p>
+            ) : null}
+            <div className={`${supplier.contactName && supplier.contactName !== supplier.name ? "mt-3" : "mt-4"} space-y-2 text-sm text-slate-600`}>
               <a
-                className="block w-fit hover:text-primary"
+                className="flex w-fit items-center gap-2 font-semibold text-slate-900 transition hover:text-primary"
                 href={
                   supplier.phone && supplier.phone !== "—"
                     ? `tel:${String(supplier.phone).replace(/\s+/g, "")}`
                     : "#"
                 }
               >
-                {supplier.phone}
+                <Phone className="h-4 w-4 text-slate-400" aria-hidden="true" />
+                <span>{supplier.phone && supplier.phone !== "—" ? supplier.phone : "—"}</span>
               </a>
               <a
-                className="flex w-fit items-center gap-1.5 hover:text-primary"
+                className="flex w-fit items-center gap-2 text-slate-600 transition hover:text-primary"
                 href={
                   supplier.email && supplier.email !== "—"
                     ? `mailto:${supplier.email}`
                     : "#"
                 }
               >
-                <AtSign className="h-3.5 w-3.5" aria-hidden="true" />
-                {supplier.email}
+                <AtSign className="h-4 w-4 text-slate-400" aria-hidden="true" />
+                <span>{supplier.email && supplier.email !== "—" ? supplier.email : "—"}</span>
               </a>
             </div>
           </div>

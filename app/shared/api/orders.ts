@@ -1,4 +1,4 @@
-﻿import { apiRequest, ApiError } from "./http";
+import { apiRequest, ApiError } from "./http";
 
 export type BackendOrderStatus =
   | "Draft"
@@ -157,6 +157,10 @@ export type BackendOrderDto = {
   createdByEmployeeName?: string;
   assignedEmployeeId?: string;
   assignedEmployeeName?: string;
+  supplierContactName?: string;
+  supplierPhone?: string;
+  supplierEmail?: string;
+  supplierAddress?: string;
   description?: string;
   lines: BackendOrderLineDto[];
   items?: BackendOrderLineDto[];
@@ -396,6 +400,28 @@ export function normalizeBackendOrder(raw: any): BackendOrderDto {
     assignedEmployeeId: raw.assignedEmployeeId ?? raw.AssignedEmployeeId,
     assignedEmployeeName:
       raw.assignedEmployeeName ?? raw.AssignedEmployeeName,
+    supplierContactName:
+      raw.supplierContactName ??
+      raw.SupplierContactName ??
+      raw.assignedEmployeeName ??
+      raw.AssignedEmployeeName,
+    supplierPhone:
+      raw.supplierPhone ??
+      raw.SupplierPhone ??
+      raw.supplierPhoneNumber ??
+      raw.SupplierPhoneNumber ??
+      raw.suplierPhoneNumber ??
+      raw.SuplierPhoneNumber,
+    supplierEmail:
+      raw.supplierEmail ??
+      raw.SupplierEmail ??
+      raw.suplierEmail ??
+      raw.SuplierEmail,
+    supplierAddress:
+      raw.supplierAddress ??
+      raw.SupplierAddress ??
+      raw.suplierAddress ??
+      raw.SuplierAddress,
     description: raw.description ?? raw.Description,
     lines,
     items: lines,

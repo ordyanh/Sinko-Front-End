@@ -5,7 +5,10 @@ export type MarketplaceSupplierDto = {
   companyName: string;
   email?: string;
   phoneNumber?: string;
+  phone?: string;
+  contactName?: string;
   address?: string;
+  jurAddress?: string;
   serviceArea?: string;
   description?: string;
   categoryIds?: number[];
@@ -115,8 +118,12 @@ export async function getMarketplaceSupplierById(
     if (res.supplier && typeof res.supplier === "object") {
       const supplierDto: MarketplaceSupplierDto = {
         ...res.supplier,
-        address: res.supplier.address || res.supplier.serviceArea,
-        serviceArea: res.supplier.serviceArea || res.supplier.address,
+        address: res.supplier.address || res.supplier.jurAddress || res.supplier.serviceArea,
+        serviceArea: res.supplier.serviceArea || res.supplier.address || res.supplier.jurAddress,
+        phoneNumber: res.supplier.phoneNumber || res.supplier.phone,
+        phone: res.supplier.phone || res.supplier.phoneNumber,
+        email: res.supplier.email,
+        contactName: res.supplier.contactName,
       };
       const products = extractArray<MarketplaceProductDto>(res.products);
       const categories = extractArray<{ id: number; name: string; productCount?: number }>(res.categories);
@@ -134,8 +141,12 @@ export async function getMarketplaceSupplierById(
     if (res.id || res.companyName) {
       const supplierDto: MarketplaceSupplierDto = {
         ...res,
-        address: res.address || res.serviceArea,
-        serviceArea: res.serviceArea || res.address,
+        address: res.address || res.jurAddress || res.serviceArea,
+        serviceArea: res.serviceArea || res.address || res.jurAddress,
+        phoneNumber: res.phoneNumber || res.phone,
+        phone: res.phone || res.phoneNumber,
+        email: res.email,
+        contactName: res.contactName,
       };
       return {
         ...supplierDto,

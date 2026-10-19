@@ -24,10 +24,11 @@ import {
   type UpdateCompanyRequest,
 } from "~/shared/api";
 import { useTranslation } from "~/shared/lib/i18n";
+import { armenianPhoneSchema } from "~/shared/lib/phone-validation";
 
 const companyInfoSchema = z.object({
   companyName: z.string().trim().min(1, "Company name is required."),
-  phoneNumber: z.string().trim().min(1, "Phone number is required."),
+  phoneNumber: armenianPhoneSchema,
   companyAddress: z.string().trim().min(1, "Company address is required."),
   productCategories: z.string().trim().min(1, "Product categories are required."),
   serviceAreas: z.string().trim().min(1, "Service areas are required."),
@@ -55,11 +56,7 @@ const deliveryAddressFormSchema = z.object({
   label: z.string().trim().max(80, "Address name must be 80 characters or fewer.").optional(),
   fullAddress: z.string().trim().min(1, "Full address is required."),
   contactPerson: z.string().trim().min(1, "Contact person is required."),
-  contactPhone: z
-    .string()
-    .trim()
-    .min(1, "Contact phone is required.")
-    .max(30, "Contact phone is too long."),
+  contactPhone: armenianPhoneSchema,
 });
 
 type DeliveryAddressFormValues = z.infer<typeof deliveryAddressFormSchema>;
@@ -603,6 +600,7 @@ export default function HorecaCompanyInformationPage() {
               id="phoneNumber"
               type="tel"
               label={t("auth.mobile")}
+              placeholder={t("auth.mobilePlaceholder")}
               autoComplete="tel"
               errorMessage={errors.phoneNumber?.message}
               {...register("phoneNumber")}
@@ -676,7 +674,7 @@ export default function HorecaCompanyInformationPage() {
             <Input id="deliveryAddressLabel" label={t("settings.addressNameOptional")} placeholder="e.g. Main receiving dock" errorMessage={deliveryAddressErrors.label?.message} {...registerDeliveryAddress("label")} />
             <Input id="deliveryAddressFullAddress" label={t("settings.fullAddress")} autoComplete="street-address" errorMessage={deliveryAddressErrors.fullAddress?.message} {...registerDeliveryAddress("fullAddress")} />
             <Input id="deliveryAddressContactPerson" label={t("settings.contactPerson")} autoComplete="name" errorMessage={deliveryAddressErrors.contactPerson?.message} {...registerDeliveryAddress("contactPerson")} />
-            <Input id="deliveryAddressContactPhone" type="tel" label={t("settings.contactPhone")} autoComplete="tel" errorMessage={deliveryAddressErrors.contactPhone?.message} {...registerDeliveryAddress("contactPhone")} />
+            <Input id="deliveryAddressContactPhone" type="tel" label={t("settings.contactPhone")} placeholder={t("auth.mobilePlaceholder")} autoComplete="tel" errorMessage={deliveryAddressErrors.contactPhone?.message} {...registerDeliveryAddress("contactPhone")} />
             <FieldError message={deliveryAddressErrors.root?.serverError?.message} />
           </div>
           <div className="flex flex-wrap justify-end gap-3 border-t border-slate-200 pt-5">
