@@ -1,4 +1,4 @@
-﻿import type { CustomerOrderStatus } from "./customer";
+import type { CustomerOrderStatus } from "./customer";
 
 export type HorecaOrderStatus = CustomerOrderStatus;
 
@@ -135,9 +135,9 @@ export function formatAmdDelta(amount: number) {
 }
 
 export function formatOrderDate(date?: string | null) {
-  if (!date) return "â€”";
+  if (!date) return "—";
   const parsed = new Date(date);
-  if (isNaN(parsed.getTime())) return "â€”";
+  if (isNaN(parsed.getTime())) return "—";
   return parsed.toLocaleDateString("en-US", {
     day: "numeric",
     month: "short",
@@ -145,8 +145,11 @@ export function formatOrderDate(date?: string | null) {
   });
 }
 
-export function formatOrderDateTime(date: string) {
-  return new Date(date).toLocaleString("en-US", {
+export function formatOrderDateTime(date?: string | null) {
+  if (!date) return "—";
+  const parsed = new Date(date);
+  if (isNaN(parsed.getTime())) return "—";
+  return parsed.toLocaleString("en-US", {
     day: "numeric",
     month: "short",
     hour: "2-digit",

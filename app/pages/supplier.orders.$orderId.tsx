@@ -90,7 +90,10 @@ const statusStyles: Record<OrderStatus, string> = {
 };
 
 function formatDate(date: string) {
-  return new Date(date).toLocaleDateString("en-US", {
+  if (!date) return "—";
+  const parsed = new Date(date);
+  if (isNaN(parsed.getTime())) return "—";
+  return parsed.toLocaleDateString("en-US", {
     day: "numeric",
     month: "long",
     year: "numeric",

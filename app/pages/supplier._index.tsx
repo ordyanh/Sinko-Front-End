@@ -16,6 +16,7 @@ import {
   getSupplierDashboard,
   getDailySummary,
   getNotifications,
+  formatNotificationTime,
   type NotificationItemDto,
   type SupplierDashboardDto,
 } from "~/shared/api";
@@ -97,7 +98,7 @@ export default function SupplierPage() {
             backendNotifs.slice(0, 5).map((n) => ({
               title: n.title,
               detail: n.message,
-              time: new Date(n.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+              time: formatNotificationTime(n.createdAt || n.creationDate),
               tone: n.isRead ? "bg-slate-100 text-slate-700" : "bg-sky-100 text-sky-700",
               icon: n.title.toLowerCase().includes("order") ? ShoppingBag : BellRing,
               href: "/supplier/orders",
@@ -307,9 +308,11 @@ export default function SupplierPage() {
                           {notification.detail}
                         </p>
                       </div>
-                      <time className="shrink-0 text-xs font-medium text-slate-400">
-                        {notification.time}
-                      </time>
+                      {notification.time && notification.time !== "Invalid Date" ? (
+                        <time className="shrink-0 text-xs font-medium text-slate-400">
+                          {notification.time}
+                        </time>
+                      ) : null}
                     </Link>
                   </li>
                 );

@@ -4,7 +4,7 @@ import { Outlet, useNavigate } from "react-router";
 import { CheckCircle2, Megaphone, ShoppingBag } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { DashboardNotification } from "~/shared/ui";
-import { getNotifications } from "~/shared/api";
+import { getNotifications, formatNotificationTime } from "~/shared/api";
 import {
   getLoggedInUser,
   type LoggedInUser,
@@ -40,7 +40,7 @@ export default function SupplierPage() {
               id: n.id,
               title: n.title,
               detail: n.message,
-              time: new Date(n.createdAt).toLocaleDateString([], { month: "short", day: "numeric" }),
+              time: formatNotificationTime(n.createdAt || n.creationDate),
               icon: n.title.toLowerCase().includes("order") ? ShoppingBag : CheckCircle2,
               accentClassName: n.isRead ? "bg-slate-100 text-slate-700" : "bg-sky-100 text-sky-700",
               unread: !n.isRead,

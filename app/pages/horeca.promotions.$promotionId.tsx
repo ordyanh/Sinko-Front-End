@@ -7,7 +7,12 @@ import { DashboardPageContent } from "~/shared/ui";
 
 const toneClasses = { green: "from-[#194d37] to-[#2f7751]", gold: "from-[#8e5709] to-[#c18517]", violet: "from-[#4f3a79] to-[#765ba7]", coral: "from-[#923d2d] to-[#c85d47]" };
 
-function formatDate(date: string) { return new Intl.DateTimeFormat("en", { day: "numeric", month: "long", year: "numeric" }).format(new Date(date)); }
+function formatDate(date: string) {
+  if (!date) return "—";
+  const parsed = new Date(date);
+  if (isNaN(parsed.getTime())) return "—";
+  return new Intl.DateTimeFormat("en", { day: "numeric", month: "long", year: "numeric" }).format(parsed);
+}
 
 function EligibleProduct({ productId, optionId, label, products }: { productId: string; optionId?: string; label: string; products: MarketplaceProduct[] }) {
   const product = products.find((item) => item.id === productId);

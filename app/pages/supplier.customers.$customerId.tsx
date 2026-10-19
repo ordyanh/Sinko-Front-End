@@ -45,7 +45,10 @@ const orderStatusClasses: Record<CustomerOrderStatus, string> = {
 };
 
 function formatDate(isoDate: string) {
-  return new Date(isoDate).toLocaleDateString("en-US", {
+  if (!isoDate) return "—";
+  const parsed = new Date(isoDate);
+  if (isNaN(parsed.getTime())) return "—";
+  return parsed.toLocaleDateString("en-US", {
     year: "numeric",
     month: "short",
     day: "numeric",

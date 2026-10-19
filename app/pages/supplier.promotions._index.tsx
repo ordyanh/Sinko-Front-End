@@ -72,12 +72,14 @@ const statusClasses: Record<PromotionStatus, string> = {
 
 function formatDate(date: string, t: (k: string) => string) {
   if (!date || date === "—") return t("promotions.noEndDate");
+  const parsed = new Date(date);
+  if (isNaN(parsed.getTime())) return t("promotions.noEndDate");
 
   return new Intl.DateTimeFormat("en", {
     day: "numeric",
     month: "short",
     year: "numeric",
-  }).format(new Date(date));
+  }).format(parsed);
 }
 
 export default function SupplierPromotionsPage() {

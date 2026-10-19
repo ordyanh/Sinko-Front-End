@@ -104,11 +104,13 @@ export default function SupplierOrdersPage() {
           <div>
             <span className="font-semibold text-slate-900">{order.id}</span>
             <p className="mt-0.5 text-xs text-slate-500">
-              {new Date(order.date).toLocaleDateString("en-US", {
-                year: "numeric",
-                month: "short",
-                day: "numeric",
-              })}
+              {order.date && !isNaN(new Date(order.date).getTime())
+                ? new Date(order.date).toLocaleDateString("en-US", {
+                    year: "numeric",
+                    month: "short",
+                    day: "numeric",
+                  })
+                : "—"}
             </p>
           </div>
         ),

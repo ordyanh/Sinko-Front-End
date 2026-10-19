@@ -80,9 +80,11 @@ export default function NotificationDrawer({
                           <p className="text-sm font-semibold leading-5 text-slate-800">
                             {notification.title}
                           </p>
-                          <time className="shrink-0 pt-0.5 text-xs font-medium text-slate-400">
-                            {notification.time}
-                          </time>
+                          {notification.time && notification.time !== "Invalid Date" ? (
+                            <time className="shrink-0 pt-0.5 text-xs font-medium text-slate-400">
+                              {notification.time}
+                            </time>
+                          ) : null}
                         </div>
                         <p className="mt-1 text-sm leading-5 text-slate-500">
                           {notification.detail}
