@@ -256,6 +256,7 @@ export type TranslationResources = {
     outOfStock: string;
     pricePerUnit: string;
     addToCart: string;
+    fromUnit: string;
     addedToCart: string;
     quantity: string;
     minOrder: string;
@@ -531,6 +532,8 @@ export type TranslationResources = {
     createPromotionDesc: string;
     banner: string;
     specialOffers: string;
+    noPromotionsAvailable: string;
+    checkBackSoon: string;
     backToPromotions: string;
     savePromotion: string;
     savingPromotion: string;
@@ -758,6 +761,11 @@ export type TranslationResources = {
     reviewAndCompleteOrder: string;
     freeGiftAdded: string;
     continueShopping: string;
+    inCart: string;
+    invalidPackageQuantity: string;
+    quantityMustBePositive: string;
+    productUnavailable: string;
+    productRemovedBySupplier: string;
   };
   settings: {
     title: string;

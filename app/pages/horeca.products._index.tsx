@@ -96,24 +96,34 @@ function ProductCard({
           </Link>
         ) : null}
 
-        <div className="mt-auto grid grid-cols-[minmax(0,1fr)_auto] items-end gap-3 border-t border-slate-100 pt-4">
-          <div className="min-w-0">
-            {pricePromotion ? <div className="mb-0.5 text-xs text-slate-400"><span className="whitespace-nowrap font-medium line-through tabular-nums">{formatMarketplacePrice(startingOption.price)}</span></div> : null}
-            <div className="flex items-baseline gap-1.5">
+        <div className="mt-auto border-t border-slate-100 pt-3 flex flex-col gap-2.5">
+          <div className="flex items-baseline justify-between gap-2">
+            <div className="min-w-0">
+              {pricePromotion ? (
+                <div className="mb-0.5 text-xs text-slate-400">
+                  <span className="whitespace-nowrap font-medium line-through tabular-nums">
+                    {formatMarketplacePrice(startingOption.price)}
+                  </span>
+                </div>
+              ) : null}
               <p className="whitespace-nowrap text-lg font-bold tracking-tight text-slate-950 tabular-nums">
                 {formatMarketplacePrice(productPrice)}
               </p>
             </div>
-            <p className="mt-0.5 text-xs text-slate-500">From {getMarketplaceOptionLabel(startingOption)}</p>
+            <p className="text-right text-xs text-slate-500 truncate" title={getMarketplaceOptionLabel(startingOption)}>
+              {t("products.fromUnit", "From")} {getMarketplaceOptionLabel(startingOption)}
+            </p>
           </div>
 
           <button
             type="button"
             onClick={onOpen}
-            className="inline-flex min-h-10 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl bg-primary px-3 py-2 text-sm font-semibold text-primary-content shadow-sm transition hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            className="w-full inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-primary px-3 py-2 text-sm font-semibold text-primary-content shadow-sm transition hover:brightness-95 active:scale-[0.99] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           >
-            <ShoppingBasket className="h-4 w-4" aria-hidden="true" />
-            {selectedPackageCount > 0 ? `${selectedPackageCount} in cart` : t("products.addToCart")}
+            <ShoppingBasket className="h-4 w-4 shrink-0" aria-hidden="true" />
+            <span className="truncate">
+              {selectedPackageCount > 0 ? `${selectedPackageCount} ${t("cart.inCart", "in cart")}` : t("products.addToCart")}
+            </span>
           </button>
         </div>
       </div>

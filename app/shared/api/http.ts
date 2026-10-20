@@ -92,10 +92,98 @@ export class ApiError extends Error {
   }
 }
 
+const getActiveLanguage = (): "hy" | "ru" | "en" => {
+  if (typeof window !== "undefined" && window.localStorage) {
+    const stored = window.localStorage.getItem("synco_app_lang_pref_v1");
+    if (stored === "ru" || stored === "en" || stored === "hy") return stored;
+  }
+  return "hy";
+};
+
+export const formatFriendlyErrorMessage = (raw: string, lang = getActiveLanguage()): string => {
+  if (!raw || typeof raw !== "string") return raw;
+  let clean = raw.replace(/^(SYSTEM_ERROR:\s*|BAD_REQUEST:\s*|ERROR:\s*|Server error:\s*)/i, "").trim();
+
+  // 1. Invalid package quantity error
+  if (/Invalid package quantity|packaging options|packaging rules|варианты упаковки|փաթեթավորման/i.test(clean)) {
+    const qtyMatch = clean.match(/(?:quantity\s*\(?|total quantity\s*\(?)(\d+(?:\.\d+)?)\)?/i);
+    const qty = qtyMatch ? qtyMatch[1] : "";
+    const prodMatch = clean.match(/for\s*['"]([^'"]+)['"]/i);
+    const prod = prodMatch ? prodMatch[1] : "";
+    const optionsMatch = clean.match(/(?:options|варианты|տարբերակներ)[^:]*:\s*([0-9.,\s]+)(?:([a-zA-Zа-яА-Яա-ֆԱ-Ֆ]+))?/i);
+    const options = optionsMatch ? optionsMatch[1].trim() : "";
+    const unit = optionsMatch && optionsMatch[2] ? optionsMatch[2].trim() : "";
+
+    if (lang === "ru") {
+      const prodText = prod ? ` для товара «${prod}»` : "";
+      const qtyText = qty ? ` (${qty})` : "";
+      const optText = options ? ` Доступные варианты упаковки: ${options}${unit ? ` ${unit}` : ""}.` : "";
+      return `Указано недопустимое количество${qtyText}${prodText}.${optText}`;
+    }
+    if (lang === "hy") {
+      const prodText = prod ? `«${prod}» ապրանքի համար ` : "";
+      const qtyText = qty ? ` (${qty})` : "";
+      const optText = options ? ` Փաթեթավորման հասանելի տարբերակներն են՝ ${options}${unit ? ` ${unit}` : ""}:` : "";
+      return `${prodText}նշված քանակն${qtyText} անթույլատրելի է:${optText}`;
+    }
+    const prodText = prod ? ` for "${prod}"` : "";
+    const qtyText = qty ? ` (${qty})` : "";
+    const optText = options ? ` Available packaging options: ${options}${unit ? ` ${unit}` : ""}.` : "";
+    return `Invalid quantity${qtyText}${prodText}.${optText}`;
+  }
+
+  // 2. Quantity must be greater than zero
+  if (/greater than zero|больше нуля|մեծ լինի զրոյից/i.test(clean)) {
+    if (lang === "ru") return "Количество должно быть больше нуля.";
+    if (lang === "hy") return "Քանակը պետք է մեծ լինի զրոյից:";
+    return "Quantity must be greater than zero.";
+  }
+
+  // 3. Product unavailable / removed
+  if (/product_removed|removed by supplier|удален поставщиком|հեռացվել է մատակարարի/i.test(clean)) {
+    if (lang === "ru") return "Этот товар был удален поставщиком.";
+    if (lang === "hy") return "Այս ապրանքը հեռացվել է մատակարարի կողմից:";
+    return "This product was removed by the supplier.";
+  }
+  if (/product_unavailable|Product unavailable|недоступен|հասանելի չէ/i.test(clean)) {
+    if (lang === "ru") return "Выбранный товар в данный момент недоступен.";
+    if (lang === "hy") return "Ընտրված ապրանքը ներկայումս հասանելի չէ:";
+    return "This product is currently unavailable.";
+  }
+
+  // 4. Cart / Order items
+  if (/Item not found in cart|не найден в корзине/i.test(clean)) {
+    if (lang === "ru") return "Товар не найден в корзине.";
+    if (lang === "hy") return "Ապրանքը զամբյուղում չի գտնվել:";
+    return "Item not found in cart.";
+  }
+  if (/Cart is empty|Корзина пуста/i.test(clean)) {
+    if (lang === "ru") return "Ваша корзина пуста.";
+    if (lang === "hy") return "Ձեր զամբյուղը դատարկ է:";
+    return "Your cart is empty.";
+  }
+
+  // 5. Auth credentials / unexpected errors
+  if (/nothing matching your request|check credentials|неверный логин|неверный адрес/i.test(clean)) {
+    if (lang === "ru") return "Неверный адрес эл. почты или пароль. Пожалуйста, проверьте введённые данные.";
+    if (lang === "hy") return "Սխալ էլ. փոստ կամ գաղտնաբառ: Խնդրում ենք ստուգել մուտքագրված տվյալները:";
+    return "Invalid email or password. Please check your credentials.";
+  }
+  if (/An unexpected error occurred|INTERNAL_SERVER_ERROR/i.test(clean)) {
+    if (lang === "ru") return "Произошла непредвиденная ошибка при обращении к серверу. Пожалуйста, повторите попытку.";
+    if (lang === "hy") return "Սերվերի հետ կապի անսպասելի սխալ: Խնդրում ենք նորից փորձել:";
+    return "An unexpected error occurred. Please try again.";
+  }
+
+  return clean;
+};
+
 export const getErrorMessage = (payload: any, status: number): string => {
+  const lang = getActiveLanguage();
+
   if (typeof payload === "string" && payload.trim()) {
     const clean = payload.replace(/<[^>]*>?/gm, "").trim();
-    if (clean && clean.length < 300) return clean;
+    if (clean && clean.length < 300) return formatFriendlyErrorMessage(clean, lang);
   }
 
   if (payload && typeof payload === "object") {
@@ -107,65 +195,84 @@ export const getErrorMessage = (payload: any, status: number): string => {
         .filter(Boolean)
         .map(String);
       if (fieldErrors.length > 0) {
-        return fieldErrors.join("; ");
+        return formatFriendlyErrorMessage(fieldErrors.join("; "), lang);
       }
     }
 
     // 2. Check for error / Error string (OrdersController returns { error: result.Message })
     const errText = payload.error ?? payload.Error;
     if (typeof errText === "string" && errText.trim()) {
-      return errText.trim();
+      return formatFriendlyErrorMessage(errText.trim(), lang);
     }
 
     // 3. Check for message / Message string
     const msgText = payload.message ?? payload.Message;
     if (typeof msgText === "string" && msgText.trim()) {
-      return msgText.trim();
+      return formatFriendlyErrorMessage(msgText.trim(), lang);
     }
 
     // 4. Check for detail / Detail string
     const detailText = payload.detail ?? payload.Detail;
     if (typeof detailText === "string" && detailText.trim()) {
-      return detailText.trim();
+      return formatFriendlyErrorMessage(detailText.trim(), lang);
     }
 
     // 5. Check for title / Title string
     const titleText = payload.title ?? payload.Title;
     if (typeof titleText === "string" && titleText.trim()) {
-      return titleText.trim();
+      return formatFriendlyErrorMessage(titleText.trim(), lang);
     }
   }
 
   // HTTP Status-specific fallback messages
   if (status === 400) {
-    return "Bad Request: The submitted order or request data is invalid.";
+    return lang === "ru"
+      ? "Некорректный запрос. Пожалуйста, проверьте введённые данные."
+      : lang === "hy"
+        ? "Անվավեր հարցում: Խնդրում ենք ստուգել մուտքագրված տվյալները:"
+        : "Bad Request: The submitted request data is invalid.";
   }
   if (status === 401) {
-    return "Unauthorized: Please log in to perform this action.";
+    return lang === "ru"
+      ? "Пожалуйста, войдите в систему для выполнения этого действия."
+      : lang === "hy"
+        ? "Խնդրում ենք մուտք գործել համակարգ:"
+        : "Unauthorized: Please log in to perform this action.";
   }
   if (status === 403) {
-    return "Forbidden: You do not have permission to perform this action.";
+    return lang === "ru"
+      ? "У вас нет прав для выполнения этой операции."
+      : lang === "hy"
+        ? "Դուք չունեք թույլտվություն այս գործողությունը կատարելու համար:"
+        : "Forbidden: You do not have permission to perform this action.";
   }
   if (status === 404) {
-    return "Not Found: The requested order or resource was not found.";
+    return lang === "ru"
+      ? "Запрошенный ресурс не найден."
+      : lang === "hy"
+        ? "Հայցվող ռեսուրսը չի գտնվել:"
+        : "Not Found: The requested resource was not found.";
   }
   if (status === 409) {
-    return "Conflict: The order or resource has already been modified or assigned.";
-  }
-  if (status === 502) {
-    return "Bad Gateway (502): The backend server is temporarily unreachable or starting up. Please try again shortly.";
-  }
-  if (status === 503) {
-    return "Service Unavailable (503): The server is temporarily overloaded or undergoing maintenance. Please try again.";
-  }
-  if (status === 504) {
-    return "Gateway Timeout (504): The server took too long to respond. Please check your connection and try again.";
+    return lang === "ru"
+      ? "Данные уже были изменены другим процессом. Пожалуйста, обновите страницу."
+      : lang === "hy"
+        ? "Տվյալներն արդեն փոփոխվել են: Խնդրում ենք թարմացնել էջը:"
+        : "Conflict: The resource has already been modified.";
   }
   if (status >= 500) {
-    return "The service is temporarily unavailable. Please try again.";
+    return lang === "ru"
+      ? "Сервис временно недоступен. Пожалуйста, повторите попытку через минуту."
+      : lang === "hy"
+        ? "Ծառայությունը ժամանակավորապես անհասանելի է: Խնդրում ենք փորձել մի փոքր ուշ:"
+        : "The service is temporarily unavailable. Please try again shortly.";
   }
 
-  return "The request could not be completed.";
+  return lang === "ru"
+    ? "Не удалось выполнить запрос."
+    : lang === "hy"
+      ? "Հարցումը չհաջողվեց կատարել:"
+      : "The request could not be completed.";
 };
 
 const withBaseUrl = (baseUrl: string, path: string, fallbackBaseUrl: string) => {

@@ -16,6 +16,7 @@ import type {
   StoredSupplierProductSellingOption,
   StoredSupplierProfile,
   StoredSupplierPromotion,
+  StoredPromotionStatus,
   StoredOrder,
   StoredDeliveryAddress,
   StoredOrderDeliveryAddressSnapshot,
@@ -50,6 +51,8 @@ import {
   getSupplierPromotions as getBackendSupplierPromotions,
   createPromotion as createBackendPromotion,
   getMarketplacePromotions,
+  getActivePromotions,
+  ApiError,
   getMarketplaceSuppliers,
   getMyClients,
   getDictionaryCategories,
@@ -1238,42 +1241,107 @@ export async function deleteSupplierProduct(
 // -----------------------------------------------------------------------------
 
 function mapBackendPromotionToStored(
-  bp: BackendPromotionDto,
+  bp: any,
   accountId: string,
 ): StoredSupplierPromotion {
+  const rawType = bp.type ?? bp.Type ?? bp.typeName ?? bp.TypeName;
+  const type: "FixedPrice" | "Percentage" | "BuyXGetY" =
+    rawType === "BuyXGetY" || rawType === 3 || rawType === "3"
+      ? "BuyXGetY"
+      : rawType === "FixedPrice" || rawType === 1 || rawType === "1" || rawType === "SpecialPrice"
+        ? "FixedPrice"
+        : "Percentage";
+
+  const rawStatus = bp.status ?? bp.Status ?? bp.statusName ?? bp.StatusName;
+  const status: StoredPromotionStatus =
+    rawStatus === "Active" ||
+    rawStatus === 3 ||
+    rawStatus === "3" ||
+    rawStatus === 2 ||
+    rawStatus === "2" ||
+    String(rawStatus).toLowerCase() === "active"
+      ? "Active"
+      : "Draft";
+
+  const supplierId = bp.supplierId ?? bp.SupplierId ?? accountId;
+  const supplierName = bp.supplierName ?? bp.SupplierName ?? "";
+  const promoName = bp.name ?? bp.Name ?? bp.promotionName ?? bp.PromotionName ?? "";
+  const promoDesc = bp.description ?? bp.Description ?? bp.promotionDescription ?? bp.PromotionDescription ?? "";
+  const startDate = bp.startDate ?? bp.StartDate ?? bp.promotionStartDate ?? bp.PromotionStartDate ?? new Date().toISOString();
+  const endDate = bp.endDate ?? bp.EndDate ?? bp.promotionEndDate ?? bp.PromotionEndDate ?? "2099-12-31T23:59:59Z";
+
+  const rawProducts = bp.products ?? bp.Products ?? bp.includedProducts ?? bp.IncludedProducts ?? [];
+  const productIds: string[] = Array.isArray(rawProducts)
+    ? rawProducts.map((p: any) => String(p.productId ?? p.ProductId ?? p.id ?? p))
+    : [];
+
+  const rawDiscount =
+    bp.discountPercent ??
+    bp.discountPercentage ??
+    bp.DiscountPercent ??
+    bp.DiscountPercentage ??
+    rawProducts?.[0]?.discountPercent ??
+    rawProducts?.[0]?.discountPercentage ??
+    rawProducts?.[0]?.DiscountPercentage ??
+    "15";
+
+  const rawFixedPrice =
+    bp.fixedPrice ??
+    bp.specialPrice ??
+    bp.FixedPrice ??
+    bp.SpecialPrice ??
+    rawProducts?.[0]?.fixedPrice ??
+    rawProducts?.[0]?.specialPrice ??
+    rawProducts?.[0]?.FixedPrice ??
+    rawProducts?.[0]?.SpecialPrice ??
+    "1000";
+
+  const fixedPrices: Record<string, string> = {};
+  if (productIds.length > 0) {
+    productIds.forEach((pid) => {
+      fixedPrices[pid] = String(rawFixedPrice);
+    });
+  } else {
+    fixedPrices["default"] = String(rawFixedPrice);
+  }
+
+  const bannerImgUrl = bp.bannerImageUrl ?? bp.BannerImageUrl ?? bp.visualUrl ?? "";
+
   return {
-    id: bp.id,
-    accountId: bp.supplierId || accountId,
-    name: bp.name,
-    description: bp.description || "",
-    type:
-      bp.type === "BuyXGetY"
-        ? "BuyXGetY"
-        : bp.type === "Discount"
-          ? "Percentage"
-          : "FixedPrice",
-    status: bp.status === "Active" ? "Active" : "Draft",
-    startDate: bp.startDate || new Date().toISOString(),
-    endDate: bp.endDate,
-    productIds: Array.isArray(bp.products)
-      ? bp.products.map((p) => String(p.productId))
-      : [],
+    id: bp.id ?? bp.Id ?? bp.promotionId ?? bp.PromotionId ?? createSupplierPromotionId(),
+    accountId: supplierId,
+    supplierName,
+    name: promoName,
+    description: promoDesc,
+    type,
+    status,
+    startDate,
+    endDate,
+    productIds,
     discountOptionKeys: [],
-    fixedPrices: {},
-    discountPercent: bp.products?.[0]?.discountPercentage
-      ? String(bp.products[0].discountPercentage)
-      : "10",
+    fixedPrices,
+    discountPercent: String(rawDiscount),
     eligibility:
-      bp.targetCustomerIds && bp.targetCustomerIds.length > 0
+      (bp.targetCustomerIds && bp.targetCustomerIds.length > 0) ||
+      (bp.TargetCustomerIds && bp.TargetCustomerIds.length > 0) ||
+      bp.visibilityType === 2 ||
+      bp.VisibilityType === 2
         ? "specific-customers"
         : "all-customers",
-    eligibleCustomerIds: bp.targetCustomerIds || [],
-    applyOnIndividualPricing: false,
-    isBannerEnabled: Boolean(bp.bannerImageUrl),
+    eligibleCustomerIds: bp.targetCustomerIds || bp.TargetCustomerIds || [],
+    applyOnIndividualPricing: Boolean(bp.applyOnIndividualPricing ?? bp.ApplyOnIndividualPricing),
+    isBannerEnabled: true,
     display: "both",
-    brandColorFallback: bp.brandColorFallback || "#2563EB",
-    createdAt: bp.createdAt || new Date().toISOString(),
-    updatedAt: bp.updatedAt || new Date().toISOString(),
+    bannerImage: bannerImgUrl
+      ? {
+          dataUrl: bannerImgUrl,
+          fileName: "banner.jpg",
+          mimeType: "image/jpeg",
+        }
+      : undefined,
+    brandColorFallback: bp.brandColorFallback || bp.BrandColorFallback || "#2563EB",
+    createdAt: bp.createdAt || bp.CreatedAt || new Date().toISOString(),
+    updatedAt: bp.updatedAt || bp.UpdatedAt || new Date().toISOString(),
   };
 }
 
@@ -1491,8 +1559,21 @@ export async function saveSupplierPromotion(
 export async function getAllSupplierPromotions(): Promise<StoredSupplierPromotion[]> {
   try {
     const backendPromos = await getMarketplacePromotions();
-    if (Array.isArray(backendPromos)) {
+    if (Array.isArray(backendPromos) && backendPromos.length > 0) {
       return backendPromos.map((p) =>
+        mapBackendPromotionToStored(p, p.supplierId || "supplier"),
+      ).sort((first, second) =>
+        second.updatedAt.localeCompare(first.updatedAt),
+      );
+    }
+  } catch (err) {
+    console.warn("getMarketplacePromotions error, trying active promotions fallback:", err);
+  }
+
+  try {
+    const activePromos = await getActivePromotions();
+    if (Array.isArray(activePromos) && activePromos.length > 0) {
+      return activePromos.map((p) =>
         mapBackendPromotionToStored(p, p.supplierId || "supplier"),
       ).sort((first, second) =>
         second.updatedAt.localeCompare(first.updatedAt),
@@ -1500,6 +1581,19 @@ export async function getAllSupplierPromotions(): Promise<StoredSupplierPromotio
     }
   } catch {
     // fallback
+  }
+
+  try {
+    const database = await openDatabase();
+    const transaction = database.transaction(SUPPLIER_PROMOTIONS_STORE, "readonly");
+    const store = transaction.objectStore(SUPPLIER_PROMOTIONS_STORE);
+    const all = (await requestResult(store.getAll())) as StoredSupplierPromotion[];
+    database.close();
+    if (Array.isArray(all) && all.length > 0) {
+      return all;
+    }
+  } catch {
+    // ignore
   }
 
   return [];
@@ -2043,20 +2137,39 @@ export async function signInWithSeedUser(
   let authRes: LoginResponse | null = null;
   let backendError: Error | null = null;
 
-  // Try real backend authentication first
-  try {
-    authRes = await loginUser({ email: identifier, password });
-    const token =
-      authRes?.token ||
-      authRes?.Token ||
-      authRes?.accessToken ||
-      authRes?.AccessToken ||
-      "";
-    if (token) {
-      setClientAuthToken(token);
+  // Try real backend authentication first with automatic transient retry
+  const maxLoginAttempts = 2;
+  for (let attempt = 1; attempt <= maxLoginAttempts; attempt++) {
+    try {
+      authRes = await loginUser({ email: identifier, password });
+      const token =
+        authRes?.token ||
+        authRes?.Token ||
+        authRes?.accessToken ||
+        authRes?.AccessToken ||
+        "";
+      if (token) {
+        setClientAuthToken(token);
+      }
+      backendError = null;
+      break;
+    } catch (error) {
+      backendError = error instanceof Error ? error : new Error(String(error));
+      const msg = backendError.message.toLowerCase();
+      const isTransient =
+        (backendError instanceof ApiError && backendError.status >= 500) ||
+        msg.includes("500") ||
+        msg.includes("502") ||
+        msg.includes("timeout") ||
+        msg.includes("network error") ||
+        msg.includes("unexpected error");
+
+      if (attempt < maxLoginAttempts && isTransient) {
+        await new Promise((resolve) => setTimeout(resolve, 800));
+        continue;
+      }
+      break;
     }
-  } catch (error) {
-    backendError = error instanceof Error ? error : new Error(String(error));
   }
 
   const database = await openDatabase();

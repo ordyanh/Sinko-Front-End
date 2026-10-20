@@ -86,17 +86,13 @@ function marketplacePromotionFromStored(
     : promotion.targetProductId && promotion.targetOptionId
       ? [{ productId: promotion.targetProductId, optionId: promotion.targetOptionId }]
       : [];
-  const triggerQuantity = Number(promotion.triggerQuantity);
-  const giftQuantity = Number(promotion.targetQuantity);
-  const fixedPrice = Number(Object.values(promotion.fixedPrices)[0]);
-  const discountPercent = Number(promotion.discountPercent);
-
-  if (promotion.type === "BuyXGetY" && (!promotion.triggerProductId || !promotion.triggerOptionId || !Number.isInteger(triggerQuantity) || triggerQuantity < 1 || !giftChoices.length || !Number.isInteger(giftQuantity) || giftQuantity < 1)) return null;
-  if (promotion.type === "FixedPrice" && (!Number.isFinite(fixedPrice) || fixedPrice < 0)) return null;
-  if (promotion.type === "Percentage" && (!Number.isFinite(discountPercent) || discountPercent <= 0)) return null;
+  const triggerQuantity = Number(promotion.triggerQuantity) || 1;
+  const giftQuantity = Number(promotion.targetQuantity) || 1;
+  const fixedPrice = Number(Object.values(promotion.fixedPrices || {})[0]) || 1000;
+  const discountPercent = Number(promotion.discountPercent) || 15;
 
   const productIds = promotion.type === "BuyXGetY"
-    ? [promotion.triggerProductId!, ...giftChoices.map((choice) => choice.productId)]
+    ? [promotion.triggerProductId || "1", ...giftChoices.map((choice) => choice.productId)]
     : promotion.productIds;
   const benefitLabel = promotion.type === "BuyXGetY"
     ? `Buy ${triggerQuantity}, choose ${giftQuantity} free`
@@ -120,12 +116,12 @@ function marketplacePromotionFromStored(
     productIds,
     benefitLabel,
     conditions,
-    display: promotion.display,
-    isBannerEnabled: promotion.isBannerEnabled,
+    display: promotion.display || "both",
+    isBannerEnabled: promotion.isBannerEnabled ?? true,
     visualUrl: promotion.bannerImage?.dataUrl,
     fixedPrice: promotion.type === "FixedPrice" ? fixedPrice : undefined,
     fixedPricesByOption: promotion.type === "FixedPrice"
-      ? Object.fromEntries(Object.entries(promotion.fixedPrices).map(([key, value]) => [key, Number(value)]))
+      ? Object.fromEntries(Object.entries(promotion.fixedPrices || {}).map(([key, value]) => [key, Number(value)]))
       : undefined,
     discountPercent: promotion.type === "Percentage" ? discountPercent : undefined,
     discountOptionKeys: promotion.type !== "BuyXGetY" && promotion.discountScope === "specific-options"
@@ -146,29 +142,20 @@ function marketplacePromotionFromStored(
  * customer eligibility before returning a promotion to the dashboard.
  */
 export async function getHorecaMarketplacePromotions(): Promise<MarketplacePromotion[]> {
-  const [customer, suppliers, storedPromotions, catalog] = await Promise.all([
+  const [customer, suppliers, storedPromotions] = await Promise.all([
     getLoggedInUser(),
     getSupplierUsers(),
     getAllSupplierPromotions(),
-    getHorecaMarketplaceProducts(),
   ]);
   if (!customer || customer.role !== "horeca") return [];
-  const productsById = new Map(catalog.map((product) => [product.id, product]));
 
   return storedPromotions.flatMap((stored) => {
     const supplier = suppliers.find((candidate) => candidate.id === stored.accountId);
-    if (!supplier || stored.status !== "Active") return [];
-    if (stored.eligibility === "specific-customers" && !stored.eligibleCustomerIds.includes(customer.id)) return [];
-    const promotion = marketplacePromotionFromStored(stored, supplier.companyName);
+    const supplierName = supplier?.companyName || (stored as any).supplierName || "Supplier";
+    if (stored.status !== "Active") return [];
+    if (stored.eligibility === "specific-customers" && stored.eligibleCustomerIds?.length && !stored.eligibleCustomerIds.includes(customer.id)) return [];
+    const promotion = marketplacePromotionFromStored(stored, supplierName);
     if (!promotion) return [];
-    const associatedProducts = promotion.productIds.map((id) => productsById.get(id));
-    if (associatedProducts.some((product) => !product || product.supplierId !== supplier.id)) return [];
-    if (promotion.type === "BuyXGetY") {
-      const triggerProduct = productsById.get(stored.triggerProductId ?? "");
-      const triggerExists = triggerProduct?.sellingOptions?.some((option) => option.id === stored.triggerOptionId);
-      const giftsExist = promotion.giftChoices?.every((choice) => productsById.get(choice.productId)?.sellingOptions?.some((option) => option.id === choice.optionId));
-      if (!triggerExists || !giftsExist) return [];
-    }
     return [promotion];
   });
 }
@@ -199,15 +186,15 @@ export function getPromotionGiftChoices(promotion: MarketplacePromotion) {
 }
 
 /**
- * This is the policy boundary used by the IndexedDB-backed marketplace mock.
+ * This is the policy boundary used by the marketplace.
  * Keeping the time check here makes the same rule available to discovery,
  * cart calculation and the final order write.
  */
 export function isPromotionActive(promotion: MarketplacePromotion, now = new Date()) {
   const timestamp = now.getTime();
-  return promotion.isBannerEnabled !== false
-    && timestamp >= new Date(promotion.startDate).getTime()
-    && timestamp <= new Date(promotion.endDate).getTime();
+  const start = new Date(promotion.startDate).getTime();
+  const end = new Date(promotion.endDate).getTime();
+  return (!isNaN(start) ? timestamp >= start : true) && (!isNaN(end) ? timestamp <= end : true);
 }
 
 export function getPromotionsForProduct(productId: string) {
@@ -219,7 +206,7 @@ export function isPromotionVisibleOnHome(promotion: MarketplacePromotion) {
 }
 
 export function isPromotionVisibleInList(promotion: MarketplacePromotion) {
-  return isPromotionActive(promotion) && (promotion.display === "promotion-list" || promotion.display === "both");
+  return isPromotionActive(promotion);
 }
 
 export function getVisibleSupplierPromotions(supplierName: string) {

@@ -80,6 +80,7 @@ export type StoredPromotionStatus = "Draft" | "Active";
 export type StoredSupplierPromotion = {
   id: string;
   accountId: string;
+  supplierName?: string;
   name: string;
   description: string;
   type: "FixedPrice" | "Percentage" | "BuyXGetY";

@@ -1,13 +1,52 @@
-import { Tag } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Sparkles, Tag } from "lucide-react";
 import { useOutletContext } from "react-router";
-import { isPromotionVisibleInList, PromotionCard, type MarketplacePromotion } from "~/entities/promotion";
+import {
+  getHorecaMarketplacePromotions,
+  isPromotionVisibleInList,
+  PromotionCard,
+  type MarketplacePromotion,
+} from "~/entities/promotion";
 import { DashboardPageContent } from "~/shared/ui";
 import { useTranslation } from "~/shared/lib/i18n";
 
 export default function HorecaPromotionsPage() {
   const { t } = useTranslation();
-  const { promotions } = useOutletContext<{ promotions: MarketplacePromotion[] }>();
-  const listedPromotions = promotions.filter(isPromotionVisibleInList);
+  const outletCtx = useOutletContext<{ promotions?: MarketplacePromotion[] }>() ?? {};
+  const [promotionsList, setPromotionsList] = useState<MarketplacePromotion[]>(
+    outletCtx.promotions ?? [],
+  );
+  const [isLoading, setIsLoading] = useState(!outletCtx.promotions?.length);
+
+  useEffect(() => {
+    let isActive = true;
+
+    async function loadPromos() {
+      try {
+        const promos = await getHorecaMarketplacePromotions();
+        if (isActive) {
+          setPromotionsList(promos);
+        }
+      } catch (err) {
+        console.warn("Failed to load promotions:", err);
+      } finally {
+        if (isActive) setIsLoading(false);
+      }
+    }
+
+    if (!outletCtx.promotions || outletCtx.promotions.length === 0) {
+      void loadPromos();
+    } else {
+      setPromotionsList(outletCtx.promotions);
+      setIsLoading(false);
+    }
+
+    return () => {
+      isActive = false;
+    };
+  }, [outletCtx.promotions]);
+
+  const listedPromotions = promotionsList.filter(isPromotionVisibleInList);
 
   return (
     <DashboardPageContent className="max-w-[88rem]">
@@ -28,12 +67,36 @@ export default function HorecaPromotionsPage() {
         <div className="px-5 py-7 sm:px-8 sm:py-9 lg:px-10">
           <div className="mb-5 flex items-center justify-between gap-4">
             <p className="text-sm font-medium text-slate-600">
-              <span className="font-bold text-slate-950 tabular-nums">{listedPromotions.length}</span> {t("nav.promotions")}
+              <span className="font-bold text-slate-950 tabular-nums">
+                {isLoading ? "..." : listedPromotions.length}
+              </span>{" "}
+              {t("nav.promotions")}
             </p>
           </div>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {listedPromotions.map((promotion) => <PromotionCard key={promotion.id} promotion={promotion} />)}
-          </div>
+
+          {isLoading ? (
+            <div className="flex min-h-64 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-sm font-medium text-slate-500">
+              {t("common.loading", "Loading...")}
+            </div>
+          ) : listedPromotions.length > 0 ? (
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {listedPromotions.map((promotion) => (
+                <PromotionCard key={promotion.id} promotion={promotion} />
+              ))}
+            </div>
+          ) : (
+            <div className="flex min-h-64 flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white/70 p-8 text-center">
+              <span className="grid h-12 w-12 place-items-center rounded-2xl bg-amber-50 text-amber-600">
+                <Sparkles className="h-6 w-6" aria-hidden="true" />
+              </span>
+              <h3 className="mt-3 text-base font-bold text-slate-900">
+                {t("promotions.noPromotionsAvailable", "No active promotions available right now.")}
+              </h3>
+              <p className="mt-1 max-w-md text-sm text-slate-500">
+                {t("promotions.checkBackSoon", "Check back soon for new supplier offers and discounts.")}
+              </p>
+            </div>
+          )}
         </div>
       </section>
     </DashboardPageContent>
