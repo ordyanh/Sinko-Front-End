@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { armenianPhoneSchema } from "~/shared/lib/phone-validation";
+import { armenianPhoneSchema, normalizeArmenianPhone } from "~/shared/lib/phone-validation";
 import {
   baseEmployeeRoleLabels,
   type BaseEmployee,
@@ -83,7 +83,7 @@ export function toSupplierRegisterRequest(
   return {
     companyName: values.companyName.trim(),
     email: values.email.trim(),
-    phoneNumber: values.mobile.trim(),
+    phoneNumber: normalizeArmenianPhone(values.mobile),
     address: values.address.trim(),
     taxCode: values.taxCode.trim(),
     password: values.password,

@@ -42,7 +42,7 @@ export function cleanPhoneNumber(value: string): string {
  * followed by exactly 6 digits (total 8 digits after 374).
  */
 export const ARMENIAN_PHONE_REGEX =
-  /^(?:\+?374)(10|11|12|15|22|23|24|25|26|27|28|33|41|43|44|47|49|50|55|60|77|88|91|93|94|95|96|98|99)\d{6}$/;
+  /^(?:\+?374|0)(10|11|12|15|22|23|24|25|26|27|28|33|41|43|44|47|49|50|55|60|77|88|91|93|94|95|96|98|99)\d{6}$/;
 
 /**
  * Checks if a string is a valid Armenian phone number (mobile or landline).
@@ -60,7 +60,8 @@ export function normalizeArmenianPhone(val: string): string {
   const cleaned = cleanPhoneNumber(val);
   if (cleaned.startsWith("+374")) return cleaned;
   if (cleaned.startsWith("374")) return `+${cleaned}`;
-  return val.trim();
+  if (cleaned.startsWith("0")) return `+374${cleaned.slice(1)}`;
+  return cleaned.startsWith("+") ? cleaned : (cleaned ? `+${cleaned}` : val.trim());
 }
 
 export const ARMENIAN_PHONE_ERROR_MESSAGE =
