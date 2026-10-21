@@ -59,6 +59,8 @@ export default defineConfig(({ mode }) => {
       tsconfigPaths: true,
     },
     server: {
+      host: true,
+      allowedHosts: true,
       proxy: {
         "^/(api/([Aa]uth|[Cc]ompany|[Ee]mployee|verification-request|auth/complete-onboarding|[Ss]upplier/(register|verify|resend-code)|me)|me)": {
           target: authUrl,
