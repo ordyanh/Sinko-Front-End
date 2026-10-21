@@ -6,10 +6,10 @@ import { defineConfig, loadEnv } from "vite";
 
 const normalizeUrl = (url: string) => url.replace(/\/+$/, "");
 
-const LOCAL_AUTH_DEFAULT = "http://localhost:5273";
-const LOCAL_CORE_DEFAULT = "http://localhost:5206";
-const REMOTE_AUTH_DEFAULT = "https://lobster-app-zhysf.ondigitalocean.app";
-const REMOTE_CORE_DEFAULT = "https://octopus-app-bomx6.ondigitalocean.app";
+// Заменено localhost на 127.0.0.1 для исключения проблем с IPv6 (::1)
+// Порт Core заменен с 5206 на реальный 5180
+const REMOTE_AUTH_DEFAULT = "http://127.0.0.1:5180";
+const REMOTE_CORE_DEFAULT = "http://127.0.0.1:5180";
 
 function getActiveTarget(cwd: string, mode: string) {
   if (process.env.VITE_BACKEND_TARGET) {
@@ -47,10 +47,9 @@ export default defineConfig(({ mode }) => {
   );
 
   console.log(`\n======================================================`);
-  console.log(`🚀 [Synco Dev Proxy] Active Target: ${isLocal ? "LOCAL (C:\\Src\\synco-app\\Horeca)" : "REMOTE (DigitalOcean Cloud)"}`);
-  console.log(`   Auth Service: ${authUrl} (local: http://localhost:5273)`);
-  console.log(`   Core Service: ${coreUrl} (local: http://localhost:5206)`);
-  console.log(`   (Switch with: npm run use:local / npm run use:remote)`);
+  console.log(`🚀 [Synco Dev Proxy] Active Target: ${isLocal ? "LOCAL" : "REMOTE (Cloud)"}`);
+  console.log(`   Auth Service: ${authUrl}`);
+  console.log(`   Core Service: ${coreUrl}`);
   console.log(`======================================================\n`);
 
   return {
@@ -67,12 +66,22 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
           secure: false,
           followRedirects: true,
+          configure: (proxy) => {
+            proxy.on("error", (err, _req, _res) => {
+              console.error(`[Auth Proxy Error]: ${err.message} -> Target: ${authUrl}`);
+            });
+          },
         },
         "^/api/([Dd]ictionary|[Pp]roducts|[Oo]rders|[Cc]art|[Pp]romotions|[Cc]ustomers|[Mm]arketplace|[Nn]otifications|[Ss]ubscription|[Aa]dmin|[Ss]upplier|[Dd]ashboard)": {
           target: coreUrl,
           changeOrigin: true,
           secure: false,
           followRedirects: true,
+          configure: (proxy) => {
+            proxy.on("error", (err, _req, _res) => {
+              console.error(`[Core Proxy Error]: ${err.message} -> Target: ${coreUrl}`);
+            });
+          },
         },
       },
     },
