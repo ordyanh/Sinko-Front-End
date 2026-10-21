@@ -7,13 +7,18 @@ import { DashboardPageContent } from "~/shared/ui";
 
 const toneClasses = { green: "from-[#194d37] to-[#2f7751]", gold: "from-[#8e5709] to-[#c18517]", violet: "from-[#4f3a79] to-[#765ba7]", coral: "from-[#923d2d] to-[#c85d47]" };
 
-function formatDate(date: string) { return new Intl.DateTimeFormat("en", { day: "numeric", month: "long", year: "numeric" }).format(new Date(date)); }
+function formatDate(date: string) {
+  if (!date) return "—";
+  const parsed = new Date(date);
+  if (isNaN(parsed.getTime())) return "—";
+  return new Intl.DateTimeFormat("en", { day: "numeric", month: "long", year: "numeric" }).format(parsed);
+}
 
 function EligibleProduct({ productId, optionId, label, products }: { productId: string; optionId?: string; label: string; products: MarketplaceProduct[] }) {
   const product = products.find((item) => item.id === productId);
   if (!product) return null;
   const option = optionId ? getMarketplaceSellingOptions(product).find((item) => item.id === optionId) : undefined;
-  return <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3"><img src={product.image} alt="" className="h-10 w-10 rounded-lg object-cover" /><span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold text-slate-900">{product.title}</span><span className="block truncate text-xs text-slate-500">{product.supplier}{option ? ` · ${getMarketplaceOptionLabel(option)}` : ""}</span></span><span className="inline-flex items-center gap-1 text-xs font-bold text-primary"><Check className="h-3.5 w-3.5" aria-hidden="true" />{label}</span></div>;
+  return <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3">{product.image ? <img src={product.image} alt="" className="h-10 w-10 rounded-lg object-cover" /> : <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-400"><Tag className="h-5 w-5" /></div>}<span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold text-slate-900">{product.title}</span><span className="block truncate text-xs text-slate-500">{product.supplier}{option ? ` · ${getMarketplaceOptionLabel(option)}` : ""}</span></span><span className="inline-flex items-center gap-1 text-xs font-bold text-primary"><Check className="h-3.5 w-3.5" aria-hidden="true" />{label}</span></div>;
 }
 
 export default function HorecaPromotionDetailPage() {

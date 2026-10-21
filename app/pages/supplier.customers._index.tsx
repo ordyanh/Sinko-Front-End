@@ -1,5 +1,6 @@
 import { Users } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { getMyClients } from "~/shared/api";
 import {
   getHorecaUsers,
   getLoggedInUser,
@@ -12,8 +13,7 @@ import {
   type SearchFilterDefinition,
   type SearchFilterValue,
 } from "~/shared/ui";
-
-const pageSize = 5;
+import { useTranslation } from "~/shared/lib/i18n";
 
 type SupplierCustomer = {
   id: string;
@@ -26,51 +26,55 @@ type SupplierCustomer = {
   status: "Active";
 };
 
-const columns: TableColumn<SupplierCustomer>[] = [
-  {
-    id: "customer",
-    header: "Customer",
-    cell: (customer) => (
-      <div>
-        <p className="font-semibold text-slate-900">{customer.companyName}</p>
-        <p className="mt-0.5 text-xs text-slate-500">{customer.email}</p>
-      </div>
-    ),
-  },
-  {
-    id: "activity-type",
-    header: "Activity Type",
-    cell: (customer) => customer.activityType,
-  },
-  {
-    id: "location",
-    header: "Location",
-    cell: (customer) => customer.address,
-  },
-  {
-    id: "orders",
-    header: "Orders",
-    cell: (customer) => customer.totalOrders,
-  },
-  {
-    id: "status",
-    header: "Status",
-    cell: (customer) => (
-      <span
-        className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
-          customer.status === "Active"
-            ? "bg-emerald-50 text-emerald-700"
-            : "bg-slate-200 text-slate-700"
-        }`}
-      >
-        {customer.status}
-      </span>
-    ),
-  },
-];
-
 export default function SupplierCustomersPage() {
+  const { t } = useTranslation();
   const [customers, setCustomers] = useState<SupplierCustomer[]>([]);
+
+  const columns: TableColumn<SupplierCustomer>[] = useMemo(
+    () => [
+      {
+        id: "customer",
+        header: t("orders.customer"),
+        cell: (customer) => (
+          <div>
+            <p className="font-semibold text-slate-900">{customer.companyName}</p>
+            <p className="mt-0.5 text-xs text-slate-500">{customer.email}</p>
+          </div>
+        ),
+      },
+      {
+        id: "activity-type",
+        header: t("auth.activityType"),
+        cell: (customer) => customer.activityType,
+      },
+      {
+        id: "location",
+        header: t("common.address"),
+        cell: (customer) => customer.address,
+      },
+      {
+        id: "orders",
+        header: t("nav.orders"),
+        cell: (customer) => customer.totalOrders,
+      },
+      {
+        id: "status",
+        header: t("common.status"),
+        cell: (customer) => (
+          <span
+            className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
+              customer.status === "Active"
+                ? "bg-emerald-50 text-emerald-700"
+                : "bg-slate-200 text-slate-700"
+            }`}
+          >
+            {customer.status === "Active" ? t("employees.active") : customer.status}
+          </span>
+        ),
+      },
+    ],
+    [t],
+  );
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string>();
   const [searchValue, setSearchValue] = useState("");
@@ -78,6 +82,7 @@ export default function SupplierCustomersPage() {
     [],
   );
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const customerSearchFilters = useMemo<SearchFilterDefinition[]>(
     () => [
       {
@@ -100,6 +105,30 @@ export default function SupplierCustomersPage() {
     let isCurrent = true;
 
     void (async () => {
+      // 1. Try real backend customers API first
+      try {
+        const backendClients = await getMyClients();
+        if (Array.isArray(backendClients) && backendClients.length > 0) {
+          if (!isCurrent) return;
+          setCustomers(
+            backendClients.map((client) => ({
+              id: client.id || client.clientId || "client",
+              companyName: client.companyName || "Client Company",
+              contactName: client.contactPerson || client.companyName || "—",
+              email: client.email || "—",
+              activityType: "HORECA",
+              address: client.address || "Yerevan",
+              totalOrders: client.totalOrders ?? 0,
+              status: "Active",
+            })),
+          );
+          return;
+        }
+      } catch {
+        // fallback to local data
+      }
+
+      // 2. Fallback to local storage
       const [horecaUsers, user] = await Promise.all([
         getHorecaUsers(),
         getLoggedInUser(),
@@ -115,24 +144,24 @@ export default function SupplierCustomersPage() {
         );
       }
 
-        if (!isCurrent) return;
+      if (!isCurrent) return;
 
-        setCustomers(
-          horecaUsers.map((user) => ({
-            id: user.id,
-            companyName: user.companyName,
-            contactName: user.displayName,
-            email: user.email,
-            activityType: "HORECA",
-            address: user.address,
-            totalOrders: orderCountByCustomerId.get(user.id) ?? 0,
-            status: "Active",
-          })),
-        );
+      setCustomers(
+        horecaUsers.map((user) => ({
+          id: user.id,
+          companyName: user.companyName,
+          contactName: user.displayName,
+          email: user.email,
+          activityType: "HORECA",
+          address: user.address,
+          totalOrders: orderCountByCustomerId.get(user.id) ?? 0,
+          status: "Active",
+        })),
+      );
     })()
       .catch(() => {
         if (isCurrent) {
-          setLoadError("We couldn't load customers from local storage.");
+          setLoadError("We couldn't load customers.");
         }
       })
       .finally(() => {
@@ -186,11 +215,11 @@ export default function SupplierCustomersPage() {
   return (
     <DashboardTableContent>
       <TableLayout
-        title="Customers"
+        title={t("customers.title")}
         icon={<Users className="h-5 w-5" aria-hidden="true" />}
         searchValue={searchValue}
         onSearchChange={handleSearchChange}
-        searchPlaceholder="Search customers"
+        searchPlaceholder={t("customers.searchPlaceholder")}
         searchFilters={customerSearchFilters}
         selectedSearchFilters={selectedFilters}
         onSelectedSearchFiltersChange={handleSelectedFiltersChange}
@@ -203,8 +232,10 @@ export default function SupplierCustomersPage() {
         page={page}
         onPageChange={setPage}
         pageSize={pageSize}
+        onPageSizeChange={setPageSize}
+        pageSizeOptions={[5, 10, 25, 50, 100]}
         totalCount={filteredCustomers.length}
-        emptyMessage="No HORECA customers match your search."
+        emptyMessage={t("common.noResults")}
       />
     </DashboardTableContent>
   );

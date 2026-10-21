@@ -22,69 +22,44 @@ import {
   getLoggedInUser,
   saveEmployee as saveStoredEmployee,
 } from "~/shared/lib/indexed-db";
+import { useTranslation } from "~/shared/lib/i18n";
 
 type HorecaEmployee = ManagedEmployee;
 
-const columns: TableColumn<HorecaEmployee>[] = [
-  {
-    id: "employee",
-    header: "Employee",
-    cell: (employee) => (
-      <div>
-        <p className="font-semibold text-slate-900">{employee.name}</p>
-        <p className="mt-0.5 text-xs text-slate-500">{employee.email}</p>
-      </div>
-    ),
-  },
-  { id: "role", header: "Role", cell: (employee) => employee.role },
-  {
-    id: "status",
-    header: "Status",
-    cell: (employee) => (
-      <span
-        className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
-          employee.status === "Active"
-            ? "bg-emerald-50 text-emerald-700"
-            : "bg-amber-50 text-amber-700"
-        }`}
-      >
-        {employee.status}
-      </span>
-    ),
-  },
-];
-
-const pageSize = 5;
-
 function getHorecaEmployeeSearchFilters(
   employees: HorecaEmployee[],
+  t: (key: string, fallback?: string) => string,
 ): SearchFilterDefinition[] {
   return [
-  {
-    id: "status",
-    label: "Status",
-    options: Array.from(new Set(employees.map((employee) => employee.status))).map(
-      (status) => ({ value: status, label: status }),
-    ),
-  },
-  {
-    id: "location",
-    label: "Location",
-    options: Array.from(new Set(employees.map((employee) => employee.location))).map(
-      (location) => ({ value: location, label: location }),
-    ),
-  },
-  {
-    id: "role",
-    label: "Role",
-    options: Array.from(new Set(employees.map((employee) => employee.role))).map(
-      (role) => ({ value: role, label: role }),
-    ),
-  },
+    {
+      id: "status",
+      label: t("employees.status", "Status"),
+      options: Array.from(new Set(employees.map((employee) => employee.status))).map(
+        (status) => ({
+          value: status,
+          label: status === "Active" ? t("employees.active", status) : t("employees.onVacation", status),
+        }),
+      ),
+    },
+    {
+      id: "location",
+      label: t("employees.location", "Location"),
+      options: Array.from(new Set(employees.map((employee) => employee.location))).map(
+        (location) => ({ value: location, label: location }),
+      ),
+    },
+    {
+      id: "role",
+      label: t("employees.role", "Role"),
+      options: Array.from(new Set(employees.map((employee) => employee.role))).map(
+        (role) => ({ value: role, label: role }),
+      ),
+    },
   ];
 }
 
 export default function HorecaEmployeesPage() {
+  const { t } = useTranslation();
   const [employees, setEmployees] = useState<HorecaEmployee[]>([]);
   const [accountId, setAccountId] = useState<string>();
   const [searchValue, setSearchValue] = useState("");
@@ -92,15 +67,49 @@ export default function HorecaEmployeesPage() {
     [],
   );
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [isEmployeeModalOpen, setIsEmployeeModalOpen] = useState(false);
   const [employeeToEdit, setEmployeeToEdit] = useState<HorecaEmployee>();
   const [employeeOnVacation, setEmployeeOnVacation] =
     useState<HorecaEmployee | null>(null);
   const [employeeToDelete, setEmployeeToDelete] =
     useState<HorecaEmployee | null>(null);
+
+  const columns: TableColumn<HorecaEmployee>[] = useMemo(
+    () => [
+      {
+        id: "employee",
+        header: t("employees.fullName"),
+        cell: (employee) => (
+          <div>
+            <p className="font-semibold text-slate-900">{employee.name}</p>
+            <p className="mt-0.5 text-xs text-slate-500">{employee.email}</p>
+          </div>
+        ),
+      },
+      { id: "role", header: t("employees.role"), cell: (employee) => employee.role },
+      {
+        id: "status",
+        header: t("employees.status"),
+        cell: (employee) => (
+          <span
+            className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
+              employee.status === "Active"
+                ? "bg-emerald-50 text-emerald-700"
+                : "bg-amber-50 text-amber-700"
+            }`}
+          >
+            {employee.status === "Active" ? t("employees.active") : t("employees.onVacation")}
+          </span>
+        ),
+      },
+    ],
+    [t],
+  );
+
   const horecaEmployeeSearchFilters = useMemo(
-    () => getHorecaEmployeeSearchFilters(employees),
-    [employees],
+    () => getHorecaEmployeeSearchFilters(employees, t),
+    [employees, t],
   );
 
   useEffect(() => {
@@ -169,12 +178,21 @@ export default function HorecaEmployeesPage() {
   async function saveEmployee(values: EmployeeFormValues) {
     if (!accountId) return;
 
+    const normalizedEmail = values.email.trim().toLowerCase();
+    const duplicate = employees.find(
+      (e) => e.email.trim().toLowerCase() === normalizedEmail && e.id !== employeeToEdit?.id,
+    );
+    if (duplicate) {
+      window.alert("An employee with this email address already exists.");
+      return;
+    }
+
     const name = `${values.firstName} ${values.lastName}`;
     const employee: HorecaEmployee = {
       id: employeeToEdit?.id ?? createEmployeeId(),
       name,
-      email: values.email,
-      phoneNumber: values.phoneNumber,
+      email: values.email.trim(),
+      phoneNumber: values.phoneNumber?.trim() || undefined,
       role: "Purchasing Employee",
       location: employeeToEdit?.location ?? "Not assigned",
       status: employeeToEdit?.status ?? "Active",
@@ -182,17 +200,22 @@ export default function HorecaEmployeesPage() {
       vacationEndDate: employeeToEdit?.vacationEndDate,
     };
 
-    await saveStoredEmployee({ ...employee, accountId, accountRole: "horeca" });
-    setEmployees((currentEmployees) =>
-      employeeToEdit
-        ? currentEmployees.map((currentEmployee) =>
-            currentEmployee.id === employee.id ? employee : currentEmployee,
-          )
-        : [...currentEmployees, employee],
-    );
-    setPage(1);
-
-    closeEmployeeModal();
+    try {
+      const saved = await saveStoredEmployee({ ...employee, accountId, accountRole: "horeca" });
+      const finalEmployee = saved ? { ...employee, id: saved.id } : employee;
+      setEmployees((currentEmployees) =>
+        employeeToEdit
+          ? currentEmployees.map((currentEmployee) =>
+              currentEmployee.id === employee.id ? finalEmployee : currentEmployee,
+            )
+          : [...currentEmployees.filter((e) => e.email.trim().toLowerCase() !== normalizedEmail), finalEmployee],
+      );
+      setPage(1);
+      closeEmployeeModal();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to save employee.";
+      window.alert(message);
+    }
   }
 
   async function saveVacation({ startDate, endDate }: VacationFormValues) {
@@ -204,10 +227,13 @@ export default function HorecaEmployeesPage() {
       vacationStartDate: startDate,
       vacationEndDate: endDate,
     };
-    await saveStoredEmployee({ ...employee, accountId, accountRole: "horeca" });
+    const saved = await saveStoredEmployee({ ...employee, accountId, accountRole: "horeca" });
+    const finalEmployee = saved ? { ...employee, id: saved.id } : employee;
     setEmployees((currentEmployees) =>
       currentEmployees.map((currentEmployee) =>
-        currentEmployee.id === employee.id ? employee : currentEmployee,
+        currentEmployee.id === employee.id || currentEmployee.id === employeeOnVacation.id
+          ? finalEmployee
+          : currentEmployee,
       ),
     );
     setEmployeeOnVacation(null);
@@ -227,7 +253,7 @@ export default function HorecaEmployeesPage() {
   return (
     <DashboardTableContent>
       <TableLayout
-        title="Employees"
+        title={t("employees.title")}
         icon={<Users className="h-5 w-5" aria-hidden="true" />}
         primaryAction={
           <button
@@ -236,12 +262,12 @@ export default function HorecaEmployeesPage() {
             className="inline-flex items-center gap-2 rounded-lg bg-primary px-3.5 py-2.5 text-sm font-semibold text-primary-content transition hover:brightness-95"
           >
             <Plus className="h-4 w-4" aria-hidden="true" />
-            Add employee
+            {t("employees.addEmployee")}
           </button>
         }
         searchValue={searchValue}
         onSearchChange={handleSearchChange}
-        searchPlaceholder="Search employees"
+        searchPlaceholder={t("employees.searchPlaceholder")}
         searchFilters={horecaEmployeeSearchFilters}
         selectedSearchFilters={selectedFilters}
         onSelectedSearchFiltersChange={handleSelectedFiltersChange}
@@ -250,7 +276,7 @@ export default function HorecaEmployeesPage() {
         getRowKey={(employee) => employee.id}
         rowActions={[
           {
-            label: "Edit",
+            label: t("common.edit"),
             icon: <Pencil aria-hidden="true" />,
             onClick: (employee) => {
               setEmployeeToEdit(employee);
@@ -258,12 +284,12 @@ export default function HorecaEmployeesPage() {
             },
           },
           {
-            label: "Set vacation",
+            label: t("employees.setVacation"),
             icon: <CalendarClock aria-hidden="true" />,
             onClick: setEmployeeOnVacation,
           },
           {
-            label: "Delete",
+            label: t("common.delete"),
             icon: <Trash2 aria-hidden="true" />,
             variant: "danger",
             onClick: setEmployeeToDelete,
@@ -272,8 +298,10 @@ export default function HorecaEmployeesPage() {
         page={page}
         onPageChange={setPage}
         pageSize={pageSize}
+        onPageSizeChange={setPageSize}
+        pageSizeOptions={[5, 10, 25, 50, 100]}
         totalCount={filteredEmployees.length}
-        emptyMessage="No employees match your search."
+        emptyMessage={t("common.noResults")}
       />
       {isEmployeeModalOpen ? (
         <EmployeeFormModal

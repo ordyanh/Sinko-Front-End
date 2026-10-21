@@ -1,3 +1,5 @@
+import { normalizeArmenianPhone } from "./phone-validation";
+
 export type RegistrationFormValues = {
   companyName: string;
   email: string;
@@ -31,7 +33,9 @@ export function getRegistrationFormValues(
   return {
     companyName: String(formData.get("companyName") ?? ""),
     email: String(formData.get("email") ?? ""),
-    mobile: String(formData.get("mobile") ?? ""),
+    mobile: normalizeArmenianPhone(
+      String(formData.get("mobile") ?? formData.get("phoneNumber") ?? ""),
+    ),
     address: String(formData.get("address") ?? ""),
     taxCode: String(formData.get("taxCode") ?? ""),
     password: String(formData.get("password") ?? ""),

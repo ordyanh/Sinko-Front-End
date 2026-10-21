@@ -14,6 +14,7 @@ import {
   getSupplierPromotions,
   type StoredSupplierPromotion,
 } from "~/shared/lib/indexed-db";
+import { useTranslation } from "~/shared/lib/i18n";
 
 type PromotionType = "FixedPrice" | "Percentage" | "BuyXGetY";
 type PromotionStatus = "Draft" | "Scheduled" | "Active" | "Expired" | "Disabled";
@@ -35,65 +36,7 @@ type Promotion = {
   products: PromotionProduct[] | null;
 };
 
-const mockPromotions: Promotion[] = [
-  {
-    id: "PROMO-1001",
-    name: "Spring pantry savings",
-    description: "Save on staple pantry items for seasonal menu refreshes.",
-    type: "Percentage",
-    startDate: "2026-03-20T00:00:00Z",
-    endDate: "2026-04-30T23:59:59Z",
-    status: "Active",
-    products: [
-      { productId: 1001, fixedPrice: null, discountPercent: 15 },
-      { productId: 1002, fixedPrice: null, discountPercent: 15 },
-      { productId: 1003, fixedPrice: null, discountPercent: 15 },
-    ],
-  },
-  {
-    id: "PROMO-1002",
-    name: "Chef's cheese selection",
-    description: "A fixed price on selected artisan cheeses.",
-    type: "FixedPrice",
-    startDate: "2026-04-01T00:00:00Z",
-    endDate: "2026-05-15T23:59:59Z",
-    status: "Scheduled",
-    products: [
-      { productId: 1004, fixedPrice: 24.5, discountPercent: null },
-      { productId: 1005, fixedPrice: 19.75, discountPercent: null },
-    ],
-  },
-  {
-    id: "PROMO-1003",
-    name: "Buy 6, get 1 free",
-    description: "Stock up on citrus boxes and receive one additional box.",
-    type: "BuyXGetY",
-    startDate: "2026-02-01T00:00:00Z",
-    endDate: "2026-02-28T23:59:59Z",
-    status: "Expired",
-    products: [{ productId: 1006, fixedPrice: null, discountPercent: null }],
-  },
-  {
-    id: "PROMO-1004",
-    name: "Summer launch offer",
-    description: "Early draft for the summer produce range.",
-    type: "Percentage",
-    startDate: "2026-06-01T00:00:00Z",
-    endDate: "2026-06-30T23:59:59Z",
-    status: "Draft",
-    products: null,
-  },
-  {
-    id: "PROMO-1005",
-    name: "Olive oil volume price",
-    description: "A fixed-price offer for qualifying olive oil orders.",
-    type: "FixedPrice",
-    startDate: "2026-01-10T00:00:00Z",
-    endDate: "2026-03-10T23:59:59Z",
-    status: "Disabled",
-    products: [{ productId: 1007, fixedPrice: 20, discountPercent: null }],
-  },
-];
+const mockPromotions: Promotion[] = [];
 
 function promotionFromStored(promotion: StoredSupplierPromotion): Promotion {
   return {
@@ -119,14 +62,6 @@ function promotionFromStored(promotion: StoredSupplierPromotion): Promotion {
   };
 }
 
-const pageSize = 5;
-
-const promotionTypeLabels: Record<PromotionType, string> = {
-  FixedPrice: "Fixed price",
-  Percentage: "Percentage discount",
-  BuyXGetY: "Buy X, get Y",
-};
-
 const statusClasses: Record<PromotionStatus, string> = {
   Draft: "bg-slate-100 text-slate-700",
   Scheduled: "bg-sky-50 text-sky-700",
@@ -135,99 +70,134 @@ const statusClasses: Record<PromotionStatus, string> = {
   Disabled: "bg-red-50 text-red-700",
 };
 
-const promotionSearchFilters: SearchFilterDefinition[] = [
-  {
-    id: "status",
-    label: "Status",
-    options: Object.keys(statusClasses).map((status) => ({
-      value: status,
-      label: status,
-    })),
-  },
-  {
-    id: "type",
-    label: "Promotion type",
-    options: Object.entries(promotionTypeLabels).map(([type, label]) => ({
-      value: type,
-      label,
-    })),
-  },
-];
-
-function formatDate(date: string) {
-  if (!date || date === "—") return "No end date";
+function formatDate(date: string, t: (k: string) => string) {
+  if (!date || date === "—") return t("promotions.noEndDate");
+  const parsed = new Date(date);
+  if (isNaN(parsed.getTime())) return t("promotions.noEndDate");
 
   return new Intl.DateTimeFormat("en", {
     day: "numeric",
     month: "short",
     year: "numeric",
-  }).format(new Date(date));
+  }).format(parsed);
 }
 
-const columns: TableColumn<Promotion>[] = [
-  {
-    id: "name",
-    header: "Promotion name",
-    cell: (promotion) => (
-      <div className="min-w-48">
-        <p className="font-semibold text-slate-900">
-          {promotion.name ?? "Untitled promotion"}
-        </p>
-        <p className="mt-0.5 text-xs text-slate-500">{promotion.id}</p>
-      </div>
-    ),
-  },
-  {
-    id: "type",
-    header: "Promotion type",
-    cell: (promotion) => promotionTypeLabels[promotion.type],
-  },
-  {
-    id: "description",
-    header: "Promotion description",
-    className: "min-w-72 max-w-96",
-    cell: (promotion) => (
-      <p className="line-clamp-2 text-slate-600">{promotion.description ?? "—"}</p>
-    ),
-  },
-  {
-    id: "products",
-    header: "Products included",
-    cell: (promotion) => {
-      const count = promotion.products?.length ?? 0;
-      return `${count} ${count === 1 ? "product" : "products"}`;
-    },
-  },
-  {
-    id: "start-date",
-    header: "Start date",
-    cell: (promotion) => formatDate(promotion.startDate),
-  },
-  {
-    id: "end-date",
-    header: "End date",
-    cell: (promotion) => formatDate(promotion.endDate),
-  },
-  {
-    id: "status",
-    header: "Status",
-    cell: (promotion) => (
-      <span
-        className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${statusClasses[promotion.status]}`}
-      >
-        {promotion.status}
-      </span>
-    ),
-  },
-];
-
 export default function SupplierPromotionsPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
+
+  function getPromotionTypeLabel(type: PromotionType): string {
+    switch (type) {
+      case "FixedPrice":
+        return t("promotions.fixedPrice");
+      case "Percentage":
+        return t("promotions.percentageDiscount");
+      case "BuyXGetY":
+        return t("promotions.buyXGetY");
+      default:
+        return type;
+    }
+  }
+
+  function getPromotionStatusLabel(status: PromotionStatus): string {
+    switch (status) {
+      case "Draft":
+        return t("promotions.statusDraft");
+      case "Active":
+        return t("promotions.statusLive");
+      case "Scheduled":
+        return t("promotions.statusScheduled");
+      case "Expired":
+        return t("promotions.statusExpired");
+      case "Disabled":
+        return t("promotions.statusDisabled");
+      default:
+        return status;
+    }
+  }
+
+  const promotionSearchFilters: SearchFilterDefinition[] = [
+    {
+      id: "status",
+      label: t("common.status"),
+      options: (Object.keys(statusClasses) as PromotionStatus[]).map((status) => ({
+        value: status,
+        label: getPromotionStatusLabel(status),
+      })),
+    },
+    {
+      id: "type",
+      label: t("promotions.promotionType"),
+      options: [
+        { value: "FixedPrice", label: t("promotions.fixedPrice") },
+        { value: "Percentage", label: t("promotions.percentageDiscount") },
+        { value: "BuyXGetY", label: t("promotions.buyXGetY") },
+      ],
+    },
+  ];
+
+  const columns: TableColumn<Promotion>[] = [
+    {
+      id: "name",
+      header: t("common.name"),
+      cell: (promotion) => (
+        <div className="min-w-48">
+          <p className="font-semibold text-slate-900">
+            {promotion.name ?? t("promotions.untitledPromotion")}
+          </p>
+          <p className="mt-0.5 text-xs text-slate-500">{promotion.id}</p>
+        </div>
+      ),
+    },
+    {
+      id: "type",
+      header: t("promotions.promotionType"),
+      cell: (promotion) => getPromotionTypeLabel(promotion.type),
+    },
+    {
+      id: "description",
+      header: t("products.description"),
+      className: "min-w-72 max-w-96",
+      cell: (promotion) => (
+        <p className="line-clamp-2 text-slate-600">{promotion.description ?? "—"}</p>
+      ),
+    },
+    {
+      id: "products",
+      header: t("nav.products"),
+      cell: (promotion) => {
+        const count = promotion.products?.length ?? 0;
+        return `${count} ${count === 1 ? t("common.product") : t("nav.products")}`;
+      },
+    },
+    {
+      id: "start-date",
+      header: t("promotions.startDate"),
+      cell: (promotion) => formatDate(promotion.startDate, t),
+    },
+    {
+      id: "end-date",
+      header: t("promotions.validUntil"),
+      cell: (promotion) => formatDate(promotion.endDate, t),
+    },
+    {
+      id: "status",
+      header: t("common.status"),
+      cell: (promotion) => (
+        <span
+          className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${statusClasses[promotion.status]}`}
+        >
+          {getPromotionStatusLabel(promotion.status)}
+        </span>
+      ),
+    },
+  ];
   const [searchValue, setSearchValue] = useState("");
   const [selectedFilters, setSelectedFilters] = useState<SearchFilterValue[]>(
     [],
   );
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [isTypeModalOpen, setIsTypeModalOpen] = useState(false);
   const [selectedPromotionType, setSelectedPromotionType] =
     useState<"discount" | "buy-x-get-y" | null>(null);
@@ -256,8 +226,8 @@ export default function SupplierPromotionsPage() {
       promotion.id,
       promotion.name ?? "",
       promotion.description ?? "",
-      promotionTypeLabels[promotion.type],
-      promotion.status,
+      getPromotionTypeLabel(promotion.type),
+      getPromotionStatusLabel(promotion.status),
     ]
       .join(" ")
       .toLowerCase()
@@ -297,7 +267,7 @@ export default function SupplierPromotionsPage() {
   return (
     <DashboardTableContent>
       <TableLayout
-        title="Promotions"
+        title={t("promotions.title")}
         icon={<BadgePercent className="h-5 w-5" aria-hidden="true" />}
         primaryAction={
           <button
@@ -309,13 +279,12 @@ export default function SupplierPromotionsPage() {
             className="inline-flex items-center gap-2 rounded-lg bg-primary px-3.5 py-2.5 text-sm font-semibold text-primary-content transition hover:brightness-95"
           >
             <Plus className="h-4 w-4" aria-hidden="true" />
-            Add promotion
+            {t("promotions.createPromotion")}
           </button>
-
         }
         searchValue={searchValue}
         onSearchChange={handleSearchChange}
-        searchPlaceholder="Search promotions"
+        searchPlaceholder={t("common.search")}
         searchFilters={promotionSearchFilters}
         selectedSearchFilters={selectedFilters}
         onSelectedSearchFiltersChange={handleSelectedFiltersChange}
@@ -326,14 +295,16 @@ export default function SupplierPromotionsPage() {
         page={page}
         onPageChange={setPage}
         pageSize={pageSize}
+        onPageSizeChange={setPageSize}
+        pageSizeOptions={[5, 10, 25, 50, 100]}
         totalCount={filteredPromotions.length}
-        emptyMessage="No promotions match your search."
+        emptyMessage={t("common.noResults")}
       />
 
       <Modal
         isOpen={isTypeModalOpen}
-        title="Choose a promotion type"
-        description="Choose how this offer changes the price of selected products."
+        title={t("promotions.chooseOfferType")}
+        description={t("promotions.createPromotionDesc")}
         onClose={() => setIsTypeModalOpen(false)}
         size="sm"
       >
@@ -354,10 +325,10 @@ export default function SupplierPromotionsPage() {
               </span>
               <span>
                 <span className="block font-semibold text-slate-900">
-                  Product discount
+                  {t("promotions.productDiscount")}
                 </span>
                 <span className="mt-1 block text-sm leading-6 text-slate-600">
-                  Set either a fixed promotional price or a percentage discount.
+                  {t("promotions.productDiscountDesc")}
                 </span>
               </span>
             </span>
@@ -379,10 +350,10 @@ export default function SupplierPromotionsPage() {
               </span>
               <span>
                 <span className="block font-semibold text-slate-900">
-                  Buy X, get Y
+                  {t("promotions.buyXGetY")}
                 </span>
                 <span className="mt-1 block text-sm leading-6 text-slate-600">
-                  Reward customers with a product after they buy a qualifying quantity.
+                  {t("promotions.buyXGetYDesc")}
                 </span>
               </span>
             </span>
@@ -394,7 +365,7 @@ export default function SupplierPromotionsPage() {
               onClick={() => setIsTypeModalOpen(false)}
               className="rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
             >
-              Cancel
+              {t("common.cancel")}
             </button>
             <button
               type="button"
@@ -402,7 +373,7 @@ export default function SupplierPromotionsPage() {
               disabled={!selectedPromotionType}
               className="rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-content transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Continue
+              {t("common.next")}
             </button>
           </div>
         </div>

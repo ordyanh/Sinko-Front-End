@@ -1,4 +1,4 @@
-import { apiRequest } from "./http";
+import { apiRequest, ApiError } from "./http";
 
 export type BackendOrderStatus =
   | "Draft"
@@ -157,6 +157,10 @@ export type BackendOrderDto = {
   createdByEmployeeName?: string;
   assignedEmployeeId?: string;
   assignedEmployeeName?: string;
+  supplierContactName?: string;
+  supplierPhone?: string;
+  supplierEmail?: string;
+  supplierAddress?: string;
   description?: string;
   lines: BackendOrderLineDto[];
   items?: BackendOrderLineDto[];
@@ -274,18 +278,27 @@ export function normalizeBackendOrder(raw: any): BackendOrderDto {
         item.requestedQuantity ??
         1,
     );
-    const unitPrice = Number(
-      item.finalPrice ??
-        item.FinalPrice ??
-        item.basePrice ??
-        item.BasePrice ??
-        item.unitPrice ??
-        item.UnitPrice ??
-        0,
-    );
+    const rawFinalPrice = item.finalPrice ?? item.FinalPrice;
+    const rawBasePrice = item.basePrice ?? item.BasePrice;
+    const rawUnitPrice = item.unitPrice ?? item.UnitPrice ?? item.price ?? item.Price;
+
+    let unitPrice = 0;
+    if (rawUnitPrice !== undefined && rawUnitPrice !== null) {
+      unitPrice = Number(rawUnitPrice);
+    } else if (rawFinalPrice !== undefined && rawFinalPrice !== null && qty > 0) {
+      unitPrice = Number(rawFinalPrice) / qty;
+    } else if (rawBasePrice !== undefined && rawBasePrice !== null) {
+      unitPrice = Number(rawBasePrice);
+    }
+
+    const basePrice = Number(rawBasePrice ?? rawUnitPrice ?? unitPrice);
     const totalPrice = Number(
-      item.totalPrice ?? item.TotalPrice ?? unitPrice * qty,
+      rawFinalPrice ??
+        item.totalPrice ??
+        item.TotalPrice ??
+        unitPrice * qty,
     );
+    const finalPrice = Number(rawFinalPrice ?? totalPrice);
 
     return {
       productId: item.productId ?? item.ProductId ?? "",
@@ -301,8 +314,8 @@ export function normalizeBackendOrder(raw: any): BackendOrderDto {
       count: qty,
       unitPrice,
       totalPrice,
-      basePrice: Number(item.basePrice ?? item.BasePrice ?? unitPrice),
-      finalPrice: Number(item.finalPrice ?? item.FinalPrice ?? unitPrice),
+      basePrice,
+      finalPrice,
       discountPercent: item.discountPercent ?? item.DiscountPercent,
       unit:
         item.unitDisplay ??
@@ -387,6 +400,28 @@ export function normalizeBackendOrder(raw: any): BackendOrderDto {
     assignedEmployeeId: raw.assignedEmployeeId ?? raw.AssignedEmployeeId,
     assignedEmployeeName:
       raw.assignedEmployeeName ?? raw.AssignedEmployeeName,
+    supplierContactName:
+      raw.supplierContactName ??
+      raw.SupplierContactName ??
+      raw.assignedEmployeeName ??
+      raw.AssignedEmployeeName,
+    supplierPhone:
+      raw.supplierPhone ??
+      raw.SupplierPhone ??
+      raw.supplierPhoneNumber ??
+      raw.SupplierPhoneNumber ??
+      raw.suplierPhoneNumber ??
+      raw.SuplierPhoneNumber,
+    supplierEmail:
+      raw.supplierEmail ??
+      raw.SupplierEmail ??
+      raw.suplierEmail ??
+      raw.SuplierEmail,
+    supplierAddress:
+      raw.supplierAddress ??
+      raw.SupplierAddress ??
+      raw.suplierAddress ??
+      raw.SuplierAddress,
     description: raw.description ?? raw.Description,
     lines,
     items: lines,
@@ -444,6 +479,19 @@ export async function getSupplierOrders(filter?: OrderFilterRequest): Promise<Ba
   return [];
 }
 
+export async function getHorecaOrderById(orderId: string): Promise<BackendOrderDto | null> {
+  const cleanId = String(orderId).trim().toLowerCase();
+  const orders = await getHorecaOrders({ pageSize: 500 });
+  return (
+    orders.find(
+      (o) =>
+        String(o.id).toLowerCase() === cleanId ||
+        String(o.orderId).toLowerCase() === cleanId ||
+        String(o.orderNumber).toLowerCase() === cleanId,
+    ) ?? null
+  );
+}
+
 export async function getSupplierOrderById(orderId: string): Promise<BackendOrderDto> {
   const res = await apiRequest<unknown>(`/api/Orders/supplier/${encodeURIComponent(orderId)}`, {
     method: "GET",
@@ -454,6 +502,7 @@ export async function getSupplierOrderById(orderId: string): Promise<BackendOrde
 export async function createOrder(payload: CreateOrderRequest): Promise<BackendOrderDto> {
   const body = {
     suplierId: payload.suplierId || payload.supplierId || "",
+    supplierId: payload.supplierId || payload.suplierId || "",
     deliveryAddressId: payload.deliveryAddressId ?? null,
     description: payload.description ?? null,
     products: (payload.products || []).map((p) => ({
@@ -510,11 +559,14 @@ export async function updateOrderStatus(
       method: "PATCH",
       body: JSON.stringify({ orderId, status: normalizedStatus }),
     });
-  } catch {
-    return await apiRequest<void>("/api/Orders/update-status", {
-      method: "POST",
-      body: JSON.stringify({ orderId, status: normalizedStatus }),
-    });
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 405) {
+      return await apiRequest<void>("/api/Orders/update-status", {
+        method: "POST",
+        body: JSON.stringify({ orderId, status: normalizedStatus }),
+      });
+    }
+    throw error;
   }
 }
 
@@ -524,6 +576,7 @@ export async function updateDraftOrder(
 ): Promise<void> {
   const body = {
     suplierId: payload.suplierId || payload.supplierId || "",
+    supplierId: payload.supplierId || payload.suplierId || "",
     deliveryAddressId: payload.deliveryAddressId ?? null,
     description: payload.description ?? null,
     products: (payload.products || []).map((p) => ({

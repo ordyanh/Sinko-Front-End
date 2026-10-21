@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useFieldArray, useForm, useWatch } from "react-hook-form";
 import { Check, Search, SlidersHorizontal, UsersRound } from "lucide-react";
 import Modal from "~/shared/ui/modal";
+import { useTranslation } from "~/shared/lib/i18n";
 
 export type IndividualPriceResource = {
   id: string;
@@ -52,12 +53,15 @@ export default function IndividualPricesSection({
   resetKey,
   formatPrice,
   showOriginalPriceInResourceSelection = true,
-  title = "Individual prices",
+  title,
   description,
   variant = "default",
   idPrefix = "individual-price",
   onPricesChange,
 }: IndividualPricesSectionProps) {
+  const { t } = useTranslation();
+  const resolvedTitle = title ?? t("common.individualPrices");
+  const resolvedDescription = description ?? t("common.overridePriceDesc");
   const [prices, setPrices] = useState<IndividualPrice[]>(() =>
     getInitialPrices(resources, initialPrices),
   );
@@ -155,11 +159,9 @@ export default function IndividualPricesSection({
     <section className={variant === "embedded" ? "mt-4 rounded-xl border border-slate-200 bg-white p-4" : "rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8"}>
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className={variant === "embedded" ? "text-sm font-semibold text-slate-900" : "text-lg font-semibold text-slate-900"}>{title}</h2>
+          <h2 className={variant === "embedded" ? "text-sm font-semibold text-slate-900" : "text-lg font-semibold text-slate-900"}>{resolvedTitle}</h2>
           <p className="mt-1 text-sm text-slate-500">
-            {description ?? (variant === "embedded"
-              ? `Set a fixed price that overrides this option's standard price for selected ${resourceLabelPlural}.`
-              : `Set a price that overrides the standard price for selected ${resourceLabelPlural}.`)}
+            {resolvedDescription}
           </p>
         </div>
         <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
@@ -176,7 +178,7 @@ export default function IndividualPricesSection({
               className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-primary/30 hover:bg-primary/5 hover:text-primary focus:outline-none focus-visible:ring-4 focus-visible:ring-primary/15"
             >
               <UsersRound className="h-4 w-4" aria-hidden="true" />
-              Change {resourceLabelPlural}
+              {t("common.changeSelection")}
             </button>
           </div>
 
@@ -185,8 +187,8 @@ export default function IndividualPricesSection({
               <thead className="bg-slate-50 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
                 <tr>
                   <th className="px-4 py-3">{resourceLabel}</th>
-                  <th className="px-4 py-3">Original price</th>
-                  <th className="px-4 py-3">Individual price</th>
+                  <th className="px-4 py-3">{t("common.originalPrice")}</th>
+                  <th className="px-4 py-3">{t("common.individualPrice")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-slate-700">
@@ -238,14 +240,14 @@ export default function IndividualPricesSection({
           className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm font-semibold text-slate-700 transition hover:border-primary/40 hover:bg-primary/5 hover:text-primary focus:outline-none focus-visible:ring-4 focus-visible:ring-primary/15"
         >
           <UsersRound className="h-4 w-4" aria-hidden="true" />
-          Select {resourceLabelPlural} to set individual prices
+          {t("common.selectToSetPrices")}
         </button>
       )}
 
       <Modal
         isOpen={isSelectorOpen}
-        title={`Select ${resourceLabelPlural}`}
-        description={`Choose the ${resourceLabelPlural} that need an individual price.`}
+        title={resourceLabelPlural.toLowerCase().includes("compan") || resourceLabelPlural.toLowerCase().includes("client") || resourceLabelPlural.toLowerCase().includes("customer") ? t("common.selectCustomers") : t("common.selectProducts")}
+        description={t("common.chooseItemsNeedPrice")}
         onClose={() => setIsSelectorOpen(false)}
         size="md"
       >
@@ -259,7 +261,7 @@ export default function IndividualPricesSection({
                 {resourceLabelPlural}
               </label>
               <span className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
-                {selectedResourceIds.length} selected
+                {selectedResourceIds.length}
               </span>
             </div>
             <div className="relative">
@@ -272,7 +274,7 @@ export default function IndividualPricesSection({
                 type="search"
                 value={resourceSearch}
                 onChange={(event) => setResourceSearch(event.target.value)}
-                placeholder={`Search ${resourceLabelPlural}`}
+                placeholder={t("common.search")}
                 className="w-full rounded-xl border border-slate-200 bg-white py-3 pl-10 pr-4 text-sm text-slate-900 placeholder:text-slate-400 transition hover:border-slate-300 focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/15"
               />
             </div>
@@ -290,11 +292,17 @@ export default function IndividualPricesSection({
                         isSelected ? "bg-primary/5" : "hover:bg-slate-50"
                       }`}
                     >
-                      <img
-                        src={resource.imageUrl}
-                        alt=""
-                        className="h-11 w-11 shrink-0 rounded-xl object-cover ring-1 ring-slate-200"
-                      />
+                      {resource.imageUrl ? (
+                        <img
+                          src={resource.imageUrl}
+                          alt=""
+                          className="h-11 w-11 shrink-0 rounded-xl object-cover ring-1 ring-slate-200"
+                        />
+                      ) : (
+                        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-teal-800 text-xs font-bold text-white ring-1 ring-slate-200">
+                          {resource.label.slice(0, 2).toUpperCase()}
+                        </span>
+                      )}
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm font-semibold text-slate-900">
                           {resource.label}
@@ -324,7 +332,7 @@ export default function IndividualPricesSection({
             </ul>
           ) : (
             <p className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
-              No {resourceLabelPlural} match your search.
+              {t("common.noResults")}
             </p>
           )}
 
@@ -334,7 +342,7 @@ export default function IndividualPricesSection({
               onClick={() => setIsSelectorOpen(false)}
               className="rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
             >
-              Cancel
+              {t("common.cancel")}
             </button>
             <button
               type="button"
@@ -342,7 +350,7 @@ export default function IndividualPricesSection({
               className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-content transition hover:brightness-95"
             >
               <Check className="h-4 w-4" aria-hidden="true" />
-              Apply selection
+              {t("common.saveSelection")}
             </button>
           </div>
         </div>

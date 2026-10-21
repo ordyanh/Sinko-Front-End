@@ -12,6 +12,12 @@ import { useEffect, useState } from "react";
 import { type CustomerOrderStatus } from "~/entities/horeca";
 import { DashboardPageContent } from "~/shared/ui";
 import {
+  getClientProfile,
+  getClientStats,
+  getClientPricing,
+  setClientProductPrice,
+} from "~/shared/api";
+import {
   getHorecaUsers,
   getLoggedInUser,
   getOrdersForSupplier,
@@ -25,6 +31,7 @@ import {
   type IndividualPrice,
   type IndividualPriceResource,
 } from "~/features/individual-prices";
+import { useTranslation } from "~/shared/lib/i18n";
 
 const orderStatusClasses: Record<CustomerOrderStatus, string> = {
   New: "bg-amber-50 text-amber-700",
@@ -38,7 +45,10 @@ const orderStatusClasses: Record<CustomerOrderStatus, string> = {
 };
 
 function formatDate(isoDate: string) {
-  return new Date(isoDate).toLocaleDateString("en-US", {
+  if (!isoDate) return "—";
+  const parsed = new Date(isoDate);
+  if (isNaN(parsed.getTime())) return "—";
+  return parsed.toLocaleDateString("en-US", {
     year: "numeric",
     month: "short",
     day: "numeric",
@@ -92,6 +102,7 @@ function sellingOptionResourceId(productId: string, sellingOptionId: string) {
 }
 
 export default function SupplierCustomerProfilePage() {
+  const { t } = useTranslation();
   const { customerId } = useParams();
   const navigate = useNavigate();
   const [customer, setCustomer] = useState<SupplierCustomerProfile | null>();
@@ -121,29 +132,65 @@ export default function SupplierCustomerProfilePage() {
         setAccountId(user.id);
         setSupplierProducts(products);
 
+        let remoteProfile = null;
+        try {
+          if (customerId) {
+            remoteProfile = await getClientProfile(customerId);
+          }
+        } catch {
+          // fallback
+        }
+
         const horecaUser = customers.find((candidate) => candidate.id === customerId);
         const customerOrders = orders.filter((order) => order.horecaAccountId === customerId);
-        setCustomer(
-          horecaUser
-            ? {
-                ...toSupplierCustomerProfile(horecaUser),
-                totalOrders: customerOrders.length,
-                recentOrders: customerOrders.slice(0, 5).map((order) => ({
-                  id: order.id,
-                  date: order.placedAt,
-                  status: order.status,
-                  itemCount: order.lines.reduce(
-                    (count, line) => count + line.requestedQuantity,
-                    0,
-                  ),
-                  total: order.lines.reduce(
-                    (total, line) => total + line.offeredPrice * line.offeredQuantity,
-                    0,
-                  ),
-                })),
-              }
-            : null,
-        );
+        if (remoteProfile) {
+          setCustomer({
+            id: remoteProfile.id || remoteProfile.clientId || customerId || "",
+            companyName: remoteProfile.companyName || horecaUser?.companyName || "Client Company",
+            email: remoteProfile.email || horecaUser?.email || "—",
+            phone: remoteProfile.phoneNumber || "Not provided",
+            address: remoteProfile.address || horecaUser?.address || "Yerevan",
+            activityType: "HORECA",
+            taxCode: remoteProfile.taxCode || remoteProfile.hvhh || "Not provided",
+            status: "Active",
+            totalOrders: remoteProfile.totalOrders ?? customerOrders.length,
+            recentOrders: customerOrders.slice(0, 5).map((order) => ({
+              id: order.id,
+              date: order.placedAt,
+              status: order.status,
+              itemCount: order.lines.reduce(
+                (count, line) => count + line.requestedQuantity,
+                0,
+              ),
+              total: order.lines.reduce(
+                (total, line) => total + line.offeredPrice * line.offeredQuantity,
+                0,
+              ),
+            })),
+          });
+        } else {
+          setCustomer(
+            horecaUser
+              ? {
+                  ...toSupplierCustomerProfile(horecaUser),
+                  totalOrders: customerOrders.length,
+                  recentOrders: customerOrders.slice(0, 5).map((order) => ({
+                    id: order.id,
+                    date: order.placedAt,
+                    status: order.status,
+                    itemCount: order.lines.reduce(
+                      (count, line) => count + line.requestedQuantity,
+                      0,
+                    ),
+                    total: order.lines.reduce(
+                      (total, line) => total + line.offeredPrice * line.offeredQuantity,
+                      0,
+                    ),
+                  })),
+                }
+              : null,
+          );
+        }
       } else {
         const horecaUser = customers.find((candidate) => candidate.id === customerId);
         setCustomer(horecaUser ? toSupplierCustomerProfile(horecaUser) : null);
@@ -168,9 +215,7 @@ export default function SupplierCustomerProfilePage() {
         label: `${product.name} · ${option.quantity} ${option.unitType}`,
         description: `Minimum order: ${option.minimumOrderQuantity}`,
         originalPrice: option.price,
-        imageUrl:
-          product.imageUrl ??
-          `https://ui-avatars.com/api/?name=${encodeURIComponent(product.name)}&background=0f766e&color=ffffff&bold=true&size=96`,
+        imageUrl: product.imageUrl ?? "",
       })),
   );
   const customerPrices: IndividualPrice[] = customer
@@ -220,6 +265,15 @@ export default function SupplierCustomerProfilePage() {
     setIsSavingPrices(true);
     try {
       await Promise.all(updatedProducts.map((product) => saveSupplierProduct(product)));
+      // Also send each individual price to the backend API
+      await Promise.allSettled(
+        prices.map(async (p) => {
+          const rawProdId = parseInt(p.resourceId.split(":")[0]?.replace(/\D/g, "") || "", 10);
+          if (rawProdId > 0 && customer.id) {
+            await setClientProductPrice(customer.id, rawProdId, p.individualPrice);
+          }
+        }),
+      );
     } catch {
       setPriceSaveError("We couldn't save company prices. Please try again.");
     } finally {
@@ -231,7 +285,7 @@ export default function SupplierCustomerProfilePage() {
     return (
       <DashboardPageContent>
         <p className="py-8 text-center text-sm text-slate-500">
-          Loading customer...
+          {t("customers.loadingCustomer")}
         </p>
       </DashboardPageContent>
     );
@@ -242,17 +296,17 @@ export default function SupplierCustomerProfilePage() {
       <DashboardPageContent>
         <section className="rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-sm">
           <p className="text-lg font-semibold text-slate-900">
-            Customer not found
+            {t("customers.customerNotFound")}
           </p>
           <p className="mt-2 text-sm text-slate-600">
-            This customer may no longer exist.
+            {t("customers.customerNotFoundDesc")}
           </p>
           <Link
             to="/supplier/customers"
             className="mt-6 inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
           >
             <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-            Back to customers
+            {t("customers.backToCustomers")}
           </Link>
         </section>
       </DashboardPageContent>
@@ -268,7 +322,7 @@ export default function SupplierCustomerProfilePage() {
             className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 transition hover:text-slate-900"
           >
             <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-            Back to customers
+            {t("customers.backToCustomers")}
           </Link>
         </div>
 
@@ -292,7 +346,7 @@ export default function SupplierCustomerProfilePage() {
               </span>
             </div>
             <p className="mt-1 text-sm text-slate-500">
-              HORECA customer · {customer.totalOrders} total orders
+              HORECA · {customer.totalOrders} {t("customers.totalOrders").toLowerCase()}
             </p>
           </div>
         </div>
@@ -303,10 +357,10 @@ export default function SupplierCustomerProfilePage() {
               <div className="mb-6 flex items-start justify-between gap-4">
                 <div>
                   <h2 className="text-lg font-semibold text-slate-900">
-                    Order history
+                    {t("customers.orderHistory")}
                   </h2>
                   <p className="mt-1 text-sm text-slate-500">
-                    The 5 most recent orders placed by this customer.
+                    {t("customers.recentOrdersDesc")}
                   </p>
                 </div>
                 <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
@@ -316,7 +370,7 @@ export default function SupplierCustomerProfilePage() {
 
               {customer.recentOrders.length === 0 ? (
                 <p className="rounded-xl bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
-                  This customer hasn&apos;t placed any orders yet.
+                  {t("customers.noOrdersYet")}
                 </p>
               ) : (
                 <ul className="divide-y divide-slate-100">
@@ -330,7 +384,7 @@ export default function SupplierCustomerProfilePage() {
                           {order.id}
                         </p>
                         <p className="mt-0.5 text-xs text-slate-500">
-                          {formatDate(order.date)} · {order.itemCount} items
+                          {formatDate(order.date)} · {order.itemCount} {t("orders.items")}
                         </p>
                       </div>
                       <div className="flex items-center gap-3">
@@ -355,7 +409,7 @@ export default function SupplierCustomerProfilePage() {
                 }
                 className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 sm:w-auto"
               >
-                View all orders
+                {t("suppliers.viewAllOrders")}
               </button>
             </section>
 
@@ -367,8 +421,8 @@ export default function SupplierCustomerProfilePage() {
               <IndividualPricesSection
                 resourceLabel="Selling option"
                 resourceLabelPlural="selling options"
-                title="Company prices"
-                description="Set a fixed price for a specific product packaging option. It applies only when this company orders that unit."
+                title={t("common.individualPrices")}
+                description={t("common.overridePriceDesc")}
                 resources={individualPriceResources}
                 initialPrices={customerPrices}
                 resetKey={customer.id}
@@ -387,7 +441,7 @@ export default function SupplierCustomerProfilePage() {
 
           <section className="h-fit space-y-5 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-7">
             <h2 className="text-lg font-semibold text-slate-900">
-              Customer profile
+              {t("customers.customerProfile")}
             </h2>
 
             <dl className="space-y-4 text-sm">
@@ -397,7 +451,7 @@ export default function SupplierCustomerProfilePage() {
                   aria-hidden="true"
                 />
                 <div>
-                  <dt className="text-xs font-medium text-slate-500">Email</dt>
+                  <dt className="text-xs font-medium text-slate-500">{t("common.email")}</dt>
                   <dd className="text-slate-900">{customer.email}</dd>
                 </div>
               </div>
@@ -407,7 +461,7 @@ export default function SupplierCustomerProfilePage() {
                   aria-hidden="true"
                 />
                 <div>
-                  <dt className="text-xs font-medium text-slate-500">Phone</dt>
+                  <dt className="text-xs font-medium text-slate-500">{t("common.phone")}</dt>
                   <dd className="text-slate-900">{customer.phone}</dd>
                 </div>
               </div>
@@ -418,7 +472,7 @@ export default function SupplierCustomerProfilePage() {
                 />
                 <div>
                   <dt className="text-xs font-medium text-slate-500">
-                    Address
+                    {t("common.address")}
                   </dt>
                   <dd className="text-slate-900">{customer.address}</dd>
                 </div>
@@ -430,7 +484,7 @@ export default function SupplierCustomerProfilePage() {
                 />
                 <div>
                   <dt className="text-xs font-medium text-slate-500">
-                    Activity type
+                    {t("customers.activityType")}
                   </dt>
                   <dd className="text-slate-900">{customer.activityType}</dd>
                 </div>
@@ -442,7 +496,7 @@ export default function SupplierCustomerProfilePage() {
                 />
                 <div>
                   <dt className="text-xs font-medium text-slate-500">
-                    Tax code
+                    {t("customers.taxCode")}
                   </dt>
                   <dd className="text-slate-900">{customer.taxCode}</dd>
                 </div>

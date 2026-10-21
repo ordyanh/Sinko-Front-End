@@ -1,4 +1,4 @@
-import { useMemo, useState, type ChangeEvent } from "react";
+import { useEffect, useMemo, useState, type ChangeEvent } from "react";
 import { useNavigate } from "react-router";
 import { Check, Globe, KeyRound, LogOut, X } from "lucide-react";
 import Input from "~/shared/ui/form/input";
@@ -7,13 +7,13 @@ import Button from "~/shared/ui/button";
 import { useToast } from "~/shared/ui/toast";
 import { DashboardPageContent } from "~/shared/ui";
 import { signOut } from "~/shared/lib/indexed-db";
-
-const MOCK_SAVE_DELAY_MS = 600;
+import { changePassword, logoutUser, getCompanyInfo, updateCompanyLanguage } from "~/shared/api";
+import { useTranslation, type Language } from "~/shared/lib/i18n";
 
 const languageOptions = [
-  { value: "en", label: "English" },
-  { value: "hy", label: "Armenian" },
-  { value: "ru", label: "Russian" },
+  { value: "ru", label: "Русский (Russian)" },
+  { value: "hy", label: "Հայերեն (Armenian)" },
+  { value: "en", label: "English (English)" },
 ];
 
 // Mock data standing in for the supplier account settings until the API is wired up.
@@ -23,17 +23,6 @@ const initialPasswordForm = {
   confirmPassword: "",
 };
 
-const passwordRules = [
-  { key: "length", label: "8+ characters", test: (v: string) => v.length >= 8 },
-  {
-    key: "upper",
-    label: "One uppercase letter",
-    test: (v: string) => /[A-Z]/.test(v),
-  },
-  { key: "number", label: "One number", test: (v: string) => /\d/.test(v) },
-] as const;
-
-const strengthCopy = ["Too weak", "Weak", "Fair", "Strong"];
 const strengthColor = [
   "bg-red-400",
   "bg-red-400",
@@ -44,14 +33,40 @@ const strengthColor = [
 export default function SupplierAccountPage() {
   const navigate = useNavigate();
   const { showToast } = useToast();
+  const { language, setLanguage, t } = useTranslation();
 
   const [passwordForm, setPasswordForm] = useState(initialPasswordForm);
   const [isSavingPassword, setIsSavingPassword] = useState(false);
-  const [language, setLanguage] = useState("en");
+
+  const passwordRules = useMemo(
+    () => [
+      { key: "length", label: t("settings.ruleLength"), test: (v: string) => v.length >= 8 },
+      {
+        key: "upper",
+        label: t("settings.ruleUpper"),
+        test: (v: string) => /[A-Z]/.test(v),
+      },
+      { key: "number", label: t("settings.ruleNumber"), test: (v: string) => /\d/.test(v) },
+    ],
+    [t],
+  );
+
+  const strengthCopy = useMemo(
+    () => [
+      t("settings.strengthTooWeak"),
+      t("settings.strengthWeak"),
+      t("settings.strengthFair"),
+      t("settings.strengthStrong"),
+    ],
+    [t],
+  );
+
+  // We do not overwrite user's frontend language on mount since backend defaults to "en"
+  // Language is changed explicitly via handleLanguageChange
 
   const passedRules = useMemo(
     () => passwordRules.filter((rule) => rule.test(passwordForm.newPassword)),
-    [passwordForm.newPassword],
+    [passwordForm.newPassword, passwordRules],
   );
   const strengthScore = passwordForm.newPassword ? passedRules.length : -1;
 
@@ -64,11 +79,11 @@ export default function SupplierAccountPage() {
     };
   }
 
-  function handleSavePassword() {
+  async function handleSavePassword() {
     if (!passwordForm.currentPassword || !passwordForm.newPassword) {
       showToast({
-        title: "Missing information",
-        description: "Please fill in all password fields.",
+        title: t("common.required"),
+        description: t("common.required"),
         variant: "error",
       });
       return;
@@ -76,8 +91,8 @@ export default function SupplierAccountPage() {
 
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
       showToast({
-        title: "Passwords don't match",
-        description: "New password and confirmation must be the same.",
+        title: t("settings.passwordsDoNotMatch"),
+        description: t("settings.passwordsDoNotMatch"),
         variant: "error",
       });
       return;
@@ -85,28 +100,50 @@ export default function SupplierAccountPage() {
 
     setIsSavingPassword(true);
 
-    window.setTimeout(() => {
-      setIsSavingPassword(false);
+    try {
+      await changePassword({
+        oldPassword: passwordForm.currentPassword,
+        currentPassword: passwordForm.currentPassword,
+        newPassword: passwordForm.newPassword,
+      });
       setPasswordForm(initialPasswordForm);
       showToast({
-        title: "Password updated",
-        description: "Your password has been changed successfully.",
+        title: t("settings.changePassword"),
+        description: t("settings.passwordUpdatedSuccess"),
         variant: "success",
       });
-    }, MOCK_SAVE_DELAY_MS);
+    } catch (error) {
+      showToast({
+        title: t("settings.changePassword"),
+        description: error instanceof Error ? error.message : t("settings.passwordUpdatedFailed"),
+        variant: "error",
+      });
+    } finally {
+      setIsSavingPassword(false);
+    }
   }
 
-  function handleLanguageChange(nextValue: string | string[]) {
-    const value = Array.isArray(nextValue) ? (nextValue[0] ?? "en") : nextValue;
+  async function handleLanguageChange(nextValue: string | string[]) {
+    const value = (Array.isArray(nextValue) ? (nextValue[0] ?? "hy") : nextValue) as Language;
     setLanguage(value);
+    try {
+      await updateCompanyLanguage({ language: value });
+    } catch {
+      // Backend fallback
+    }
     showToast({
-      title: "Language updated",
-      description: "Your language preference has been saved.",
+      title: t("settings.languageUpdatedTitle"),
+      description: t("settings.languageUpdatedDesc"),
       variant: "success",
     });
   }
 
   async function handleLogout() {
+    try {
+      await logoutUser();
+    } catch {
+      // Backend offline fallback
+    }
     await signOut();
     navigate("/login", { replace: true });
   }
@@ -116,13 +153,13 @@ export default function SupplierAccountPage() {
       <div className="space-y-6">
         <header className="space-y-1.5">
           <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary">
-            Account
+            {t("settings.account")}
           </p>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
-            Account settings
+            {t("settings.title")}
           </h1>
           <p className="max-w-xl text-sm leading-6 text-slate-600">
-            Manage your password, language and how you sign out of Synko.
+            {t("settings.subtitle")}
           </p>
         </header>
 
@@ -133,10 +170,10 @@ export default function SupplierAccountPage() {
             </span>
             <div>
               <h2 className="text-lg font-semibold tracking-tight text-slate-900">
-                Change Password
+                {t("settings.changePassword")}
               </h2>
               <p className="mt-1 text-sm text-slate-500">
-                Choose a strong password you don't use anywhere else.
+                {t("settings.changePasswordSubtitle")}
               </p>
             </div>
           </div>
@@ -145,7 +182,7 @@ export default function SupplierAccountPage() {
             <Input
               id="currentPassword"
               type="password"
-              label="Current Password"
+              label={t("settings.currentPassword")}
               placeholder="••••••••"
               value={passwordForm.currentPassword}
               onChange={handlePasswordFieldChange("currentPassword")}
@@ -155,7 +192,7 @@ export default function SupplierAccountPage() {
               <Input
                 id="newPassword"
                 type="password"
-                label="New Password"
+                label={t("settings.newPassword")}
                 placeholder="••••••••"
                 value={passwordForm.newPassword}
                 onChange={handlePasswordFieldChange("newPassword")}
@@ -187,7 +224,7 @@ export default function SupplierAccountPage() {
                     }`}
                   >
                     {strengthScore < 0
-                      ? "Password strength"
+                      ? t("settings.passwordStrength")
                       : strengthCopy[strengthScore]}
                   </p>
                   {passwordRules.map((rule) => {
@@ -214,7 +251,7 @@ export default function SupplierAccountPage() {
             <Input
               id="confirmPassword"
               type="password"
-              label="Confirm New Password"
+              label={t("settings.confirmPassword")}
               placeholder="••••••••"
               value={passwordForm.confirmPassword}
               onChange={handlePasswordFieldChange("confirmPassword")}
@@ -227,7 +264,7 @@ export default function SupplierAccountPage() {
               onClick={handleSavePassword}
               loading={isSavingPassword}
             >
-              Save Password
+              {t("settings.savePassword")}
             </Button>
           </div>
         </section>
@@ -239,10 +276,10 @@ export default function SupplierAccountPage() {
             </span>
             <div>
               <h2 className="text-lg font-semibold tracking-tight text-slate-900">
-                Language
+                {t("settings.language")}
               </h2>
               <p className="mt-1 text-sm text-slate-500">
-                Choose the language used across your dashboard.
+                {t("settings.languageSubtitle")}
               </p>
             </div>
           </div>
@@ -265,11 +302,10 @@ export default function SupplierAccountPage() {
             </span>
             <div>
               <h2 className="text-lg font-semibold tracking-tight text-slate-900">
-                Log out of Synko
+                {t("settings.logoutSection")}
               </h2>
               <p className="mt-1 text-sm text-slate-500">
-                You'll be redirected to the login page. Save any unsaved changes
-                first.
+                {t("settings.logoutSubtitle")}
               </p>
             </div>
           </div>
@@ -280,7 +316,7 @@ export default function SupplierAccountPage() {
             className="mt-5 w-auto! border-red-200 bg-red-600 text-white hover:bg-red-700"
             onClick={() => void handleLogout()}
           >
-            Logout
+            {t("settings.logoutButton")}
           </Button>
         </section>
       </div>

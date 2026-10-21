@@ -12,7 +12,7 @@ export default function DashboardPageHeader({
 }: DashboardPageHeaderProps) {
   return (
     <div
-      className={`sticky top-0 z-10 bg-[#f3f6f4]/95 py-3 backdrop-blur ${className}`}
+      className={`relative sm:sticky sm:top-0 z-10 bg-[#f3f6f4]/95 py-3 backdrop-blur ${className}`}
     >
       {children}
     </div>

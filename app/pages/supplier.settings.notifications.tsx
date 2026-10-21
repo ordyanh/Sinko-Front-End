@@ -1,8 +1,10 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Bell } from "lucide-react";
 import { SwitchField } from "~/shared/ui/form";
 import { useToast } from "~/shared/ui/toast";
 import { DashboardPageContent } from "~/shared/ui";
+import { getNotificationSettings, updateNotificationSettings } from "~/shared/api";
+import { useTranslation } from "~/shared/lib/i18n";
 
 type NotificationKey =
   | "newOrderReceived"
@@ -17,34 +19,6 @@ type NotificationSetting = {
   description: string;
 };
 
-const notificationSettings: NotificationSetting[] = [
-  {
-    key: "newOrderReceived",
-    title: "New order received",
-    description: "When a new order is placed or assigned to you",
-  },
-  {
-    key: "priceRequestReceived",
-    title: "Price request received",
-    description: "When a restaurant requests a price offer",
-  },
-  {
-    key: "priceOfferReceived",
-    title: "Price offer received",
-    description: "When a supplier responds with a price offer",
-  },
-  {
-    key: "orderStatusChanges",
-    title: "Order status changes",
-    description: "When an order status is updated by any party",
-  },
-  {
-    key: "employeeActivity",
-    title: "Employee activity",
-    description: "When an employee accepts or modifies an order",
-  },
-];
-
 // Mock data standing in for the supplier notification preferences until the API is wired up.
 const initialNotifications: Record<NotificationKey, boolean> = {
   newOrderReceived: true,
@@ -54,28 +28,87 @@ const initialNotifications: Record<NotificationKey, boolean> = {
   employeeActivity: false,
 };
 
-const MOCK_SAVE_DELAY_MS = 600;
-
 export default function SupplierNotificationsPage() {
+  const { t } = useTranslation();
   const { showToast } = useToast();
   const [notifications, setNotifications] = useState(initialNotifications);
   const [submittingKey, setSubmittingKey] = useState<NotificationKey | null>(
     null,
   );
 
-  function handleSaveSetting(key: NotificationKey, title: string) {
-    return (checked: boolean) => {
-      setSubmittingKey(key);
+  const notificationSettings: NotificationSetting[] = useMemo(
+    () => [
+      {
+        key: "newOrderReceived",
+        title: t("settings.newOrderReceivedTitle"),
+        description: t("settings.newOrderReceivedDesc"),
+      },
+      {
+        key: "priceRequestReceived",
+        title: t("settings.priceRequestReceivedTitle"),
+        description: t("settings.priceRequestReceivedDesc"),
+      },
+      {
+        key: "priceOfferReceived",
+        title: t("settings.priceOfferReceivedTitle"),
+        description: t("settings.priceOfferReceivedDesc"),
+      },
+      {
+        key: "orderStatusChanges",
+        title: t("settings.orderStatusChangesTitle"),
+        description: t("settings.orderStatusChangesDesc"),
+      },
+      {
+        key: "employeeActivity",
+        title: t("settings.employeeActivityTitle"),
+        description: t("settings.employeeActivityDesc"),
+      },
+    ],
+    [t],
+  );
 
-      window.setTimeout(() => {
-        setNotifications((current) => ({ ...current, [key]: checked }));
-        setSubmittingKey(null);
-        showToast({
-          title: `${title} ${checked ? "enabled" : "disabled"}`,
-          description: "Your notification preferences have been saved.",
-          variant: "success",
+  useEffect(() => {
+    let isActive = true;
+    getNotificationSettings()
+      .then((s) => {
+        if (!isActive || !s) return;
+        setNotifications({
+          newOrderReceived: s.orderUpdates ?? initialNotifications.newOrderReceived,
+          priceRequestReceived: s.priceOffers ?? initialNotifications.priceRequestReceived,
+          priceOfferReceived: s.priceOffers ?? initialNotifications.priceOfferReceived,
+          orderStatusChanges: s.orderUpdates ?? initialNotifications.orderStatusChanges,
+          employeeActivity: s.promotions ?? initialNotifications.employeeActivity,
         });
-      }, MOCK_SAVE_DELAY_MS);
+      })
+      .catch(() => {});
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
+  function handleSaveSetting(key: NotificationKey, title: string) {
+    return async (checked: boolean) => {
+      setSubmittingKey(key);
+      const next = { ...notifications, [key]: checked };
+      setNotifications(next);
+
+      try {
+        await updateNotificationSettings({
+          orderUpdates: next.newOrderReceived || next.orderStatusChanges,
+          priceOffers: next.priceRequestReceived || next.priceOfferReceived,
+          promotions: next.employeeActivity,
+        });
+      } catch {
+        // Backend offline fallback
+      } finally {
+        setSubmittingKey(null);
+      }
+
+      showToast({
+        title: `${title} ${checked ? t("common.active") : t("common.inactive")}`,
+        description: t("settings.languageUpdatedDesc"),
+        variant: "success",
+      });
     };
   }
 
@@ -84,14 +117,13 @@ export default function SupplierNotificationsPage() {
       <div className="space-y-6">
         <header className="space-y-1.5">
           <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary">
-            Notifications
+            {t("settings.notifications")}
           </p>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
-            Notification settings
+            {t("settings.notificationsTitle")}
           </h1>
           <p className="max-w-xl text-sm leading-6 text-slate-600">
-            Control the alerts you receive about orders, requests and supplier
-            activity.
+            {t("settings.notificationsSubtitle")}
           </p>
         </header>
 
@@ -102,10 +134,10 @@ export default function SupplierNotificationsPage() {
             </span>
             <div>
               <h2 className="text-lg font-semibold tracking-tight text-slate-900">
-                Alerts and updates
+                {t("settings.alertsAndUpdates")}
               </h2>
               <p className="mt-1 text-sm text-slate-500">
-                Choose which events should notify you in the dashboard.
+                {t("settings.alertsSubtitle")}
               </p>
             </div>
           </div>

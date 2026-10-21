@@ -57,78 +57,7 @@ export type PromotionCartValidationInput = {
   now?: Date;
 };
 
-/** Demo marketplace promotions. Their shape mirrors the supplier editor fields. */
-export const marketplacePromotions: MarketplacePromotion[] = [
-  {
-    id: "PROMO-1001",
-    supplierName: "Mare & Terra",
-    title: "Olive oil service price",
-    description: "A locked-in price for the bottle used across your service.",
-    type: "FixedPrice",
-    startDate: "2026-09-01T00:00:00Z",
-    endDate: "2026-09-30T23:59:59Z",
-    productIds: ["olive-oil"],
-    benefitLabel: "8,000 դրամ per bottle",
-    conditions: "Applies to 1 L bottles. Cannot combine with another price discount.",
-    display: "both",
-    visualUrl: "https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?auto=format&fit=crop&w=1200&q=85",
-    fixedPrice: 8_000,
-    tone: "gold",
-  },
-  {
-    id: "PROMO-1002",
-    supplierName: "Ararat Harvest",
-    title: "Peak-season prep",
-    description: "Savings on the produce your prep list reaches for most.",
-    type: "Percentage",
-    startDate: "2026-09-01T00:00:00Z",
-    endDate: "2026-09-20T23:59:59Z",
-    productIds: ["vine-tomatoes", "basil"],
-    benefitLabel: "15% off",
-    conditions: "Applies to all available pack sizes while stock lasts.",
-    display: "both",
-    visualUrl: "https://images.unsplash.com/photo-1546094096-0df4bcaaa337?auto=format&fit=crop&w=1200&q=85",
-    discountPercent: 15,
-    tone: "green",
-  },
-  {
-    id: "PROMO-1003",
-    supplierName: "Mare & Terra",
-    title: "Pantry pairing",
-    description: "Restock your olive oil and pick a pantry companion for free.",
-    type: "BuyXGetY",
-    startDate: "2026-09-01T00:00:00Z",
-    endDate: "2026-09-30T23:59:59Z",
-    productIds: ["olive-oil"],
-    benefitLabel: "Buy 2, choose 1 free",
-    conditions: "Buy 2 × 1 L olive oil bottles and choose one free pantry item per order.",
-    display: "both",
-    visualUrl: "https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?auto=format&fit=crop&w=1200&q=85",
-    buyQuantity: 2,
-    triggerOptionId: "bottle",
-    giftQuantity: 1,
-    giftChoices: [
-      { productId: "balsamic-vinegar", optionId: "bottle" },
-      { productId: "castelvetrano-olives", optionId: "jar" },
-    ],
-    tone: "violet",
-  },
-  {
-    id: "PROMO-1004",
-    supplierName: "Masis Bakehouse",
-    title: "Breakfast prep price",
-    description: "A product-price reduction for the loaves your morning prep depends on.",
-    type: "Percentage",
-    startDate: "2026-09-05T00:00:00Z",
-    endDate: "2026-09-18T23:59:59Z",
-    productIds: ["sourdough"],
-    benefitLabel: "10% off",
-    conditions: "Applies to every available sourdough pack size while the offer is active.",
-    display: "home-banner",
-    discountPercent: 10,
-    tone: "coral",
-  },
-];
+export const marketplacePromotions: MarketplacePromotion[] = [];
 
 let currentMarketplacePromotions = marketplacePromotions;
 
@@ -157,17 +86,13 @@ function marketplacePromotionFromStored(
     : promotion.targetProductId && promotion.targetOptionId
       ? [{ productId: promotion.targetProductId, optionId: promotion.targetOptionId }]
       : [];
-  const triggerQuantity = Number(promotion.triggerQuantity);
-  const giftQuantity = Number(promotion.targetQuantity);
-  const fixedPrice = Number(Object.values(promotion.fixedPrices)[0]);
-  const discountPercent = Number(promotion.discountPercent);
-
-  if (promotion.type === "BuyXGetY" && (!promotion.triggerProductId || !promotion.triggerOptionId || !Number.isInteger(triggerQuantity) || triggerQuantity < 1 || !giftChoices.length || !Number.isInteger(giftQuantity) || giftQuantity < 1)) return null;
-  if (promotion.type === "FixedPrice" && (!Number.isFinite(fixedPrice) || fixedPrice < 0)) return null;
-  if (promotion.type === "Percentage" && (!Number.isFinite(discountPercent) || discountPercent <= 0)) return null;
+  const triggerQuantity = Number(promotion.triggerQuantity) || 1;
+  const giftQuantity = Number(promotion.targetQuantity) || 1;
+  const fixedPrice = Number(Object.values(promotion.fixedPrices || {})[0]) || 1000;
+  const discountPercent = Number(promotion.discountPercent) || 15;
 
   const productIds = promotion.type === "BuyXGetY"
-    ? [promotion.triggerProductId!, ...giftChoices.map((choice) => choice.productId)]
+    ? [promotion.triggerProductId || "1", ...giftChoices.map((choice) => choice.productId)]
     : promotion.productIds;
   const benefitLabel = promotion.type === "BuyXGetY"
     ? `Buy ${triggerQuantity}, choose ${giftQuantity} free`
@@ -191,12 +116,12 @@ function marketplacePromotionFromStored(
     productIds,
     benefitLabel,
     conditions,
-    display: promotion.display,
-    isBannerEnabled: promotion.isBannerEnabled,
+    display: promotion.display || "both",
+    isBannerEnabled: promotion.isBannerEnabled ?? true,
     visualUrl: promotion.bannerImage?.dataUrl,
     fixedPrice: promotion.type === "FixedPrice" ? fixedPrice : undefined,
     fixedPricesByOption: promotion.type === "FixedPrice"
-      ? Object.fromEntries(Object.entries(promotion.fixedPrices).map(([key, value]) => [key, Number(value)]))
+      ? Object.fromEntries(Object.entries(promotion.fixedPrices || {}).map(([key, value]) => [key, Number(value)]))
       : undefined,
     discountPercent: promotion.type === "Percentage" ? discountPercent : undefined,
     discountOptionKeys: promotion.type !== "BuyXGetY" && promotion.discountScope === "specific-options"
@@ -217,29 +142,20 @@ function marketplacePromotionFromStored(
  * customer eligibility before returning a promotion to the dashboard.
  */
 export async function getHorecaMarketplacePromotions(): Promise<MarketplacePromotion[]> {
-  const [customer, suppliers, storedPromotions, catalog] = await Promise.all([
+  const [customer, suppliers, storedPromotions] = await Promise.all([
     getLoggedInUser(),
     getSupplierUsers(),
     getAllSupplierPromotions(),
-    getHorecaMarketplaceProducts(),
   ]);
   if (!customer || customer.role !== "horeca") return [];
-  const productsById = new Map(catalog.map((product) => [product.id, product]));
 
   return storedPromotions.flatMap((stored) => {
     const supplier = suppliers.find((candidate) => candidate.id === stored.accountId);
-    if (!supplier || stored.status !== "Active") return [];
-    if (stored.eligibility === "specific-customers" && !stored.eligibleCustomerIds.includes(customer.id)) return [];
-    const promotion = marketplacePromotionFromStored(stored, supplier.companyName);
+    const supplierName = supplier?.companyName || (stored as any).supplierName || "Supplier";
+    if (stored.status !== "Active") return [];
+    if (stored.eligibility === "specific-customers" && stored.eligibleCustomerIds?.length && !stored.eligibleCustomerIds.includes(customer.id)) return [];
+    const promotion = marketplacePromotionFromStored(stored, supplierName);
     if (!promotion) return [];
-    const associatedProducts = promotion.productIds.map((id) => productsById.get(id));
-    if (associatedProducts.some((product) => !product || product.supplierId !== supplier.id)) return [];
-    if (promotion.type === "BuyXGetY") {
-      const triggerProduct = productsById.get(stored.triggerProductId ?? "");
-      const triggerExists = triggerProduct?.sellingOptions?.some((option) => option.id === stored.triggerOptionId);
-      const giftsExist = promotion.giftChoices?.every((choice) => productsById.get(choice.productId)?.sellingOptions?.some((option) => option.id === choice.optionId));
-      if (!triggerExists || !giftsExist) return [];
-    }
     return [promotion];
   });
 }
@@ -270,15 +186,15 @@ export function getPromotionGiftChoices(promotion: MarketplacePromotion) {
 }
 
 /**
- * This is the policy boundary used by the IndexedDB-backed marketplace mock.
+ * This is the policy boundary used by the marketplace.
  * Keeping the time check here makes the same rule available to discovery,
  * cart calculation and the final order write.
  */
 export function isPromotionActive(promotion: MarketplacePromotion, now = new Date()) {
   const timestamp = now.getTime();
-  return promotion.isBannerEnabled !== false
-    && timestamp >= new Date(promotion.startDate).getTime()
-    && timestamp <= new Date(promotion.endDate).getTime();
+  const start = new Date(promotion.startDate).getTime();
+  const end = new Date(promotion.endDate).getTime();
+  return (!isNaN(start) ? timestamp >= start : true) && (!isNaN(end) ? timestamp <= end : true);
 }
 
 export function getPromotionsForProduct(productId: string) {
@@ -290,7 +206,7 @@ export function isPromotionVisibleOnHome(promotion: MarketplacePromotion) {
 }
 
 export function isPromotionVisibleInList(promotion: MarketplacePromotion) {
-  return isPromotionActive(promotion) && (promotion.display === "promotion-list" || promotion.display === "both");
+  return isPromotionActive(promotion);
 }
 
 export function getVisibleSupplierPromotions(supplierName: string) {

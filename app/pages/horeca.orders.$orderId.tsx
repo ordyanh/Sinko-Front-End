@@ -6,14 +6,27 @@ import {
   Gift,
   Mail,
   MapPin,
+  Package,
   Pencil,
   Phone,
+  RotateCcw,
   Send,
   UserRound,
   X,
+  XCircle,
+  CheckCheck,
 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router";
+import { Link, useNavigate, useParams } from "react-router";
+import {
+  acceptOffer as backendAcceptOffer,
+  rejectOffer as backendRejectOffer,
+  cancelOrder as backendCancelOrder,
+  approveOrder as backendApproveOrder,
+  repeatOrder as backendRepeatOrder,
+} from "~/shared/api/orders";
+import { getCurrentUserEmployeeRole } from "~/shared/lib/auth-token";
+import { useTranslation, getLocalizedOrderStatus } from "~/shared/lib/i18n";
 import {
   formatAmd,
   formatAmdDelta,
@@ -32,7 +45,14 @@ import {
   type HorecaOrderLine,
   type HorecaOrderStatus,
 } from "~/entities/horeca";
-import { getLoggedInUser, getOrderForHoreca, saveOrder, type StoredOrder } from "~/shared/lib/indexed-db";
+import {
+  getLoggedInUser,
+  getOrderForHoreca,
+  saveOrder,
+  getDeliveryAddressesForCurrentHoreca,
+  type StoredOrder,
+} from "~/shared/lib/indexed-db";
+import { getMarketplaceSupplierById, getMarketplaceSuppliers } from "~/shared/api";
 import { DashboardPageContent, DashboardPageHeader } from "~/shared/ui";
 import { Input } from "~/shared/ui/form";
 import { useToast } from "~/shared/ui/toast";
@@ -70,9 +90,11 @@ function DeltaText({
 function StatusBanner({
   order,
   isEditing,
+  t,
 }: {
   order: HorecaOrder;
   isEditing: boolean;
+  t: (k: string, f?: string, params?: Record<string, string | number>) => string;
 }) {
   const supplierNote = [...order.history]
     .reverse()
@@ -83,13 +105,15 @@ function StatusBanner({
       <div className="mt-6 rounded-2xl border border-primary/25 bg-primary/5 px-5 py-4">
         <p className="font-semibold text-slate-900">
           {isEditing
-            ? "Sending changes back"
-            : `Offer received ${order.offerReceivedAt ? formatOrderDateTime(order.offerReceivedAt) : ""}`}
+            ? t("orders.sendingChangesBack")
+            : t("orders.offerReceived", `Offer received ${order.offerReceivedAt ? formatOrderDateTime(order.offerReceivedAt) : ""}`, {
+                date: order.offerReceivedAt ? formatOrderDateTime(order.offerReceivedAt) : "",
+              })}
         </p>
         <p className="mt-1 text-sm text-slate-600">
           {isEditing
-            ? "Adjust quantities, prices and notes, then send them to the supplier."
-            : "Accept it to move the order into preparation, or send back the changes you need."}
+            ? t("orders.adjustQuantitiesSubtitle")
+            : t("orders.acceptToMoveOrderSubtitle")}
         </p>
         {supplierNote && !isEditing ? (
           <p className="mt-3 border-l-2 border-primary/30 pl-3 text-sm italic text-slate-600">
@@ -101,13 +125,13 @@ function StatusBanner({
   }
 
   const message: Partial<Record<HorecaOrderStatus, string>> = {
-    New: `${order.supplierName} has not sent an offer yet. You will be able to review it here.`,
-    Rejected: `Your changes are with ${order.supplierName}. They will send a revised offer for you to review.`,
-    Confirmed: `${order.supplierName} confirmed this order and will start preparing it.`,
-    Preparing: `${order.supplierName} is preparing this order for ${formatOrderDate(order.deliveryDate)}.`,
-    Shipped: `This order is on its way and is due ${formatOrderDate(order.deliveryDate)}.`,
-    Delivered: `Delivered on ${formatOrderDate(order.deliveryDate)}. Prices and quantities are final.`,
-    Cancelled: "This order was cancelled. Nothing was delivered or charged.",
+    New: t("orders.orderNewNotice", `${order.supplierName} has not sent an offer yet.`, { supplier: order.supplierName }),
+    Rejected: t("orders.orderRejectedNotice", `Your changes are with ${order.supplierName}.`, { supplier: order.supplierName }),
+    Confirmed: t("orders.orderConfirmedNotice", `${order.supplierName} confirmed this order.`, { supplier: order.supplierName }),
+    Preparing: t("orders.orderPreparingNotice", `${order.supplierName} is preparing this order for ${formatOrderDate(order.deliveryDate)}.`, { supplier: order.supplierName, date: formatOrderDate(order.deliveryDate) }),
+    Shipped: t("orders.orderShippedNotice", `This order is on its way and is due ${formatOrderDate(order.deliveryDate)}.`, { date: formatOrderDate(order.deliveryDate) }),
+    Delivered: t("orders.orderDeliveredNotice", `Delivered on ${formatOrderDate(order.deliveryDate)}.`, { date: formatOrderDate(order.deliveryDate) }),
+    Cancelled: t("orders.orderCancelledNotice", "This order was cancelled."),
   };
 
   return (
@@ -117,7 +141,7 @@ function StatusBanner({
   );
 }
 
-function FulfilmentProgress({ status }: { status: HorecaOrderStatus }) {
+function FulfilmentProgress({ status, t }: { status: HorecaOrderStatus; t: (k: string, f?: string) => string }) {
   const currentStep = fulfilmentSteps.indexOf(
     status as (typeof fulfilmentSteps)[number],
   );
@@ -126,8 +150,8 @@ function FulfilmentProgress({ status }: { status: HorecaOrderStatus }) {
 
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-      <SectionLabel>Delivery progress</SectionLabel>
-      <ol className="mt-4 grid grid-cols-4 gap-1" aria-label="Delivery progress">
+      <SectionLabel>{t("orders.deliveryProgress")}</SectionLabel>
+      <ol className="mt-4 grid grid-cols-4 gap-1" aria-label={t("orders.deliveryProgress")}>
         {fulfilmentSteps.map((step, index) => {
           const isComplete = index <= currentStep;
 
@@ -139,7 +163,7 @@ function FulfilmentProgress({ status }: { status: HorecaOrderStatus }) {
               <p
                 className={`mt-2 text-xs font-semibold ${isComplete ? "text-slate-800" : "text-slate-400"}`}
               >
-                {step}
+                {getLocalizedOrderStatus(step, t)}
               </p>
             </li>
           );
@@ -150,9 +174,14 @@ function FulfilmentProgress({ status }: { status: HorecaOrderStatus }) {
 }
 
 export default function HorecaOrderDetailsPage() {
+  const { t } = useTranslation();
   const { orderId } = useParams();
+  const navigate = useNavigate();
   const { showToast } = useToast();
+  const employeeRole = getCurrentUserEmployeeRole();
+  const isPurchasingEmployee = employeeRole === "PurchasingEmployee";
   const [order, setOrder] = useState<StoredOrder | null>(null);
+  const [isActionLoading, setIsActionLoading] = useState(false);
   const [isLoadingOrder, setIsLoadingOrder] = useState(true);
 
   const [status, setStatus] = useState<HorecaOrderStatus>(
@@ -168,8 +197,72 @@ export default function HorecaOrderDetailsPage() {
     void (async () => {
       const user = await getLoggedInUser();
       if (!user || user.role !== "horeca" || !orderId) return;
-      const storedOrder = await getOrderForHoreca(user.id, orderId);
+      let storedOrder = await getOrderForHoreca(user.id, orderId);
       if (!isCurrent || !storedOrder) return;
+
+      // Enrich missing supplier contact details
+      const missingSupplierContacts =
+        !storedOrder.supplierPhone ||
+        storedOrder.supplierPhone === "—" ||
+        !storedOrder.supplierEmail ||
+        !storedOrder.supplierAddress;
+
+      if (missingSupplierContacts) {
+        try {
+          const suppId = storedOrder.supplierId || storedOrder.supplierAccountId;
+          let suppInfo: any = null;
+          if (suppId && suppId !== "supplier-default") {
+            suppInfo = await getMarketplaceSupplierById(suppId);
+          }
+          if (!suppInfo?.phoneNumber && !suppInfo?.phone) {
+            const allSuppliers = await getMarketplaceSuppliers();
+            suppInfo = (allSuppliers || []).find(
+              (s: any) =>
+                (suppId && String(s.id).toLowerCase() === String(suppId).toLowerCase()) ||
+                (s.companyName && String(s.companyName).toLowerCase() === String(storedOrder?.supplierName || "").toLowerCase())
+            );
+          }
+
+          const rawSupp = suppInfo?.supplier || suppInfo;
+          if (rawSupp) {
+            storedOrder = {
+              ...storedOrder,
+              supplierPhone: storedOrder.supplierPhone && storedOrder.supplierPhone !== "—" ? storedOrder.supplierPhone : (rawSupp.phoneNumber || rawSupp.phone || ""),
+              supplierEmail: storedOrder.supplierEmail || rawSupp.email || "",
+              supplierAddress: storedOrder.supplierAddress || rawSupp.address || rawSupp.jurAddress || rawSupp.serviceArea || "",
+              supplierContactName:
+                storedOrder.supplierContactName && storedOrder.supplierContactName !== storedOrder.supplierName
+                  ? storedOrder.supplierContactName
+                  : (rawSupp.contactName && rawSupp.contactName !== storedOrder.supplierName ? rawSupp.contactName : ""),
+            };
+          }
+        } catch {
+          // ignore enrichment error
+        }
+      }
+
+      // Enrich delivery address if missing or "[No Address]"
+      if (!storedOrder.deliveryAddress || storedOrder.deliveryAddress === "[No Address]") {
+        try {
+          const addresses = await getDeliveryAddressesForCurrentHoreca();
+          const activeAddr = addresses.find((a) => a.active) || addresses[0];
+          if (activeAddr) {
+            storedOrder = {
+              ...storedOrder,
+              deliveryAddress: activeAddr.fullAddress,
+              deliveryAddressSnapshot: {
+                addressId: activeAddr.id,
+                fullAddress: activeAddr.fullAddress,
+                contactPerson: activeAddr.contactPerson || storedOrder.horecaContactName,
+                contactPhone: activeAddr.contactPhone || storedOrder.horecaPhone,
+              },
+            };
+          }
+        } catch {
+          // ignore
+        }
+      }
+
       setOrder(storedOrder);
       setStatus(storedOrder.status);
       setLines(storedOrder.lines);
@@ -186,7 +279,7 @@ export default function HorecaOrderDetailsPage() {
     return (
       <DashboardPageContent>
         <section className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm font-medium text-slate-500 shadow-sm">
-          Loading order…
+          {t("orders.loadingOrders")}
         </section>
       </DashboardPageContent>
     );
@@ -197,17 +290,17 @@ export default function HorecaOrderDetailsPage() {
       <DashboardPageContent>
         <section className="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
           <h1 className="text-lg font-semibold text-slate-900">
-            This order is no longer available
+            {t("orders.orderUnavailable")}
           </h1>
           <p className="mt-2 text-sm text-slate-600">
-            It may have been removed by your supplier.
+            {t("orders.orderUnavailableDesc")}
           </p>
           <Link
             to="/horeca/orders"
             className="mt-5 inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-content transition hover:brightness-95"
           >
             <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-            Back to orders
+            {t("orders.backToOrders")}
           </Link>
         </section>
       </DashboardPageContent>
@@ -248,23 +341,41 @@ export default function HorecaOrderDetailsPage() {
     );
   }
 
-  function acceptOffer() {
-    const nextOrder = {
-      ...activeOrder,
-      status: "Confirmed" as const,
-      history: [...activeOrder.history, { id: `restaurant-confirmed-${Date.now()}`, actor: "restaurant" as const, label: "Offer accepted", date: new Date().toISOString() }],
-    };
-    setOrder(nextOrder);
-    setStatus(nextOrder.status);
-    setIsEditing(false);
-    void saveOrder(nextOrder).catch(() => {
-      showToast({ title: "Couldn't save order", description: "Please try accepting the offer again.", variant: "error" });
-    });
-    showToast({
-      title: "Offer accepted",
-      description: `${activeOrder.supplierName} will start preparing order ${activeOrder.id}.`,
-      variant: "success",
-    });
+  async function handleAcceptOffer() {
+    setIsActionLoading(true);
+    try {
+      await backendAcceptOffer(activeOrder.id);
+      const nextOrder = {
+        ...activeOrder,
+        status: "Confirmed" as const,
+        history: [
+          ...activeOrder.history,
+          {
+            id: `restaurant-confirmed-${Date.now()}`,
+            actor: "restaurant" as const,
+            label: "Offer accepted",
+            date: new Date().toISOString(),
+          },
+        ],
+      };
+      setOrder(nextOrder);
+      setStatus(nextOrder.status);
+      setIsEditing(false);
+      await saveOrder(nextOrder).catch(() => {});
+      showToast({
+        title: "Offer accepted",
+        description: `${activeOrder.supplierName} will start preparing order ${activeOrder.id}.`,
+        variant: "success",
+      });
+    } catch (error) {
+      showToast({
+        title: "Couldn't accept offer",
+        description: error instanceof Error ? error.message : "Please try again.",
+        variant: "error",
+      });
+    } finally {
+      setIsActionLoading(false);
+    }
   }
 
   function cancelEditing() {
@@ -273,24 +384,157 @@ export default function HorecaOrderDetailsPage() {
     setIsEditing(false);
   }
 
-  function sendChanges() {
-    const nextOrder = {
-      ...activeOrder,
-      status: "Rejected" as const,
-      lines,
-      history: [...activeOrder.history, { id: `restaurant-changes-${Date.now()}`, actor: "restaurant" as const, label: "Changes sent back", date: new Date().toISOString(), note: messageToSupplier || undefined }],
-    };
-    setOrder(nextOrder);
-    setStatus(nextOrder.status);
-    setIsEditing(false);
-    void saveOrder(nextOrder).catch(() => {
-      showToast({ title: "Couldn't save order", description: "Please try sending your changes again.", variant: "error" });
-    });
-    showToast({
-      title: "Changes sent",
-      description: `${activeOrder.supplierName} will review your changes and send a revised offer.`,
-      variant: "success",
-    });
+  async function handleSendChanges() {
+    setIsActionLoading(true);
+    try {
+      await backendRejectOffer(activeOrder.id);
+      const nextOrder = {
+        ...activeOrder,
+        status: "Rejected" as const,
+        lines,
+        history: [
+          ...activeOrder.history,
+          {
+            id: `restaurant-changes-${Date.now()}`,
+            actor: "restaurant" as const,
+            label: "Changes sent back",
+            date: new Date().toISOString(),
+            note: messageToSupplier || undefined,
+          },
+        ],
+      };
+      setOrder(nextOrder);
+      setStatus(nextOrder.status);
+      setIsEditing(false);
+      await saveOrder(nextOrder).catch(() => {});
+      showToast({
+        title: "Changes sent",
+        description: `${activeOrder.supplierName} will review your changes and send a revised offer.`,
+        variant: "success",
+      });
+    } catch (error) {
+      showToast({
+        title: "Couldn't send changes",
+        description: error instanceof Error ? error.message : "Please try again.",
+        variant: "error",
+      });
+    } finally {
+      setIsActionLoading(false);
+    }
+  }
+
+  async function handleRepeatOrder() {
+    setIsActionLoading(true);
+    try {
+      const res = await backendRepeatOrder(activeOrder.id);
+      showToast({
+        title: "Order repeated",
+        description: res.message || "New order created successfully.",
+        variant: "success",
+      });
+      if (res.newOrderId) {
+        navigate(`/horeca/orders/${res.newOrderId}`);
+      }
+    } catch (error) {
+      showToast({
+        title: "Couldn't repeat order",
+        description: error instanceof Error ? error.message : "Please try again.",
+        variant: "error",
+      });
+    } finally {
+      setIsActionLoading(false);
+    }
+  }
+
+  async function handleCancelOrder() {
+    if (isPurchasingEmployee) {
+      showToast({
+        title: "Action not permitted",
+        description: "Purchasing employees cannot cancel organization orders.",
+        variant: "error",
+      });
+      return;
+    }
+    if (!confirm("Are you sure you want to cancel this order?")) return;
+
+    setIsActionLoading(true);
+    try {
+      await backendCancelOrder(activeOrder.id);
+      const nextOrder = {
+        ...activeOrder,
+        status: "Cancelled" as const,
+        history: [
+          ...activeOrder.history,
+          {
+            id: `restaurant-cancelled-${Date.now()}`,
+            actor: "restaurant" as const,
+            label: "Order cancelled",
+            date: new Date().toISOString(),
+          },
+        ],
+      };
+      setOrder(nextOrder);
+      setStatus("Cancelled");
+      await saveOrder(nextOrder).catch(() => {});
+      showToast({
+        title: "Order cancelled",
+        description: "This order has been cancelled.",
+        variant: "success",
+      });
+    } catch (error) {
+      showToast({
+        title: "Couldn't cancel order",
+        description: error instanceof Error ? error.message : "Please try again.",
+        variant: "error",
+      });
+    } finally {
+      setIsActionLoading(false);
+    }
+  }
+
+  async function handleApproveOrder() {
+    if (isPurchasingEmployee) {
+      showToast({
+        title: "Action not permitted",
+        description: "Purchasing employees cannot approve organization orders.",
+        variant: "error",
+      });
+      return;
+    }
+
+    setIsActionLoading(true);
+    try {
+      await backendApproveOrder(activeOrder.id);
+      const nextOrder = {
+        ...activeOrder,
+        status: "Confirmed" as const,
+        history: [
+          ...activeOrder.history,
+          {
+            id: `restaurant-approved-${Date.now()}`,
+            actor: "restaurant" as const,
+            label: "Order approved",
+            date: new Date().toISOString(),
+          },
+        ],
+      };
+      setOrder(nextOrder);
+      setStatus("Confirmed");
+      await saveOrder(nextOrder).catch(() => {});
+      showToast({
+        title: "Order approved",
+        description: "This order has been approved.",
+        variant: "success",
+      });
+    } catch (error) {
+      showToast({
+        title: "Couldn't approve order",
+        description: error instanceof Error ? error.message : "Please try again.",
+        variant: "error",
+      });
+    } finally {
+      setIsActionLoading(false);
+    }
   }
 
   return (
@@ -301,52 +545,94 @@ export default function HorecaOrderDetailsPage() {
             to="/horeca/orders"
             className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 transition hover:text-slate-900"
           >
-            <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Back to orders
+            <ArrowLeft className="h-4 w-4" aria-hidden="true" /> {t("orders.backToOrders")}
           </Link>
 
-          {canRespond ? (
-            <div className="flex flex-wrap items-center gap-3">
-              {isEditing ? (
+          <div className="flex flex-wrap items-center gap-3">
+            {canRespond ? (
+              isEditing ? (
                 <>
                   <button
                     type="button"
+                    disabled={isActionLoading}
                     onClick={cancelEditing}
-                    className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                    className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
                   >
                     <X className="h-4 w-4" aria-hidden="true" />
-                    Cancel
+                    {t("common.cancel")}
                   </button>
                   <button
                     type="button"
-                    onClick={sendChanges}
-                    className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-content transition hover:brightness-95"
+                    disabled={isActionLoading}
+                    onClick={handleSendChanges}
+                    className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-content transition hover:brightness-95 disabled:opacity-50"
                   >
                     <Send className="h-4 w-4" aria-hidden="true" />
-                    Send changes to supplier
+                    {isActionLoading ? t("orders.sendingChanges") : t("orders.sendChangesToSupplier")}
                   </button>
                 </>
               ) : (
                 <>
                   <button
                     type="button"
+                    disabled={isActionLoading}
                     onClick={() => setIsEditing(true)}
-                    className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                    className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
                   >
                     <Pencil className="h-4 w-4" aria-hidden="true" />
-                    Request changes
+                    {t("orders.requestChanges")}
                   </button>
                   <button
                     type="button"
-                    onClick={acceptOffer}
-                    className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-content transition hover:brightness-95"
+                    disabled={isActionLoading}
+                    onClick={handleAcceptOffer}
+                    className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-content transition hover:brightness-95 disabled:opacity-50"
                   >
                     <CircleCheck className="h-4 w-4" aria-hidden="true" />
-                    Accept offer
+                    {isActionLoading ? t("orders.acceptingOffer") : t("orders.acceptOffer")}
                   </button>
                 </>
-              )}
-            </div>
-          ) : null}
+              )
+            ) : null}
+
+            {status === "New" && !canRespond ? (
+              <button
+                type="button"
+                disabled={isActionLoading || isPurchasingEmployee}
+                title={isPurchasingEmployee ? "Purchasing employees cannot approve organization orders." : undefined}
+                onClick={handleApproveOrder}
+                className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-content transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <CheckCheck className="h-4 w-4" aria-hidden="true" />
+                {isActionLoading ? t("orders.approvingOrder") : t("orders.approveOrder")}
+              </button>
+            ) : null}
+
+            {status !== "Delivered" && status !== "Cancelled" && !isEditing ? (
+              <button
+                type="button"
+                disabled={isActionLoading || isPurchasingEmployee}
+                title={isPurchasingEmployee ? "Purchasing employees cannot cancel organization orders." : undefined}
+                onClick={handleCancelOrder}
+                className="inline-flex items-center gap-2 rounded-lg border border-rose-200 bg-white px-4 py-2.5 text-sm font-semibold text-rose-700 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <XCircle className="h-4 w-4" aria-hidden="true" />
+                {t("orders.cancelOrder")}
+              </button>
+            ) : null}
+
+            {!isEditing ? (
+              <button
+                type="button"
+                disabled={isActionLoading}
+                onClick={handleRepeatOrder}
+                className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
+              >
+                <RotateCcw className="h-4 w-4" aria-hidden="true" />
+                {t("orders.repeatOrder")}
+              </button>
+            ) : null}
+          </div>
         </div>
       </DashboardPageHeader>
 
@@ -358,35 +644,35 @@ export default function HorecaOrderDetailsPage() {
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
-                Order {order.id}
+                {t("orders.title")} {order.id}
               </h1>
               <span
                 className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${horecaOrderStatusClasses[status]}`}
               >
-                {horecaOrderStatusLabels[status]}
+                {getLocalizedOrderStatus(status, t)}
               </span>
             </div>
             <p className="mt-1 text-sm text-slate-500">
-              {order.supplierName} · Placed {formatOrderDate(order.placedAt)}
+              {order.supplierName} · {t("orders.placedAtDate")} {formatOrderDate(order.placedAt)}
             </p>
           </div>
         </div>
       </header>
 
-      <StatusBanner order={{ ...order, status }} isEditing={isEditing} />
+      <StatusBanner order={{ ...order, status }} isEditing={isEditing} t={t} />
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
         <div className="min-w-0 space-y-6">
           <section className="min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4 sm:px-6">
               <div>
-                <SectionLabel>Order items</SectionLabel>
+                <SectionLabel>{t("orders.orderItems")}</SectionLabel>
                 <p className="mt-1 text-sm text-slate-600">
                   {isEditing
-                    ? "Set the quantities and prices you can accept."
+                    ? t("orders.setQuantitiesAndPrices")
                     : hasOffer
-                      ? "What you asked for, next to what the supplier offered."
-                      : "What you asked for. Prices are confirmed when the offer arrives."}
+                      ? t("orders.whatYouAskedForNextToOffer")
+                      : t("orders.whatYouAskedForPricesConfirmed")}
                 </p>
               </div>
               <p className="text-lg font-semibold text-slate-900 tabular-nums">
@@ -399,21 +685,21 @@ export default function HorecaOrderDetailsPage() {
                 <thead className="bg-slate-50 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
                   <tr>
                     <th className="sticky left-0 z-10 min-w-56 whitespace-nowrap border-b border-r border-slate-200 bg-slate-50 px-5 py-3.5 sm:px-6">
-                      Product
+                      {t("common.product")}
                     </th>
                     <th className="min-w-32 whitespace-nowrap border-b border-slate-200 px-4 py-3.5">
-                      You requested
+                      {t("orders.youRequested")}
                     </th>
                     {hasOffer ? (
                       <th className="min-w-48 whitespace-nowrap border-b border-slate-200 px-4 py-3.5">
-                        {isEditing ? "Your counter" : "Supplier offer"}
+                        {isEditing ? t("orders.yourCounter") : t("orders.supplierOffer")}
                       </th>
                     ) : null}
                     <th className="whitespace-nowrap border-b border-slate-200 px-4 py-3.5">
-                      Comment
+                      {t("common.comment")}
                     </th>
                     <th className="min-w-32 whitespace-nowrap border-b border-slate-200 px-6 py-3.5 text-right">
-                      Amount
+                      {t("common.amount")}
                     </th>
                   </tr>
                 </thead>
@@ -427,23 +713,29 @@ export default function HorecaOrderDetailsPage() {
                       <tr key={line.id}>
                         <td className="sticky left-0 z-10 border-r border-slate-200 bg-white px-5 py-4 sm:px-6">
                           <div className="flex min-w-44 items-center gap-3">
-                            <img
-                              src={line.image}
-                              alt=""
-                              className="h-10 w-10 shrink-0 rounded-lg object-cover ring-1 ring-slate-200"
-                            />
+                            {line.image ? (
+                              <img
+                                src={line.image}
+                                alt=""
+                                className="h-10 w-10 shrink-0 rounded-lg object-cover ring-1 ring-slate-200"
+                              />
+                            ) : (
+                              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-400 ring-1 ring-slate-200">
+                                <Package className="h-5 w-5 text-slate-400" aria-hidden="true" />
+                              </div>
+                            )}
                             <div className="min-w-0">
                               <p className="truncate font-semibold text-slate-800">
                                 {line.name}
                               </p>
                               {line.isPromotionGift ? (
-                                <p className="mt-1 inline-flex items-center gap-1 rounded-full bg-violet-50 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-violet-700"><Gift className="h-3 w-3" aria-hidden="true" />Free gift{line.promotionTitle ? ` · ${line.promotionTitle}` : ""}</p>
+                                <p className="mt-1 inline-flex items-center gap-1 rounded-full bg-violet-50 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-violet-700"><Gift className="h-3 w-3" aria-hidden="true" />{t("orders.freeGift")}{line.promotionTitle ? ` · ${line.promotionTitle}` : ""}</p>
                               ) : null}
                               <p className="mt-0.5 text-xs text-slate-500">
                                 {line.unit}
                               </p>
                               <p className="mt-0.5 text-xs text-slate-400">
-                                Minimum order: {line.minimumOrderQuantity} {line.minimumOrderQuantity === 1 ? "unit" : "units"}
+                                {t("products.minOrder")}: {line.minimumOrderQuantity} {line.minimumOrderQuantity === 1 ? t("common.unit") : t("common.units")}
                               </p>
                             </div>
                           </div>
@@ -501,7 +793,7 @@ export default function HorecaOrderDetailsPage() {
                                   <p className="mt-0.5 text-xs font-medium text-rose-600">
                                     {line.requestedQuantity -
                                       line.offeredQuantity}{" "}
-                                    short of your request
+                                    {t("orders.shortOfRequest")}
                                   </p>
                                 ) : null}
                               </div>
@@ -517,7 +809,7 @@ export default function HorecaOrderDetailsPage() {
                               onChange={(event) =>
                                 updateLine(line.id, "comment", event.target.value)
                               }
-                              placeholder="Add a note"
+                              placeholder={t("orders.addNote")}
                               size="sm"
                               className="h-9 px-2"
                             />
@@ -555,25 +847,25 @@ export default function HorecaOrderDetailsPage() {
               <div className="flex justify-end border-t border-slate-100 bg-slate-50/60 px-5 py-4 sm:px-6">
                 <dl className="w-full max-w-xs space-y-2 text-sm">
                   <div className="flex items-baseline justify-between gap-6">
-                    <dt className="text-slate-500">You requested</dt>
+                    <dt className="text-slate-500">{t("orders.youRequested")}</dt>
                     <dd className="tabular-nums text-slate-600">
                       {formatAmd(requestedTotal)}
                     </dd>
                   </div>
                   <div className="flex items-baseline justify-between gap-6">
                     <dt className="text-slate-500">
-                      {isEditing ? "Your counter" : "Supplier offer"}
+                      {isEditing ? t("orders.yourCounter") : t("orders.supplierOffer")}
                     </dt>
                     <dd className="font-semibold tabular-nums text-slate-900">
                       {formatAmd(offeredTotal)}
                     </dd>
                   </div>
                   <div className="flex items-baseline justify-between gap-6 border-t border-slate-200 pt-2">
-                    <dt className="text-slate-500">Difference</dt>
+                    <dt className="text-slate-500">{t("orders.difference")}</dt>
                     <dd>
                       {totalDelta === 0 ? (
                         <span className="tabular-nums text-slate-500">
-                          No change
+                          {t("orders.noChange")}
                         </span>
                       ) : (
                         <DeltaText
@@ -590,64 +882,86 @@ export default function HorecaOrderDetailsPage() {
 
           {isEditing ? (
             <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-              <SectionLabel>Message to supplier</SectionLabel>
+              <SectionLabel>{t("orders.messageToSupplier")}</SectionLabel>
               <p className="mt-1 text-sm text-slate-600">
-                Explain what you changed so {order.supplierContactName} can
-                respond quickly.
+                {t("orders.messageToSupplierSubtitle", undefined, { name: order.supplierContactName })}
               </p>
               <textarea
                 value={messageToSupplier}
                 onChange={(event) => setMessageToSupplier(event.target.value)}
                 rows={3}
-                placeholder="We need the full six crates for the weekend service."
+                placeholder={t("orders.messageToSupplierPlaceholder")}
                 className="mt-4 block w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 transition-[border-color,box-shadow] duration-200 placeholder:text-slate-400 focus:outline-none focus-visible:border-primary focus-visible:ring-4 focus-visible:ring-primary/15"
               />
             </section>
           ) : null}
 
-          <FulfilmentProgress status={status} />
+          <FulfilmentProgress status={status} t={t} />
         </div>
 
         <aside className="space-y-6">
           <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <SectionLabel>Supplier</SectionLabel>
+            <SectionLabel>{t("orders.supplier")}</SectionLabel>
             <p className="mt-3 font-semibold text-slate-900">
               {order.supplierName}
             </p>
             <div className="mt-4 space-y-3 text-sm text-slate-600">
-              <p className="flex gap-2">
-                <UserRound
-                  className="h-4 w-4 shrink-0 text-slate-400"
-                  aria-hidden="true"
-                />
-                {order.supplierContactName}
-              </p>
-              <p className="flex gap-2">
-                <Phone
-                  className="h-4 w-4 shrink-0 text-slate-400"
-                  aria-hidden="true"
-                />
-                {order.supplierPhone}
-              </p>
-              <p className="flex gap-2 break-all">
-                <Mail
-                  className="h-4 w-4 shrink-0 text-slate-400"
-                  aria-hidden="true"
-                />
-                {order.supplierEmail}
-              </p>
-              <p className="flex gap-2">
-                <MapPin
-                  className="mt-0.5 h-4 w-4 shrink-0 text-slate-400"
-                  aria-hidden="true"
-                />
-                {order.supplierAddress}
-              </p>
+              {order.supplierContactName && order.supplierContactName !== order.supplierName ? (
+                <p className="flex items-center gap-2">
+                  <UserRound
+                    className="h-4 w-4 shrink-0 text-slate-400"
+                    aria-hidden="true"
+                  />
+                  <span>{order.supplierContactName}</span>
+                </p>
+              ) : null}
+              {order.supplierPhone && order.supplierPhone !== "—" ? (
+                <p className="flex items-center gap-2">
+                  <Phone
+                    className="h-4 w-4 shrink-0 text-slate-400"
+                    aria-hidden="true"
+                  />
+                  <a
+                    href={`tel:${String(order.supplierPhone).replace(/\s+/g, "")}`}
+                    className="transition hover:text-primary"
+                  >
+                    {order.supplierPhone}
+                  </a>
+                </p>
+              ) : null}
+              {order.supplierEmail && order.supplierEmail !== "—" ? (
+                <p className="flex items-center gap-2 break-all">
+                  <Mail
+                    className="h-4 w-4 shrink-0 text-slate-400"
+                    aria-hidden="true"
+                  />
+                  <a
+                    href={`mailto:${order.supplierEmail}`}
+                    className="transition hover:text-primary"
+                  >
+                    {order.supplierEmail}
+                  </a>
+                </p>
+              ) : null}
+              {order.supplierAddress && order.supplierAddress !== "—" ? (
+                <p className="flex items-start gap-2">
+                  <MapPin
+                    className="mt-0.5 h-4 w-4 shrink-0 text-slate-400"
+                    aria-hidden="true"
+                  />
+                  <span>{order.supplierAddress}</span>
+                </p>
+              ) : null}
+              {!order.supplierPhone && !order.supplierEmail && !order.supplierAddress ? (
+                <p className="text-xs text-slate-400">
+                  {t("common.noContactDetails", "No contact details available.")}
+                </p>
+              ) : null}
             </div>
           </section>
 
           <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <SectionLabel>Delivery</SectionLabel>
+            <SectionLabel>{t("orders.delivery")}</SectionLabel>
             <div className="mt-3 space-y-3 text-sm text-slate-600">
               <p className="flex gap-2">
                 <CalendarDays
@@ -659,7 +973,7 @@ export default function HorecaOrderDetailsPage() {
                     {formatOrderDate(order.deliveryDate)}
                   </span>
                   <span className="text-xs text-slate-500">
-                    Requested delivery date
+                    {t("orders.requestedDeliveryDate")}
                   </span>
                 </span>
               </p>
@@ -673,14 +987,18 @@ export default function HorecaOrderDetailsPage() {
                     <span className="block font-semibold text-slate-900">{deliveryAddress.label}</span>
                   ) : null}
                   <span className="block">{deliveryAddress.fullAddress}</span>
-                  <span className="mt-1 block text-xs text-slate-500">Contact: {deliveryAddress.contactPerson} · {deliveryAddress.contactPhone}</span>
+                  {(deliveryAddress.contactPerson || deliveryAddress.contactPhone) ? (
+                    <span className="mt-1 block text-xs text-slate-500">
+                      {t("common.contact")}: {[deliveryAddress.contactPerson, deliveryAddress.contactPhone].filter(Boolean).join(" · ")}
+                    </span>
+                  ) : null}
                 </span>
               </p>
             </div>
           </section>
 
           <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <SectionLabel>Activity</SectionLabel>
+            <SectionLabel>{t("orders.activity")}</SectionLabel>
             <ol className="mt-4 space-y-4">
               {history.map((event) => (
                 <li key={event.id} className="flex gap-3">

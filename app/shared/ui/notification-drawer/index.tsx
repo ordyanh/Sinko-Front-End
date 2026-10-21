@@ -1,5 +1,6 @@
 import { Dialog, DialogBackdrop, DialogPanel, DialogTitle } from "@headlessui/react";
 import { Bell, CheckCheck, X, type LucideIcon } from "lucide-react";
+import { useTranslation } from "~/shared/lib/i18n";
 
 export type DashboardNotification = {
   id: string;
@@ -22,6 +23,7 @@ export default function NotificationDrawer({
   onClose,
   notifications,
 }: NotificationDrawerProps) {
+  const { t } = useTranslation();
   const unreadCount = notifications.filter((notification) => notification.unread).length;
 
   return (
@@ -33,22 +35,22 @@ export default function NotificationDrawer({
             <div>
               <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-primary">
                 <Bell className="h-4 w-4" aria-hidden="true" />
-                Updates
+                {t("notifications.updates", "Updates")}
               </div>
               <DialogTitle className="mt-1 text-xl font-bold tracking-tight text-slate-950">
-                Notifications
+                {t("notifications.title", "Notifications")}
               </DialogTitle>
               <p className="mt-1 text-sm text-slate-500">
                 {unreadCount > 0
-                  ? `${unreadCount} ${unreadCount === 1 ? "new update" : "new updates"}`
-                  : "You’re all caught up"}
+                  ? `${unreadCount} ${unreadCount === 1 ? t("notifications.newUpdate", "new update") : t("notifications.newUpdates", "new updates")}`
+                  : t("notifications.allCaughtUp", "You’re all caught up")}
               </p>
             </div>
             <button
               type="button"
               onClick={() => onClose(false)}
               className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-              aria-label="Close notifications"
+              aria-label={t("notifications.close", "Close notifications")}
             >
               <X className="h-5 w-5" aria-hidden="true" />
             </button>
@@ -78,9 +80,11 @@ export default function NotificationDrawer({
                           <p className="text-sm font-semibold leading-5 text-slate-800">
                             {notification.title}
                           </p>
-                          <time className="shrink-0 pt-0.5 text-xs font-medium text-slate-400">
-                            {notification.time}
-                          </time>
+                          {notification.time && notification.time !== "Invalid Date" ? (
+                            <time className="shrink-0 pt-0.5 text-xs font-medium text-slate-400">
+                              {notification.time}
+                            </time>
+                          ) : null}
                         </div>
                         <p className="mt-1 text-sm leading-5 text-slate-500">
                           {notification.detail}
@@ -96,8 +100,8 @@ export default function NotificationDrawer({
               <span className="grid h-14 w-14 place-items-center rounded-2xl bg-primary/10 text-primary">
                 <CheckCheck className="h-7 w-7" aria-hidden="true" />
               </span>
-              <p className="mt-4 font-semibold text-slate-900">No notifications yet</p>
-              <p className="mt-1 text-sm leading-6 text-slate-500">New activity will appear here.</p>
+              <p className="mt-4 font-semibold text-slate-900">{t("notifications.emptyTitle", "No notifications yet")}</p>
+              <p className="mt-1 text-sm leading-6 text-slate-500">{t("notifications.emptyDesc", "New activity will appear here.")}</p>
             </div>
           )}
         </DialogPanel>

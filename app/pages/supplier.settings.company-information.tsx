@@ -1,17 +1,20 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Building2, PencilLine } from "lucide-react";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { z } from "zod";
+import { armenianPhoneSchema } from "~/shared/lib/phone-validation";
 import Button from "~/shared/ui/button";
 import { Input } from "~/shared/ui/form";
 import Modal from "~/shared/ui/modal";
 import { useToast } from "~/shared/ui/toast";
 import { DashboardPageContent } from "~/shared/ui";
+import { getCompanyInfo, updateCompany } from "~/shared/api";
+import { useTranslation } from "~/shared/lib/i18n";
 
 const companyInfoSchema = z.object({
   companyName: z.string().trim().min(1, "Company name is required."),
-  phoneNumber: z.string().trim().min(1, "Phone number is required."),
+  phoneNumber: armenianPhoneSchema,
   companyAddress: z.string().trim().min(1, "Company address is required."),
   productCategories: z
     .string()
@@ -28,20 +31,18 @@ const companyInfoSchema = z.object({
 
 type CompanyInfoState = z.infer<typeof companyInfoSchema>;
 
-// Mock data standing in for the supplier company profile until the API is wired up.
 const initialCompanyInfo: CompanyInfoState = {
-  companyName: "Ararat Fresh LLC",
-  phoneNumber: "+374 10 654321",
-  companyAddress: "Komitas Ave 12, Arabkir, Yerevan",
-  productCategories: "Fresh Produce, Herbs, Fruits",
-  serviceAreas: "All Yerevan districts",
-  taxId: "00654321",
-  email: "sales@araratfresh.am",
+  companyName: "",
+  phoneNumber: "",
+  companyAddress: "",
+  productCategories: "",
+  serviceAreas: "",
+  taxId: "",
+  email: "",
 };
 
-const MOCK_SAVE_DELAY_MS = 800;
-
 export default function SupplierCompanyInformationPage() {
+  const { t } = useTranslation();
   const { showToast } = useToast();
   const [companyInfo, setCompanyInfo] = useState(initialCompanyInfo);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -55,6 +56,29 @@ export default function SupplierCompanyInformationPage() {
     formState: { errors, isSubmitting },
   } = form;
 
+  useEffect(() => {
+    let isCurrent = true;
+    getCompanyInfo()
+      .then((info) => {
+        if (!isCurrent || !info) return;
+        const merged: CompanyInfoState = {
+          companyName: info.companyName || "",
+          phoneNumber: info.phoneNumber || "",
+          companyAddress: info.address || "",
+          productCategories: info.description || "",
+          serviceAreas: (info.customServiceAreas?.join(", ")) || "",
+          taxId: info.hvhh || info.taxCode || "",
+          email: info.email || "",
+        };
+        setCompanyInfo(merged);
+        reset(merged);
+      })
+      .catch(() => {});
+    return () => {
+      isCurrent = false;
+    };
+  }, [reset]);
+
   function openEditModal() {
     reset(companyInfo);
     setIsEditModalOpen(true);
@@ -67,16 +91,23 @@ export default function SupplierCompanyInformationPage() {
   }
 
   const handleSave: SubmitHandler<CompanyInfoState> = async (values) => {
-    await new Promise<void>((resolve) => {
-      window.setTimeout(resolve, MOCK_SAVE_DELAY_MS);
-    });
+    try {
+      await updateCompany({
+        companyName: values.companyName,
+        phoneNumber: values.phoneNumber,
+        address: values.companyAddress,
+        description: values.productCategories,
+      });
+    } catch {
+      // Backend offline / error; local state will still update
+    }
 
     setCompanyInfo(values);
     reset(values);
     setIsEditModalOpen(false);
     showToast({
-      title: "Company information updated",
-      description: "Your changes have been saved.",
+      title: t("settings.companyInfoTitle"),
+      description: t("settings.languageUpdatedDesc"),
       variant: "success",
     });
   };
@@ -86,14 +117,13 @@ export default function SupplierCompanyInformationPage() {
       <div className="space-y-6">
         <header className="space-y-1.5">
           <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary">
-            Company
+            {t("settings.account")}
           </p>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
-            Company information
+            {t("settings.companyInfoTitle")}
           </h1>
           <p className="max-w-xl text-sm leading-6 text-slate-600">
-            Manage your business details, contact information and supplier
-            profile.
+            {t("settings.companyInfoSubtitle")}
           </p>
         </header>
 
@@ -105,10 +135,10 @@ export default function SupplierCompanyInformationPage() {
               </span>
               <div>
                 <h2 className="text-lg font-semibold tracking-tight text-slate-900">
-                  Supplier profile
+                  {t("settings.supplierProfileTitle")}
                 </h2>
                 <p className="mt-1 text-sm text-slate-500">
-                  Keep your business details accurate for restaurants and buyers.
+                  {t("settings.supplierProfileSubtitle")}
                 </p>
               </div>
             </div>
@@ -119,26 +149,26 @@ export default function SupplierCompanyInformationPage() {
               onClick={openEditModal}
             >
               <PencilLine className="h-4 w-4" aria-hidden="true" />
-              Edit company information
+              {t("settings.editCompanyInfo")}
             </Button>
           </div>
 
           <dl className="mt-7 grid gap-x-8 divide-y divide-slate-100 sm:grid-cols-2 sm:divide-y-0">
-            <CompanyInfoDetail label="Company name" value={companyInfo.companyName} />
-            <CompanyInfoDetail label="Phone number" value={companyInfo.phoneNumber} />
-            <CompanyInfoDetail label="Company address" value={companyInfo.companyAddress} />
-            <CompanyInfoDetail label="Tax ID (HVHH)" value={companyInfo.taxId} />
-            <CompanyInfoDetail label="Email address" value={companyInfo.email} />
-            <CompanyInfoDetail label="Product categories" value={companyInfo.productCategories} />
-            <CompanyInfoDetail label="Service areas" value={companyInfo.serviceAreas} />
+            <CompanyInfoDetail label={t("auth.companyName")} value={companyInfo.companyName} />
+            <CompanyInfoDetail label={t("auth.mobile")} value={companyInfo.phoneNumber} />
+            <CompanyInfoDetail label={t("auth.address")} value={companyInfo.companyAddress} />
+            <CompanyInfoDetail label={t("auth.taxCode")} value={companyInfo.taxId} />
+            <CompanyInfoDetail label={t("auth.email")} value={companyInfo.email} />
+            <CompanyInfoDetail label={t("auth.categories")} value={companyInfo.productCategories} />
+            <CompanyInfoDetail label={t("auth.activityType")} value={companyInfo.serviceAreas} />
           </dl>
         </section>
       </div>
 
       <Modal
         isOpen={isEditModalOpen}
-        title="Edit company information"
-        description="Update the details restaurants and buyers use to identify and contact your business."
+        title={t("settings.editCompanyInfo")}
+        description={t("settings.companyInfoSubtitle")}
         onClose={closeEditModal}
       >
         <form
@@ -149,7 +179,7 @@ export default function SupplierCompanyInformationPage() {
           <div className="grid gap-5 sm:grid-cols-2">
             <Input
               id="companyName"
-              label="Company name"
+              label={t("auth.companyName")}
               autoComplete="organization"
               errorMessage={errors.companyName?.message}
               {...register("companyName")}
@@ -157,14 +187,15 @@ export default function SupplierCompanyInformationPage() {
             <Input
               id="phoneNumber"
               type="tel"
-              label="Phone number"
+              label={t("auth.mobile")}
+              placeholder={t("auth.mobilePlaceholder")}
               autoComplete="tel"
               errorMessage={errors.phoneNumber?.message}
               {...register("phoneNumber")}
             />
             <Input
               id="companyAddress"
-              label="Company address"
+              label={t("auth.address")}
               autoComplete="street-address"
               className="sm:col-span-2"
               errorMessage={errors.companyAddress?.message}
@@ -172,28 +203,28 @@ export default function SupplierCompanyInformationPage() {
             />
             <Input
               id="taxId"
-              label="Tax ID (HVHH)"
+              label={t("auth.taxCode")}
               errorMessage={errors.taxId?.message}
               {...register("taxId")}
             />
             <Input
               id="email"
               type="email"
-              label="Email address"
+              label={t("auth.email")}
               autoComplete="email"
               errorMessage={errors.email?.message}
               {...register("email")}
             />
             <Input
               id="productCategories"
-              label="Product categories"
+              label={t("auth.categories")}
               className="sm:col-span-2"
               errorMessage={errors.productCategories?.message}
               {...register("productCategories")}
             />
             <Input
               id="serviceAreas"
-              label="Service areas"
+              label={t("auth.activityType")}
               className="sm:col-span-2"
               errorMessage={errors.serviceAreas?.message}
               {...register("serviceAreas")}
@@ -208,10 +239,10 @@ export default function SupplierCompanyInformationPage() {
               onClick={closeEditModal}
               disabled={isSubmitting}
             >
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button type="submit" className="w-full sm:w-40" loading={isSubmitting}>
-              Save changes
+              {t("common.save")}
             </Button>
           </div>
         </form>

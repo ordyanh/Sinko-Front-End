@@ -55,10 +55,16 @@ export async function getEmployeePositions(role?: string): Promise<string[]> {
   return Array.isArray(res) ? res : [];
 }
 
-export async function createEmployee(payload: CreateEmployeeRequest): Promise<unknown> {
+export async function createEmployee(
+  payload: CreateEmployeeRequest & Partial<InviteEmployeeRequest>,
+): Promise<unknown> {
+  const body = {
+    ...payload,
+    position: payload.position ?? (payload.role ? String(payload.role) : undefined),
+  };
   return apiRequest<unknown>("/api/Employee/add", {
     method: "POST",
-    body: JSON.stringify(payload),
+    body: JSON.stringify(body),
   });
 }
 

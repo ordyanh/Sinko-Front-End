@@ -6,12 +6,15 @@ import { defineConfig, loadEnv } from "vite";
 
 const normalizeUrl = (url: string) => url.replace(/\/+$/, "");
 
-const LOCAL_AUTH_DEFAULT = "http://localhost:5273/";
-const LOCAL_CORE_DEFAULT = "http://localhost:5206/";
-const REMOTE_AUTH_DEFAULT = "https://syncoauthservice-f0e9fkaqgyczegas.swedencentral-01.azurewebsites.net";
-const REMOTE_CORE_DEFAULT = "https://synco-h4etbseqg4h2ewcw.swedencentral-01.azurewebsites.net";
+const LOCAL_AUTH_DEFAULT = "http://localhost:5273";
+const LOCAL_CORE_DEFAULT = "http://localhost:5206";
+const REMOTE_AUTH_DEFAULT = "https://lobster-app-zhysf.ondigitalocean.app";
+const REMOTE_CORE_DEFAULT = "https://octopus-app-bomx6.ondigitalocean.app";
 
-function getActiveTarget(cwd: string) {
+function getActiveTarget(cwd: string, mode: string) {
+  if (process.env.VITE_BACKEND_TARGET) {
+    return process.env.VITE_BACKEND_TARGET.trim().toLowerCase();
+  }
   try {
     const envPath = path.resolve(cwd, ".env");
     if (fs.existsSync(envPath)) {
@@ -22,13 +25,13 @@ function getActiveTarget(cwd: string) {
   } catch {
     // fallback
   }
-  return "local";
+  return mode === "production" ? "remote" : "local";
 }
 
 export default defineConfig(({ mode }) => {
   const cwd = process.cwd();
   const env = loadEnv(mode, cwd, "");
-  const target = (getActiveTarget(cwd) || process.env.VITE_BACKEND_TARGET || "local").toLowerCase();
+  const target = (env.VITE_BACKEND_TARGET || getActiveTarget(cwd, mode)).toLowerCase();
   const isLocal = target === "local";
 
   const authUrl = normalizeUrl(
@@ -44,9 +47,9 @@ export default defineConfig(({ mode }) => {
   );
 
   console.log(`\n======================================================`);
-  console.log(`🚀 [Synco Dev Proxy] Active Target: ${isLocal ? "LOCAL (C:\\Src\\Horeca)" : "REMOTE (Azure Cloud)"}`);
-  console.log(`   Auth Service: ${authUrl} (local: http://localhost:5273/)`);
-  console.log(`   Core Service: ${coreUrl} (local: http://localhost:5206/)`);
+  console.log(`🚀 [Synco Dev Proxy] Active Target: ${isLocal ? "LOCAL (C:\\Src\\synco-app\\Horeca)" : "REMOTE (DigitalOcean Cloud)"}`);
+  console.log(`   Auth Service: ${authUrl} (local: http://localhost:5273)`);
+  console.log(`   Core Service: ${coreUrl} (local: http://localhost:5206)`);
   console.log(`   (Switch with: npm run use:local / npm run use:remote)`);
   console.log(`======================================================\n`);
 
@@ -56,6 +59,8 @@ export default defineConfig(({ mode }) => {
       tsconfigPaths: true,
     },
     server: {
+      host: true,
+      allowedHosts: true,
       proxy: {
         "^/(api/([Aa]uth|[Cc]ompany|[Ee]mployee|verification-request|auth/complete-onboarding|[Ss]upplier/(register|verify|resend-code)|me)|me)": {
           target: authUrl,

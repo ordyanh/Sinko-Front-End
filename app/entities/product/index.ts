@@ -13,4 +13,4 @@ export {
   type MarketplaceProduct,
   type MarketplaceSellingOption,
 } from "./model/product";
-export { getHorecaMarketplaceProducts } from "./model/horeca-catalog";
+export { getHorecaMarketplaceProducts, mapBackendMarketplaceProduct } from "./model/horeca-catalog";

@@ -10,6 +10,8 @@ import {
 import Button from "~/shared/ui/button";
 import { FieldError, Input, Select } from "~/shared/ui/form";
 import RegistrationCompleteCard from "~/shared/ui/registration-complete-card";
+import { LanguageSwitcher } from "~/shared/ui";
+import { useTranslation } from "~/shared/lib/i18n";
 import { registerSupplier } from "~/shared/api/auth";
 import { ApiError } from "~/shared/api/http";
 import { useFetcher } from "react-router";
@@ -103,40 +105,58 @@ export default function RegisterSupplierForm() {
     }
   };
 
+  const { t } = useTranslation();
+
   return (
     <main
       data-account-type="supplier"
       className="min-h-screen bg-[#f4f7f5] px-4 py-10 text-slate-950 sm:px-6"
     >
       <div className="relative mx-auto w-full max-w-3xl">
-        <a
-          href="/"
-          className="mb-4 inline-flex items-center gap-2 text-sm font-semibold text-primary transition hover:opacity-80"
-        >
-          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-          <span>Back to Home</span>
-        </a>
+        <div className="mb-4 flex items-center justify-between">
+          <a
+            href="/"
+            className="inline-flex items-center gap-2 text-sm font-semibold text-primary transition hover:opacity-80"
+          >
+            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+            <span>{t("common.backToHome")}</span>
+          </a>
+
+          <LanguageSwitcher />
+        </div>
 
         {registrationComplete ? (
           <RegistrationCompleteCard
-            eyebrow="Request sent"
-            title="Your request has been sent"
-            description="We'll contact you soon after we review your supplier details."
+            eyebrow={t("auth.verificationNoticeTitle")}
+            title={t("auth.verificationNoticeTitle")}
+            description={t("auth.verificationNoticeDesc")}
             notice="Your request has been received. We'll get back to you shortly."
             registeredEmail={registeredEmail}
           />
         ) : (
           <div className="rounded-4xl border border-slate-200/80 bg-white/95 p-6 shadow-2xl shadow-slate-900/10 backdrop-blur-sm sm:p-9">
+            {/* Account Type Selector for new users */}
+            <div className="mb-8 grid grid-cols-2 rounded-2xl border border-slate-200 bg-slate-100/90 p-1.5">
+              <a
+                href="/register-horeca"
+                className="flex items-center justify-center rounded-xl py-2.5 text-sm font-semibold text-slate-600 transition hover:text-slate-950"
+              >
+                {t("auth.horecaTitle")}
+              </a>
+              <span className="flex items-center justify-center rounded-xl bg-white py-2.5 text-sm font-bold text-sky-700 shadow-xs">
+                {t("auth.supplierTitle")}
+              </span>
+            </div>
+
             <div className="mb-8">
-              <p className="text-xs font-semibold uppercase tracking-[0.26em] text-primary">
-                Supplier Registration
+              <p className="text-xs font-semibold uppercase tracking-[0.26em] text-sky-700">
+                {t("auth.supplierRegistrationEyebrow")}
               </p>
               <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl">
-                Register your supply business
+                {t("auth.supplierRegistrationTitle")}
               </h1>
               <p className="mt-3 text-sm leading-7 text-slate-600">
-                Send your supplier details and we&apos;ll review the request
-                before reaching out.
+                {t("auth.supplierRegistrationSubtitle")}
               </p>
             </div>
 
@@ -156,8 +176,8 @@ export default function RegisterSupplierForm() {
                   <Input
                     id="companyName"
                     type="text"
-                    label="Company Name"
-                    placeholder="Supplier LLC"
+                    label={t("auth.companyName")}
+                    placeholder={t("auth.companyNamePlaceholder")}
                     errorMessage={errors.companyName?.message}
                     {...register("companyName")}
                     aria-invalid={errors.companyName ? "true" : "false"}
@@ -168,7 +188,7 @@ export default function RegisterSupplierForm() {
                   <Input
                     id="email"
                     type="email"
-                    label="Business Email"
+                    label={t("auth.email")}
                     placeholder="sales@supplier.am"
                     errorMessage={errors.email?.message}
                     {...register("email")}
@@ -180,8 +200,8 @@ export default function RegisterSupplierForm() {
                   <Input
                     id="mobile"
                     type="tel"
-                    label="Mobile Number"
-                    placeholder="+374 10 654321"
+                    label={t("auth.mobile")}
+                    placeholder={t("auth.mobilePlaceholder")}
                     errorMessage={errors.mobile?.message}
                     {...register("mobile")}
                     aria-invalid={errors.mobile ? "true" : "false"}
@@ -192,8 +212,8 @@ export default function RegisterSupplierForm() {
                   <Input
                     id="address"
                     type="text"
-                    label="Registered Address"
-                    placeholder="Yerevan, Armenia"
+                    label={t("auth.address")}
+                    placeholder={t("auth.addressPlaceholder")}
                     errorMessage={errors.address?.message}
                     {...register("address")}
                     aria-invalid={errors.address ? "true" : "false"}
@@ -204,8 +224,8 @@ export default function RegisterSupplierForm() {
                   <Input
                     id="taxCode"
                     type="text"
-                    label="Tax Code (HVHH)"
-                    placeholder="87654321"
+                    label={t("auth.taxCode")}
+                    placeholder={t("auth.taxCodePlaceholder")}
                     errorMessage={errors.taxCode?.message}
                     {...register("taxCode")}
                     aria-invalid={errors.taxCode ? "true" : "false"}
@@ -217,7 +237,7 @@ export default function RegisterSupplierForm() {
                     className="mb-2 block text-sm font-medium text-slate-900"
                     htmlFor="categoryIds"
                   >
-                    Product Categories
+                    {t("auth.categories")}
                   </label>
                   <Controller
                     control={control}
@@ -259,11 +279,11 @@ export default function RegisterSupplierForm() {
                     </p>
                   ) : isLoadingCategories ? (
                     <p className="mt-2 text-sm text-slate-500">
-                      Loading categories...
+                      {t("common.loading")}
                     </p>
                   ) : (
                     <p className="mt-2 text-sm text-slate-500">
-                      Select one or more categories that match your business.
+                      {t("auth.categoriesSelectPlaceholder")}
                     </p>
                   )}
                 </div>
@@ -272,8 +292,8 @@ export default function RegisterSupplierForm() {
                   <Input
                     id="password"
                     type="password"
-                    label="Password"
-                    placeholder="Minimum 8 characters"
+                    label={t("auth.password")}
+                    placeholder={t("auth.passwordPlaceholder")}
                     errorMessage={errors.password?.message}
                     {...register("password")}
                     aria-invalid={errors.password ? "true" : "false"}
@@ -284,8 +304,8 @@ export default function RegisterSupplierForm() {
                   <Input
                     id="confirmPassword"
                     type="password"
-                    label="Confirm Password"
-                    placeholder="Repeat your password"
+                    label={t("auth.confirmPassword")}
+                    placeholder={t("auth.confirmPasswordPlaceholder")}
                     errorMessage={errors.confirmPassword?.message}
                     {...register("confirmPassword")}
                     aria-invalid={errors.confirmPassword ? "true" : "false"}
@@ -294,16 +314,16 @@ export default function RegisterSupplierForm() {
               </div>
 
               <Button type="submit" loading={isSubmitting}>
-                Create supplier account
+                {t("auth.createSupplierAccount")}
               </Button>
             </form>
           </div>
         )}
 
         <p className="mt-5 text-center text-sm text-slate-600">
-          Already have an account?{" "}
-          <a className="font-semibold text-primary" href="/login">
-            Login
+          {t("auth.alreadyHaveAccount")}{" "}
+          <a className="font-semibold text-primary underline underline-offset-4 hover:opacity-80" href="/login">
+            {t("nav.logIn")}
           </a>
         </p>
       </div>

@@ -6,6 +6,7 @@ export type UserRole = "Client" | "Supplier";
 export type RegisterRequest = {
   companyName?: string | null;
   email?: string | null;
+  phoneNumber?: string | null;
   mobile?: string | null;
   address?: string | null;
   taxCode?: string | null;
@@ -74,6 +75,7 @@ export type ConfirmEmailRequest = {
 
 export type ChangePasswordRequest = {
   oldPassword?: string | null;
+  currentPassword?: string | null;
   newPassword?: string | null;
 };
 
@@ -152,6 +154,7 @@ export type UpdateEmployeeRequest = {
   firstName?: string | null;
   lastName?: string | null;
   position?: string | null;
+  phoneNumber?: string | null;
   role?: EmployeeRole;
   status?: EmployeeStatus;
   statusStartDate?: string | null;
@@ -159,9 +162,15 @@ export type UpdateEmployeeRequest = {
 };
 
 export async function registerUser(payload: RegisterRequest) {
+  const phone = payload.phoneNumber ?? payload.mobile ?? null;
+  const requestBody = {
+    ...payload,
+    phoneNumber: phone,
+    mobile: payload.mobile ?? phone,
+  };
   return apiRequest<void>("/api/Auth/register", {
     method: "POST",
-    body: JSON.stringify(payload),
+    body: JSON.stringify(requestBody),
   });
 }
 
@@ -187,7 +196,11 @@ export async function logoutUser() {
 export async function changePassword(payload: ChangePasswordRequest) {
   return apiRequest<void>("/api/Auth/change-password", {
     method: "POST",
-    body: JSON.stringify(payload),
+    body: JSON.stringify({
+      oldPassword: payload.oldPassword ?? payload.currentPassword ?? null,
+      currentPassword: payload.currentPassword ?? payload.oldPassword ?? null,
+      newPassword: payload.newPassword ?? null,
+    }),
   });
 }
 
@@ -281,15 +294,3 @@ export async function updateEmployeeById(
     body: JSON.stringify(payload),
   });
 }
-
-export const mockApiRequest = (success = true) => {
-  return new Promise((resolve, reject) => {
-    setTimeout(() => {
-      if (success) {
-        resolve({ success: true });
-      } else {
-        reject({ success: false });
-      }
-    }, 1000);
-  });
-};

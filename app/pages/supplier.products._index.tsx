@@ -21,6 +21,7 @@ import {
   type SearchFilterValue,
 } from "~/shared/ui";
 import Modal from "~/shared/ui/modal";
+import { useTranslation } from "~/shared/lib/i18n";
 import {
   deleteSupplierProduct,
   getLoggedInUser,
@@ -70,8 +71,6 @@ function formatAmd(value: number) {
   }).format(value);
 }
 
-const pageSize = 3;
-
 const importPreviewProducts: ImportPreviewProduct[] = [
   {
     row: 2,
@@ -111,84 +110,86 @@ const importPreviewProducts: ImportPreviewProduct[] = [
   },
 ];
 
-const columns: TableColumn<SupplierProduct>[] = [
-  {
-    id: "product",
-    header: "Product",
-    cell: (product) => (
-      <div className="flex items-center gap-3">
-        {product.image ? (
-          <img
-            src={product.image}
-            alt={product.name}
-            className="h-12 w-12 rounded-xl object-cover ring-1 ring-slate-200"
-          />
-        ) : (
-          <span className="grid h-12 w-12 place-items-center rounded-xl bg-slate-100 text-slate-400 ring-1 ring-slate-200">
-            <Package className="h-5 w-5" aria-label="No product image" />
-          </span>
-        )}
-        <div className="min-w-0">
-          <p className="truncate font-semibold text-slate-900">
-            {product.name}
-          </p>
-          <p className="mt-0.5 text-xs text-slate-500">{product.id}</p>
-        </div>
-      </div>
-    ),
-  },
-  { id: "category", header: "Category", cell: (product) => product.category },
-  {
-    id: "selling-options",
-    header: "Selling options",
-    cell: (product) => (
-      <div className="space-y-1.5 py-1">
-        {product.sellingOptions.map((option) => (
-          <p key={option.label} className="text-xs text-slate-600">
-            <span className="font-semibold text-slate-800">{option.label}</span>
-            <span className="ml-1.5 tabular-nums">{formatAmd(option.price)}</span>
-            <span className="ml-1.5 text-slate-400">min. {option.minimumOrderQuantity}</span>
-          </p>
-        ))}
-      </div>
-    ),
-  },
-  {
-    id: "product-code",
-    header: "Product Code",
-    cell: (product) => product.code ?? "—",
-  },
-  {
-    id: "status",
-    header: "Status",
-    cell: (product) => (
-      <span
-        className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
-          product.status === "Active"
-            ? "bg-emerald-50 text-emerald-700"
-            : product.status === "Unlisted"
-              ? "bg-amber-50 text-amber-800"
-              : product.status === "Draft"
-                ? "bg-sky-50 text-sky-700"
-                : "bg-slate-200 text-slate-700"
-        }`}
-      >
-        {product.status}
-      </span>
-    ),
-  },
-];
-
 export default function SupplierProductsPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [accountId, setAccountId] = useState<string | null>(null);
   const [products, setProducts] = useState<SupplierProduct[]>([]);
+
+  const columns: TableColumn<SupplierProduct>[] = [
+    {
+      id: "product",
+      header: t("cart.item"),
+      cell: (product) => (
+        <div className="flex items-center gap-3">
+          {product.image ? (
+            <img
+              src={product.image}
+              alt={product.name}
+              className="h-12 w-12 rounded-xl object-cover ring-1 ring-slate-200"
+            />
+          ) : (
+            <span className="grid h-12 w-12 place-items-center rounded-xl bg-slate-100 text-slate-400 ring-1 ring-slate-200">
+              <Package className="h-5 w-5" aria-label="No product image" />
+            </span>
+          )}
+          <div className="min-w-0">
+            <p className="truncate font-semibold text-slate-900">
+              {product.name}
+            </p>
+            <p className="mt-0.5 text-xs text-slate-500">{product.id}</p>
+          </div>
+        </div>
+      ),
+    },
+    { id: "category", header: t("products.category"), cell: (product) => product.category },
+    {
+      id: "selling-options",
+      header: t("products.packaging"),
+      cell: (product) => (
+        <div className="space-y-1.5 py-1">
+          {product.sellingOptions.map((option) => (
+            <p key={option.label} className="text-xs text-slate-600">
+              <span className="font-semibold text-slate-800">{option.label}</span>
+              <span className="ml-1.5 tabular-nums">{formatAmd(option.price)}</span>
+              <span className="ml-1.5 text-slate-400">min. {option.minimumOrderQuantity}</span>
+            </p>
+          ))}
+        </div>
+      ),
+    },
+    {
+      id: "product-code",
+      header: "SKU",
+      cell: (product) => product.code ?? "—",
+    },
+    {
+      id: "status",
+      header: t("common.status"),
+      cell: (product) => (
+        <span
+          className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
+            product.status === "Active"
+              ? "bg-emerald-50 text-emerald-700"
+              : product.status === "Unlisted"
+                ? "bg-amber-50 text-amber-800"
+                : product.status === "Draft"
+                  ? "bg-sky-50 text-sky-700"
+                  : "bg-slate-200 text-slate-700"
+          }`}
+        >
+          {product.status}
+        </span>
+      ),
+    },
+  ];
   const [searchValue, setSearchValue] = useState("");
   const [selectedFilters, setSelectedFilters] = useState<SearchFilterValue[]>(
     [],
   );
   const [createdDate, setCreatedDate] = useState("");
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [importStep, setImportStep] = useState<"upload" | "preview">("upload");
@@ -221,39 +222,43 @@ export default function SupplierProductsPage() {
 
     void (async () => {
       const user = await getLoggedInUser();
-      if (!user || user.role !== "supplier") return;
-
-      const [storedProducts, categories] = await Promise.all([
-        getSupplierProducts(user.id),
-        getSupplierCategories(user.id),
-      ]);
+      const currentAccountId = user?.id || "supplier";
       if (!isCurrent) return;
+      setAccountId(currentAccountId);
 
-      const categoriesById = new Map(categories.map((category) => [category.id, category.name]));
-      setAccountId(user.id);
-      setProducts(
-        storedProducts.map((product) => ({
-          id: product.id,
-          name: product.name,
-          category: product.categoryIds.map((id) => categoriesById.get(id)).filter(Boolean).join(", ") || "Uncategorized",
-          createdAt: product.createdAt,
-          price: product.sellingOptions[0]?.price ?? 0,
-          sellingOptions: product.sellingOptions.map((option) => ({
-            label: `${option.quantity} ${option.unitType}${option.unitType === "Package" && option.piecesPerPackage ? ` (${option.piecesPerPackage} pcs)` : ""}`,
-            price: option.price,
-            minimumOrderQuantity: option.minimumOrderQuantity,
+      try {
+        const [storedProducts, categories] = await Promise.all([
+          getSupplierProducts(currentAccountId),
+          getSupplierCategories(currentAccountId),
+        ]);
+        if (!isCurrent) return;
+
+        const categoriesById = new Map(categories.map((category) => [category.id, category.name]));
+        setProducts(
+          storedProducts.map((product) => ({
+            id: product.id,
+            name: product.name,
+            category: (product.categoryIds || []).map((id) => categoriesById.get(id)).filter(Boolean).join(", ") || "Uncategorized",
+            createdAt: product.createdAt || "",
+            price: (product.sellingOptions && product.sellingOptions[0]?.price) ?? 0,
+            sellingOptions: (product.sellingOptions || []).map((option) => ({
+              label: `${option.quantity} ${option.unitType}${option.unitType === "Package" && option.piecesPerPackage ? ` (${option.piecesPerPackage} pcs)` : ""}`,
+              price: option.price,
+              minimumOrderQuantity: option.minimumOrderQuantity,
+            })),
+            code: product.code,
+            image: product.imageUrl ?? "",
+            status: product.status,
+            storedProduct: product,
           })),
-          code: product.code,
-          image: product.imageUrl ?? "",
-          status: product.status,
-          storedProduct: product,
-        })),
-      );
-    })().catch(() => {
-      if (isCurrent) {
-        setCatalogNotice({ title: "Products unavailable", description: "We couldn't load your catalog." });
+        );
+      } catch (err) {
+        console.error("Failed to load supplier products:", err);
+        if (isCurrent) {
+          setCatalogNotice({ title: "Products unavailable", description: "We couldn't load your catalog." });
+        }
       }
-    });
+    })();
 
     return () => {
       isCurrent = false;
@@ -288,7 +293,7 @@ export default function SupplierProductsPage() {
     const lastPage = Math.max(1, Math.ceil(filteredProducts.length / pageSize));
 
     if (page > lastPage) setPage(lastPage);
-  }, [filteredProducts.length, page]);
+  }, [filteredProducts.length, page, pageSize]);
 
   function handleSearchChange(value: string) {
     setSearchValue(value);
@@ -396,7 +401,7 @@ export default function SupplierProductsPage() {
   return (
     <DashboardTableContent>
       <TableLayout
-        title="Products"
+        title={t("nav.products")}
         icon={<Package className="h-5 w-5" aria-hidden="true" />}
         primaryAction={
           <button
@@ -405,7 +410,7 @@ export default function SupplierProductsPage() {
             className="inline-flex items-center gap-2 rounded-lg bg-primary px-3.5 py-2.5 text-sm font-semibold text-primary-content transition hover:brightness-95"
           >
             <Plus className="h-4 w-4" aria-hidden="true" />
-            Add product
+            {t("dashboard.addProduct")}
           </button>
         }
         secondaryActions={
@@ -479,7 +484,7 @@ export default function SupplierProductsPage() {
         }
         searchValue={searchValue}
         onSearchChange={handleSearchChange}
-        searchPlaceholder="Search products"
+        searchPlaceholder={t("products.searchPlaceholder")}
         searchFilters={supplierProductSearchFilters}
         selectedSearchFilters={selectedFilters}
         onSelectedSearchFiltersChange={handleSelectedFiltersChange}
@@ -498,7 +503,7 @@ export default function SupplierProductsPage() {
             onClick: handleToggleProductStatus,
           },
           {
-            label: "Delete",
+            label: t("common.delete"),
             icon: <Trash2 aria-hidden="true" />,
             variant: "danger",
             onClick: setProductToDelete,
@@ -507,8 +512,10 @@ export default function SupplierProductsPage() {
         page={page}
         onPageChange={setPage}
         pageSize={pageSize}
+        onPageSizeChange={setPageSize}
+        pageSizeOptions={[5, 10, 25, 50, 100]}
         totalCount={filteredProducts.length}
-        emptyMessage="No products match your search."
+        emptyMessage={t("common.noResults")}
       />
 
       <Modal

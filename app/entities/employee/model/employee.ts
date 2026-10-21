@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { armenianPhoneOptionalSchema } from "~/shared/lib/phone-validation";
 import type { CompanyType } from "~/entities/company/models/company";
 export const EmployeeRole = {
   Admin: "Admin",
@@ -42,7 +43,7 @@ export type BaseEmployee<TCompany extends CompanyType, TRole extends string> = {
 export const employeeFormFields = {
   employeeName: z.string().nullable().optional(),
   email: z.string().nullable().optional(),
-  phoneNumber: z.string().nullable().optional(),
+  phoneNumber: armenianPhoneOptionalSchema,
   firstName: z.string().nullable().optional(),
   lastName: z.string().nullable().optional(),
 };

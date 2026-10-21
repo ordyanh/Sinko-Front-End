@@ -103,13 +103,20 @@ export async function handleRegistrationProxyAction<TValues>({
       status: 400,
     },
     onError(error) {
+      const status =
+        error instanceof ApiError &&
+        typeof error.status === "number" &&
+        error.status >= 400 &&
+        error.status < 500
+          ? error.status
+          : 500;
       return {
         body: {
           ok: false,
           error:
             error instanceof ApiError ? error.message : fallbackErrorMessage,
         },
-        status: 500,
+        status,
       };
     },
   });

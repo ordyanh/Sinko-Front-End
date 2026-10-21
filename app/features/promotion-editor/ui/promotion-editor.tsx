@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
-import { mockCustomers } from "~/entities/horeca";
+import { getMyClients } from "~/shared/api";
 import {
   getPromotionTone,
   PromotionBanner,
@@ -28,6 +28,7 @@ import {
 } from "~/entities/promotion";
 import { DashboardHeaderActions, DashboardPageContent } from "~/shared/ui";
 import { useToast } from "~/shared/ui/toast";
+import { useTranslation } from "~/shared/lib/i18n";
 import {
   createSupplierPromotionId,
   getLoggedInUser,
@@ -68,6 +69,14 @@ type SellingOption = {
   minimumOrderQuantity: number;
 };
 
+type PromotionCustomer = {
+  id: string;
+  companyName: string;
+  contactName: string;
+  email: string;
+  activityType: string;
+};
+
 type DiscountScope = "all-options" | "specific-options";
 
 function todayDateInputValue() {
@@ -85,6 +94,27 @@ const sellingOptionUnitTypes = [
 ] as const;
 type SellingOptionUnitType = (typeof sellingOptionUnitTypes)[number];
 
+function getUnitTypeLabel(unitType: SellingOptionUnitType, t: (k: string, fallback?: string) => string): string {
+  switch (unitType) {
+    case "Piece (հատ)":
+      return t("products.unitPiece");
+    case "Kilogram (կգ)":
+      return t("products.unitKilogram");
+    case "Gram (գ)":
+      return t("products.unitGram");
+    case "Liter (լ)":
+      return t("products.unitLiter");
+    case "Milliliter (մլ)":
+      return t("products.unitMilliliter");
+    case "Package":
+      return t("products.unitPackage");
+    case "Custom selling unit":
+      return t("products.unitCustom");
+    default:
+      return unitType;
+  }
+}
+
 /** A selling option that belongs to this BXGY promotion only, not the catalog. */
 type PromotionOnlySellingOption = {
   id: string;
@@ -97,17 +127,6 @@ type PromotionOnlySellingOption = {
   compareAtPrice: string;
   minimumOrderQuantity: string;
 };
-
-const bannerPlacementOptions: Array<{
-  value: PromotionDisplay;
-  title: string;
-  description: string;
-  icon: typeof House;
-}> = [
-  { value: "both", title: "Home + Promotions", description: "Reach buyers browsing the dashboard or comparing offers.", icon: PanelsTopLeft },
-  { value: "home-banner", title: "Home Only", description: "Feature the offer on the HORECA dashboard.", icon: House },
-  { value: "promotion-list", title: "Promotions Only", description: "Keep it available to buyers actively looking for offers.", icon: List },
-];
 
 function optionKey(productId: string, sellingOptionId: string) {
   return `${productId}:${sellingOptionId}`;
@@ -128,68 +147,7 @@ function getPromotionOnlyOptionLabel(option: PromotionOnlySellingOption) {
   return `${option.quantity || "—"} ${unit}${pieces}`;
 }
 
-const supplierProducts: SupplierProduct[] = [
-  {
-    id: "PROD-1001",
-    name: "Organic Citrus Mix",
-    category: "Fresh Produce",
-    price: 18_500,
-    sellingOptions: [
-      { id: "option-1", label: "5 kg box", price: 18_500, minimumOrderQuantity: 1 },
-      { id: "option-2", label: "15 kg case", price: 51_000, minimumOrderQuantity: 1 },
-    ],
-    imageUrl:
-      "https://images.unsplash.com/photo-1615485290382-441e4d049cb5?auto=format&fit=crop&w=160&q=80",
-  },
-  {
-    id: "PROD-1002",
-    name: "Premium Extra Virgin Olive Oil",
-    category: "Pantry",
-    price: 24_000,
-    sellingOptions: [
-      { id: "option-1", label: "1 L bottle", price: 24_000, minimumOrderQuantity: 3 },
-      { id: "option-2", label: "6 × 1 L case", price: 136_800, minimumOrderQuantity: 1 },
-    ],
-    imageUrl:
-      "https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?auto=format&fit=crop&w=160&q=80",
-  },
-  {
-    id: "PROD-1003",
-    name: "Artisan Basil Bundle",
-    category: "Herbs",
-    price: 9_750,
-    sellingOptions: [
-      { id: "option-1", label: "1 bunch", price: 9_750, minimumOrderQuantity: 3 },
-      { id: "option-2", label: "12 bunch crate", price: 105_000, minimumOrderQuantity: 1 },
-    ],
-    imageUrl:
-      "https://images.unsplash.com/photo-1461354464878-ad92f492a5a0?auto=format&fit=crop&w=160&q=80",
-  },
-  {
-    id: "PROD-1004",
-    name: "Farmhouse Cheese Selection",
-    category: "Dairy",
-    price: 31_250,
-    sellingOptions: [
-      { id: "option-1", label: "3 kg wheel", price: 31_250, minimumOrderQuantity: 1 },
-      { id: "option-2", label: "12 kg case", price: 118_000, minimumOrderQuantity: 1 },
-    ],
-    imageUrl:
-      "https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?auto=format&fit=crop&w=160&q=80",
-  },
-  {
-    id: "PROD-1005",
-    name: "Sunrise Berry Box",
-    category: "Fruit",
-    price: 16_000,
-    sellingOptions: [
-      { id: "option-1", label: "4 kg tray", price: 16_000, minimumOrderQuantity: 2 },
-      { id: "option-2", label: "12 kg case", price: 45_600, minimumOrderQuantity: 1 },
-    ],
-    imageUrl:
-      "https://images.unsplash.com/photo-1464965911861-746a04b4bca6?auto=format&fit=crop&w=160&q=80",
-  },
-];
+const supplierProducts: SupplierProduct[] = [];
 
 function formatCurrency(amount: number) {
   return new Intl.NumberFormat("hy-AM", {
@@ -229,12 +187,25 @@ export default function PromotionEditor({
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { showToast } = useToast();
+  const { t } = useTranslation();
+
+  const bannerPlacementOptions: Array<{
+    value: PromotionDisplay;
+    title: string;
+    description: string;
+    icon: typeof House;
+  }> = [
+    { value: "both", title: t("promotions.placementBothTitle"), description: t("promotions.placementBothDesc"), icon: PanelsTopLeft },
+    { value: "home-banner", title: t("promotions.placementHomeTitle"), description: t("promotions.placementHomeDesc"), icon: House },
+    { value: "promotion-list", title: t("promotions.placementPromotionsTitle"), description: t("promotions.placementPromotionsDesc"), icon: List },
+  ];
+
   const [accountId, setAccountId] = useState("");
   const [isLoadingPromotion, setIsLoadingPromotion] = useState(isEditing);
   const [isSaving, setIsSaving] = useState(false);
   const [isSavingStatus, setIsSavingStatus] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-  const [supplierName, setSupplierName] = useState("Your company");
+  const [supplierName, setSupplierName] = useState(t("promotions.yourCompany"));
   const visualUploadInputRef = useRef<HTMLInputElement>(null);
   const [isBuyXGetY, setIsBuyXGetY] = useState(isEditing
     ? promotionId === "PROMO-1003"
@@ -271,27 +242,13 @@ export default function PromotionEditor({
     useState<ProductSelectionTarget>(null);
   const [productSearch, setProductSearch] = useState("");
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
-  const [discountProductIds, setDiscountProductIds] = useState<string[]>(
-    isEditing && !isBuyXGetY ? ["PROD-1001", "PROD-1002"] : [],
-  );
-  const [discountOptionKeys, setDiscountOptionKeys] = useState<string[]>(
-    isEditing && !isBuyXGetY
-      ? [optionKey("PROD-1001", "option-1"), optionKey("PROD-1002", "option-1")]
-      : [],
-  );
+  const [discountProductIds, setDiscountProductIds] = useState<string[]>([]);
+  const [discountOptionKeys, setDiscountOptionKeys] = useState<string[]>([]);
   const [fixedPrices, setFixedPrices] = useState<Record<string, string>>({});
-  const [triggerProductId, setTriggerProductId] = useState(
-    isBuyXGetY ? "PROD-1001" : "",
-  );
-  const [triggerOptionId, setTriggerOptionId] = useState(
-    isBuyXGetY ? "option-2" : "",
-  );
-  const [targetProductId, setTargetProductId] = useState(
-    isBuyXGetY ? "PROD-1004" : "",
-  );
-  const [targetOptionId, setTargetOptionId] = useState(
-    isBuyXGetY ? "option-1" : "",
-  );
+  const [triggerProductId, setTriggerProductId] = useState("");
+  const [triggerOptionId, setTriggerOptionId] = useState("");
+  const [targetProductId, setTargetProductId] = useState("");
+  const [targetOptionId, setTargetOptionId] = useState("");
   const [giftChoices, setGiftChoices] = useState<Array<{ productId: string; optionId: string }>>([]);
   const [isCreatingTargetSellingOption, setIsCreatingTargetSellingOption] = useState(false);
   const [newTargetOption, setNewTargetOption] = useState<PromotionOnlySellingOption>({
@@ -310,11 +267,7 @@ export default function PromotionEditor({
   const [applyOnIndividualPricing, setApplyOnIndividualPricing] = useState(false);
   const [display, setDisplay] = useState<PromotionDisplay>("both");
   const [isBannerEnabled, setIsBannerEnabled] = useState(true);
-  const [visualUrl, setVisualUrl] = useState(
-    isEditing
-      ? "https://images.unsplash.com/photo-1615485290382-441e4d049cb5?auto=format&fit=crop&w=1200&q=85"
-      : "",
-  );
+  const [visualUrl, setVisualUrl] = useState("");
   const [visualError, setVisualError] = useState("");
   const [bannerImage, setBannerImage] = useState<StoredSupplierPromotion["bannerImage"]>();
   const [brandColorFallback, setBrandColorFallback] = useState("#0284c7");
@@ -322,7 +275,8 @@ export default function PromotionEditor({
   const [customerSearch, setCustomerSearch] = useState("");
   const [selectedCustomerIds, setSelectedCustomerIds] = useState<string[]>([]);
   const [eligibleCustomerIds, setEligibleCustomerIds] = useState<string[]>([]);
-  const [catalogProducts, setCatalogProducts] = useState<SupplierProduct[]>(supplierProducts);
+  const [catalogProducts, setCatalogProducts] = useState<SupplierProduct[]>([]);
+  const [availableCustomers, setAvailableCustomers] = useState<PromotionCustomer[]>([]);
 
   const isSingleProductSelection = productSelectionTarget === "trigger";
   const normalizedProductSearch = productSearch.trim().toLowerCase();
@@ -364,14 +318,14 @@ export default function PromotionEditor({
   // This panel opens only while a supplier is creating a new catalog option
   // for one of the selected Y products.
   const showLegacyTargetOptionEditor = isCreatingTargetSellingOption;
-  const eligibleCustomers = mockCustomers.filter((customer) =>
+  const eligibleCustomers = availableCustomers.filter((customer) =>
     eligibleCustomerIds.includes(customer.id),
   );
   const promotionTypeLabel = isBuyXGetY
-    ? "Buy X, get Y"
+    ? t("promotions.buyXGetY")
     : discountType === "fixed-price"
-      ? "Fixed price"
-      : "Percentage discount";
+      ? t("promotions.fixedPrice")
+      : t("promotions.percentageDiscount");
   const previewPromotionType: MarketplacePromotion["type"] = isBuyXGetY
     ? "BuyXGetY"
     : discountType === "fixed-price"
@@ -381,20 +335,20 @@ export default function PromotionEditor({
     ? Number(fixedPrices[optionKey(selectedDiscountOptions[0].product.id, selectedDiscountOptions[0].option.id)])
     : Number.NaN;
   const previewBenefitLabel = isBuyXGetY
-    ? `Buy ${triggerQuantity || "X"}, choose ${targetQuantity || "Y"} free`
+    ? t("promotions.previewBuyXGetY", { x: triggerQuantity || "X", y: targetQuantity || "Y" })
     : discountType === "fixed-price"
       ? Number.isFinite(previewFixedPrice)
-        ? `${new Intl.NumberFormat("en-US").format(previewFixedPrice)} դրամ fixed price`
-        : "Set a fixed price"
+        ? t("promotions.previewFixedPrice", { price: formatCurrency(previewFixedPrice) })
+        : t("promotions.setFixedPrice")
       : discountValue
-        ? `${discountValue}% off`
-        : "Set a discount";
+        ? t("promotions.previewPercentOff", { percent: discountValue })
+        : t("promotions.setDiscount");
   // This object is derived at render time from the live form state. It has no
   // saved ID and is never passed to the IndexedDB-backed mock.
   const previewPromotion: MarketplacePromotion = {
     id: "promotion-preview",
     supplierName,
-    title: name.trim() || "Untitled promotion",
+    title: name.trim() || t("promotions.untitledPromotion"),
     description: description.trim(),
     type: previewPromotionType,
     startDate: startDate || todayDateInputValue(),
@@ -403,7 +357,7 @@ export default function PromotionEditor({
       ? [triggerProductId, ...giftChoices.map((choice) => choice.productId)].filter(Boolean)
       : discountProductIds,
     benefitLabel: previewBenefitLabel,
-    conditions: "Preview only — changes have not been saved.",
+    conditions: t("promotions.previewOnlyNotice"),
     display,
     isBannerEnabled,
     visualUrl: visualUrl || undefined,
@@ -417,7 +371,7 @@ export default function PromotionEditor({
     tone: getPromotionTone(brandColorFallback),
   };
   const normalizedCustomerSearch = customerSearch.trim().toLowerCase();
-  const filteredCustomers = mockCustomers.filter((customer) =>
+  const filteredCustomers = availableCustomers.filter((customer) =>
     [
       customer.companyName,
       customer.contactName,
@@ -438,14 +392,26 @@ export default function PromotionEditor({
 
       setAccountId(user.id);
       setSupplierName(user.companyName);
-      const storedProducts = await getSupplierProducts(user.id);
+      const [storedProducts, clients] = await Promise.all([
+        getSupplierProducts(user.id),
+        getMyClients(),
+      ]);
       if (!isCurrent) return;
+      setAvailableCustomers(
+        clients.map((c) => ({
+          id: c.clientId || c.id,
+          companyName: c.companyName || "Unknown Customer",
+          contactName: c.contactPerson || "",
+          email: c.email || "",
+          activityType: c.status || "Customer",
+        })),
+      );
       setCatalogProducts(storedProducts.map((product) => ({
         id: product.id,
         name: product.name,
         category: "Supplier catalog",
         price: product.sellingOptions[0]?.price ?? 0,
-        imageUrl: product.imageUrl ?? "/favicon.ico",
+        imageUrl: product.imageUrl ?? "",
         sellingOptions: product.sellingOptions.map((option) => ({
           id: option.id,
           label: `${option.quantity} ${option.customUnit?.trim() || option.unitType}${option.unitType === "Package" && option.piecesPerPackage ? ` (${option.piecesPerPackage} pcs)` : ""}`,
@@ -454,6 +420,13 @@ export default function PromotionEditor({
         })),
       })));
       if (!isEditing || !promotionId) {
+        if (storedProducts.length > 0) {
+          setTriggerProductId((prev) => prev || storedProducts[0].id);
+          setTriggerOptionId((prev) => prev || storedProducts[0].sellingOptions[0]?.id || "");
+          setTargetProductId((prev) => prev || (storedProducts.length > 1 ? storedProducts[1].id : storedProducts[0].id));
+          setTargetOptionId((prev) => prev || (storedProducts.length > 1 ? storedProducts[1].sellingOptions[0]?.id : storedProducts[0].sellingOptions[0]?.id) || "");
+          setDiscountProductIds((prev) => prev.length > 0 ? prev : [storedProducts[0].id]);
+        }
         setIsLoadingPromotion(false);
         return;
       }
@@ -503,8 +476,8 @@ export default function PromotionEditor({
       if (!isCurrent) return;
       setIsLoadingPromotion(false);
       showToast({
-        title: "Promotion details unavailable",
-        description: "The saved promotion could not be loaded. You can still update its configuration.",
+        title: t("promotions.detailsUnavailableTitle"),
+        description: t("promotions.detailsUnavailableDesc"),
         variant: "error",
       });
     });
@@ -512,9 +485,19 @@ export default function PromotionEditor({
     return () => {
       isCurrent = false;
     };
-  }, [isEditing, promotionId, showToast]);
+  }, [isEditing, promotionId, showToast, t]);
 
   async function handleStatusChange(nextIsActive: boolean) {
+    if (nextIsActive && (!startDate || !startDate.trim())) {
+      showToast({
+        title: t("promotions.activationDateRequiredTitle"),
+        description: t("promotions.activationDateRequiredDesc"),
+        variant: "error",
+      });
+      setIsActive(false);
+      return;
+    }
+
     setIsActive(nextIsActive);
 
     // Existing promotions save this control immediately. Status is an
@@ -529,20 +512,22 @@ export default function PromotionEditor({
       await saveSupplierPromotion({
         ...existingPromotion,
         status: nextIsActive ? "Active" : "Draft",
+        startDate: startDate || existingPromotion.startDate || todayDateInputValue(),
+        endDate: hasEndDate && endDate ? endDate : existingPromotion.endDate,
         updatedAt: new Date().toISOString(),
       });
       showToast({
-        title: nextIsActive ? "Promotion activated" : "Promotion deactivated",
+        title: nextIsActive ? t("promotions.activatedTitle") : t("promotions.deactivatedTitle"),
         description: nextIsActive
-          ? "Customers can use it during its validity period."
-          : "Customers can no longer use this promotion.",
+          ? t("promotions.activatedDesc")
+          : t("promotions.deactivatedDesc"),
         variant: "success",
       });
     } catch {
       setIsActive(!nextIsActive);
       showToast({
-        title: "Status wasn't saved",
-        description: "Try changing the promotion status again.",
+        title: t("promotions.statusNotSavedTitle"),
+        description: t("promotions.statusNotSavedDesc"),
         variant: "error",
       });
     } finally {
@@ -672,7 +657,7 @@ export default function PromotionEditor({
       (newTargetOption.unitType === "Custom selling unit" && !newTargetOption.customUnit.trim())
     ) {
       setNewTargetOptionError(
-        "Complete every selling-option field. Package units need a positive whole number of pieces, and a compare-at price must be higher than the price.",
+        t("promotions.sellingOptionErrorFields"),
       );
       return;
     }
@@ -705,9 +690,9 @@ export default function PromotionEditor({
       setTargetOptionId(optionId);
       setIsCreatingTargetSellingOption(false);
       setNewTargetOptionError("");
-      showToast({ title: "Selling option created", description: `Added to ${targetProduct.name} and selected for this gift.`, variant: "success" });
+      showToast({ title: t("promotions.sellingOptionCreatedTitle"), description: t("promotions.sellingOptionCreatedDesc", { product: targetProduct.name }), variant: "success" });
     } catch {
-      setNewTargetOptionError("This selling option could not be created. Try again.");
+      setNewTargetOptionError(t("promotions.sellingOptionCreateError"));
     }
   }
 
@@ -721,39 +706,89 @@ export default function PromotionEditor({
   function handleVisualUpload(event: React.ChangeEvent<HTMLInputElement>) {
     const input = event.currentTarget;
     const file = input.files?.[0];
-    // Clearing the native input lets the supplier choose the same file again
-    // after removing it or after a failed read.
-    input.value = "";
     if (!file) return;
+
     const fileName = file.name.toLowerCase();
     const isJpeg = file.type === "image/jpeg" || file.type === "image/jpg" || /\.jpe?g$/.test(fileName);
     const isPng = file.type === "image/png" || /\.png$/.test(fileName);
     if (!isJpeg && !isPng) {
-      setVisualError("Choose a JPG or PNG image.");
+      setVisualError(t("promotions.errorJpgPng"));
+      input.value = "";
       return;
     }
     const mimeType = isPng ? "image/png" : "image/jpeg";
-    if (file.size > 5 * 1024 * 1024) {
-      setVisualError("Use an image smaller than 5 MB.");
+    if (file.size > 10 * 1024 * 1024) {
+      setVisualError(t("promotions.errorImageSize"));
+      input.value = "";
       return;
     }
     setVisualError("");
+
     const reader = new FileReader();
     reader.onload = () => {
-      const dataUrl = typeof reader.result === "string" ? reader.result : "";
-      if (!dataUrl) {
-        setVisualError("This image could not be read. Choose another JPG or PNG file.");
+      const rawDataUrl = typeof reader.result === "string" ? reader.result : "";
+      if (!rawDataUrl) {
+        setVisualError(t("promotions.errorImageUnreadable"));
+        input.value = "";
         return;
       }
-      setVisualUrl(dataUrl);
-      setBannerImage({
-        dataUrl,
-        fileName: file.name,
-        mimeType,
-      });
+
+      // Resize and compress via canvas to avoid browser memory bloat and tab crashes
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const maxWidth = 1200;
+          const maxHeight = 600;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > maxWidth || height > maxHeight) {
+            const ratio = Math.min(maxWidth / width, maxHeight / height);
+            width = Math.round(width * ratio);
+            height = Math.round(height * ratio);
+          }
+
+          const canvas = document.createElement("canvas");
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            const compressed = canvas.toDataURL(mimeType, 0.85);
+            setVisualUrl(compressed);
+            setBannerImage({
+              dataUrl: compressed,
+              fileName: file.name,
+              mimeType,
+            });
+          } else {
+            setVisualUrl(rawDataUrl);
+            setBannerImage({
+              dataUrl: rawDataUrl,
+              fileName: file.name,
+              mimeType,
+            });
+          }
+        } catch {
+          setVisualUrl(rawDataUrl);
+          setBannerImage({
+            dataUrl: rawDataUrl,
+            fileName: file.name,
+            mimeType,
+          });
+        } finally {
+          input.value = "";
+        }
+      };
+      img.onerror = () => {
+        setVisualError(t("promotions.errorImageRender"));
+        input.value = "";
+      };
+      img.src = rawDataUrl;
     };
     reader.onerror = () => {
-      setVisualError("This image could not be read. Choose another JPG or PNG file.");
+      setVisualError(t("promotions.errorImageUnreadable"));
+      input.value = "";
     };
     reader.readAsDataURL(file);
   }
@@ -762,22 +797,49 @@ export default function PromotionEditor({
     event.preventDefault();
 
     if (isCreatingTargetSellingOption) {
-      showToast({ title: "Finish the new selling option", description: "Create the option or switch back to an existing option before saving the promotion.", variant: "error" });
+      showToast({ title: t("promotions.finishNewOptionTitle"), description: t("promotions.finishNewOptionDesc"), variant: "error" });
       return;
     }
 
     if (!name.trim()) {
-      showToast({ title: "Promotion name is required", description: "Enter a name before saving.", variant: "error" });
+      showToast({ title: t("promotions.nameRequiredTitle"), description: t("promotions.nameRequiredDesc"), variant: "error" });
+      return;
+    }
+
+    if (isActive && (!startDate || !startDate.trim())) {
+      showToast({
+        title: t("promotions.activationDateRequiredTitle"),
+        description: t("promotions.activationDateRequiredDesc"),
+        variant: "error",
+      });
+      return;
+    }
+
+    if (hasEndDate && (!endDate || !endDate.trim())) {
+      showToast({
+        title: t("promotions.endDateRequiredTitle"),
+        description: t("promotions.endDateRequiredDesc"),
+        variant: "error",
+      });
+      return;
+    }
+
+    if (hasEndDate && endDate && startDate && endDate < startDate) {
+      showToast({
+        title: t("promotions.invalidDateRangeTitle"),
+        description: t("promotions.invalidDateRangeDesc"),
+        variant: "error",
+      });
       return;
     }
 
     if (isBuyXGetY && (!triggerOption || giftChoices.length === 0 || giftChoices.some((choice) => !choice.optionId))) {
-      window.alert("Select a selling option for Buy X and for every eligible Get Y product.");
+      window.alert(t("promotions.bxgySelectOptionsAlert"));
       return;
     }
 
     if (!isBuyXGetY && selectedDiscountOptions.length === 0) {
-      window.alert("Select at least one selling option for this promotion.");
+      window.alert(t("promotions.selectAtLeastOneOptionAlert"));
       return;
     }
 
@@ -788,12 +850,12 @@ export default function PromotionEditor({
         return !Number.isFinite(price) || price < 0 || price >= option.price;
       })
     ) {
-      window.alert("Each promotional price must be lower than its selling option's current price.");
+      window.alert(t("promotions.priceMustBeLowerAlert"));
       return;
     }
 
     if (!accountId) {
-      showToast({ title: "Promotion could not be saved", description: "Your supplier account is still loading.", variant: "error" });
+      showToast({ title: t("promotions.couldNotSaveTitle"), description: t("promotions.accountLoadingDesc"), variant: "error" });
       return;
     }
 
@@ -801,7 +863,7 @@ export default function PromotionEditor({
     const promotion: StoredSupplierPromotion = {
       id: isEditing && promotionId ? promotionId : createSupplierPromotionId(),
       accountId,
-      name: name.trim() || "Untitled promotion",
+      name: name.trim() || t("promotions.untitledPromotion"),
       description: description.trim(),
       type: isBuyXGetY ? "BuyXGetY" : discountType === "fixed-price" ? "FixedPrice" : "Percentage",
       status: isActive ? "Active" : "Draft",
@@ -837,20 +899,20 @@ export default function PromotionEditor({
         : null;
       await saveSupplierPromotion({ ...promotion, createdAt: previous?.createdAt ?? now });
       showToast({
-        title: isEditing ? "Promotion updated" : "Promotion created",
+        title: isEditing ? t("promotions.updatedTitle") : t("promotions.createdTitle"),
         description: isBannerEnabled
-          ? "Your discovery settings and banner visual have been saved."
-          : "The promotion was saved without discovery banners.",
+          ? t("promotions.savedWithBannerDesc")
+          : t("promotions.savedWithoutBannerDesc"),
         variant: "success",
       });
       navigate("/supplier/promotions");
     } catch (error) {
       const isStorageLimit = error instanceof DOMException && error.name === "QuotaExceededError";
       showToast({
-        title: "Promotion wasn't saved",
+        title: t("promotions.saveErrorTitle"),
         description: isStorageLimit
-          ? "There isn't enough local storage for this banner image. Use a smaller image and try again."
-          : error instanceof Error ? error.message : "Please try saving the promotion again.",
+          ? t("promotions.storageLimitDesc")
+          : error instanceof Error ? error.message : t("promotions.tryAgainDesc"),
         variant: "error",
       });
     } finally {
@@ -892,7 +954,7 @@ export default function PromotionEditor({
             className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 transition hover:text-slate-900"
           >
             <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-            Back to promotions
+            {t("promotions.backToPromotions")}
           </Link>
         }
         actions={
@@ -901,7 +963,7 @@ export default function PromotionEditor({
               to="/supplier/promotions"
               className="rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
             >
-              Cancel
+              {t("common.cancel")}
             </Link>
             <button
               type="submit"
@@ -910,7 +972,7 @@ export default function PromotionEditor({
               className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-content transition hover:brightness-95"
             >
               <Save className="h-4 w-4" aria-hidden="true" />
-              {isSaving ? "Saving…" : isEditing ? "Save changes" : "Create promotion"}
+              {isSaving ? t("promotions.savingPromotion") : isEditing ? t("common.saveChanges") : t("promotions.createPromotion")}
             </button>
           </>
         }
@@ -921,28 +983,28 @@ export default function PromotionEditor({
             <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-7">
               <SectionHeading
                 icon={<PackagePlus className="h-5 w-5" aria-hidden="true" />}
-                title="Main information"
-                description="Give this promotion a clear name and a short explanation for your team."
+                title={t("promotions.mainInformation")}
+                description={t("promotions.mainInformationDesc")}
               />
               <div className="space-y-5">
                 <Input
                   id="promotion-name"
-                  label="Promotion name"
+                  label={t("promotions.promotionName")}
                   value={name}
                   onChange={(event) => setName(event.target.value)}
-                  placeholder="e.g. Spring pantry savings"
+                  placeholder={t("promotions.promotionNamePlaceholder")}
                   required
                 />
                 <div>
                   <label htmlFor="promotion-description" className="mb-2 block text-sm font-medium text-slate-900">
-                    Promotion description
+                    {t("promotions.promotionDescription")}
                   </label>
                   <textarea
                     id="promotion-description"
                     rows={5}
                     value={description}
                     onChange={(event) => setDescription(event.target.value)}
-                    placeholder="Describe the offer and when your customers should use it."
+                    placeholder={t("promotions.promotionDescriptionPlaceholder")}
                     className="block w-full resize-y rounded-xl border border-slate-200 bg-white px-4 py-3 text-base text-slate-900 placeholder:text-slate-400 transition hover:border-slate-300 focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/10"
                   />
                 </div>
@@ -953,13 +1015,13 @@ export default function PromotionEditor({
               <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-7">
                 <SectionHeading
                   icon={<Gift className="h-5 w-5" aria-hidden="true" />}
-                  title="Buy X, get Y rule"
-                  description="Set the exact selling options customers buy and receive. Quantities are measured in those selling units."
+                  title={t("promotions.bxgyRuleTitle")}
+                  description={t("promotions.bxgyRuleDesc")}
                 />
                 <div className="space-y-6">
                   <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
                     <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-                      Buy X
+                      {t("promotions.buyX")}
                     </p>
                     <div className="mt-3 grid gap-3 sm:grid-cols-[minmax(0,1fr)_9rem]">
                       <button
@@ -968,11 +1030,11 @@ export default function PromotionEditor({
                         className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-primary/30 hover:bg-primary/5 hover:text-primary"
                       >
                         <PackagePlus className="h-4 w-4" aria-hidden="true" />
-                        {triggerProduct ? triggerProduct.name : "Select trigger product"}
+                        {triggerProduct ? triggerProduct.name : t("promotions.selectTriggerProduct")}
                       </button>
                       <Input
                         id="trigger-quantity"
-                        label="Quantity (X)"
+                        label={t("promotions.quantityX")}
                         type="number"
                         min="1"
                         step="1"
@@ -984,7 +1046,7 @@ export default function PromotionEditor({
                     {triggerProduct ? (
                       <div className="mt-3">
                         <label htmlFor="trigger-selling-option" className="mb-2 block text-sm font-medium text-slate-700">
-                          Selling option
+                          {t("promotions.sellingOption")}
                         </label>
                         <Select
                           id="trigger-selling-option"
@@ -1003,7 +1065,7 @@ export default function PromotionEditor({
 
                   <div className="rounded-2xl border border-violet-100 bg-violet-50/60 p-4">
                     <p className="text-xs font-semibold uppercase tracking-[0.16em] text-violet-700">
-                      Get Y
+                      {t("promotions.getY")}
                     </p>
                     <div className="mt-3 grid gap-3 sm:grid-cols-[minmax(0,1fr)_9rem]">
                       <button
@@ -1012,11 +1074,11 @@ export default function PromotionEditor({
                         className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-violet-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-violet-300 hover:bg-violet-100/50 hover:text-violet-800"
                       >
                         <Gift className="h-4 w-4" aria-hidden="true" />
-                        {giftChoices.length ? `${giftChoices.length} eligible gift ${giftChoices.length === 1 ? "product" : "products"}` : "Select eligible gift products"}
+                        {giftChoices.length ? t("promotions.eligibleGiftsSelected", { count: giftChoices.length }) : t("promotions.selectEligibleGifts")}
                       </button>
                       <Input
                         id="target-quantity"
-                        label="Quantity (Y)"
+                        label={t("promotions.quantityY")}
                         type="number"
                         min="1"
                         step="1"
@@ -1027,11 +1089,25 @@ export default function PromotionEditor({
                     </div>
                     {giftChoices.length > 0 ? (
                       <div className="mt-3 space-y-2">
-                        <p className="text-xs font-semibold text-violet-800">HoReCa buyers choose one of these gifts.</p>
+                        <p className="text-xs font-semibold text-violet-800">{t("promotions.horecaBuyersGiftNotice")}</p>
                         {giftChoices.map((choice) => {
                           const giftProduct = catalogProducts.find((product) => product.id === choice.productId);
                           if (!giftProduct) return null;
-                          return <div key={choice.productId} className="flex flex-wrap items-center gap-3 rounded-xl border border-violet-200 bg-white p-3"><img src={giftProduct.imageUrl} alt="" className="h-9 w-9 rounded-lg object-cover" /><span className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-900">{giftProduct.name}</span><Select value={choice.optionId} onValueChange={(value) => !Array.isArray(value) && setGiftChoiceOption(choice.productId, value)} className="w-40 shrink-0">{giftProduct.sellingOptions.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}</Select><button type="button" onClick={() => { setTargetProductId(choice.productId); setTargetOptionId(choice.optionId); setNewTargetOption({ id: "promotion-new-option", productId: choice.productId, quantity: "", unitType: "Piece (հատ)", piecesPerPackage: "", customUnit: "", price: "", compareAtPrice: "", minimumOrderQuantity: "1" }); setPromotionOnlyTargetOption(null); setIsCreatingTargetSellingOption(true); setNewTargetOptionError(""); }} className="text-xs font-semibold text-violet-700 transition hover:text-violet-950">New option</button><button type="button" onClick={() => { const nextChoices = giftChoices.filter((item) => item.productId !== choice.productId); setGiftChoices(nextChoices); setTargetProductId(nextChoices[0]?.productId ?? ""); setTargetOptionId(nextChoices[0]?.optionId ?? ""); }} className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-rose-50 hover:text-rose-700" aria-label={`Remove ${giftProduct.name} from eligible gifts`}><X className="h-4 w-4" aria-hidden="true" /></button></div>;
+                          return (
+                            <div key={choice.productId} className="flex flex-wrap items-center gap-3 rounded-xl border border-violet-200 bg-white p-3">
+                              {giftProduct.imageUrl ? (
+                                <img src={giftProduct.imageUrl} alt="" className="h-9 w-9 rounded-lg object-cover" />
+                              ) : (
+                                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-slate-400">
+                                  <Boxes className="h-4 w-4" />
+                                </div>
+                              )}
+                              <span className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-900">{giftProduct.name}</span>
+                              <Select value={choice.optionId} onValueChange={(value) => !Array.isArray(value) && setGiftChoiceOption(choice.productId, value)} className="w-40 shrink-0">{giftProduct.sellingOptions.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}</Select>
+                              <button type="button" onClick={() => { setTargetProductId(choice.productId); setTargetOptionId(choice.optionId); setNewTargetOption({ id: "promotion-new-option", productId: choice.productId, quantity: "", unitType: "Piece (հատ)", piecesPerPackage: "", customUnit: "", price: "", compareAtPrice: "", minimumOrderQuantity: "1" }); setPromotionOnlyTargetOption(null); setIsCreatingTargetSellingOption(true); setNewTargetOptionError(""); }} className="text-xs font-semibold text-violet-700 transition hover:text-violet-950">{t("promotions.newOption")}</button>
+                              <button type="button" onClick={() => { const nextChoices = giftChoices.filter((item) => item.productId !== choice.productId); setGiftChoices(nextChoices); setTargetProductId(nextChoices[0]?.productId ?? ""); setTargetOptionId(nextChoices[0]?.optionId ?? ""); }} className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-rose-50 hover:text-rose-700" aria-label={`${t("promotions.removeGiftAria")} ${giftProduct.name}`}><X className="h-4 w-4" aria-hidden="true" /></button>
+                            </div>
+                          );
                         })}
                       </div>
                     ) : null}
@@ -1041,40 +1117,40 @@ export default function PromotionEditor({
                           <div className="rounded-xl border border-violet-200 bg-white p-4">
                             <div className="flex items-start justify-between gap-4">
                               <div>
-                                <p className="text-sm font-semibold text-violet-950">Create Y selling option</p>
-                                <p className="mt-1 text-xs leading-5 text-violet-700">This option applies only to this promotion. Create it again for another promotion.</p>
+                                <p className="text-sm font-semibold text-violet-950">{t("promotions.createYSellingOption")}</p>
+                                <p className="mt-1 text-xs leading-5 text-violet-700">{t("promotions.createYSellingOptionDesc")}</p>
                               </div>
-                              <button type="button" onClick={() => { setIsCreatingTargetSellingOption(false); setNewTargetOptionError(""); setPromotionOnlyTargetOption(null); setTargetOptionId(targetProduct.sellingOptions[0]?.id ?? ""); }} className="shrink-0 text-xs font-semibold text-violet-700 transition hover:text-violet-950">Use existing</button>
+                              <button type="button" onClick={() => { setIsCreatingTargetSellingOption(false); setNewTargetOptionError(""); setPromotionOnlyTargetOption(null); setTargetOptionId(targetProduct.sellingOptions[0]?.id ?? ""); }} className="shrink-0 text-xs font-semibold text-violet-700 transition hover:text-violet-950">{t("promotions.useExisting")}</button>
                             </div>
                             <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                              <Input id="promotion-y-option-quantity" label="Quantity" type="number" min="1" step="1" value={newTargetOption.quantity} onChange={(event) => setNewTargetOption((currentOption) => ({ ...currentOption, quantity: event.target.value }))} placeholder="1" required />
+                              <Input id="promotion-y-option-quantity" label={t("products.quantity")} type="number" min="1" step="1" value={newTargetOption.quantity} onChange={(event) => setNewTargetOption((currentOption) => ({ ...currentOption, quantity: event.target.value }))} placeholder="1" required />
                               <div>
-                                <label className="mb-2 block text-sm font-medium text-slate-900" htmlFor="promotion-y-option-unit">Unit type</label>
+                                <label className="mb-2 block text-sm font-medium text-slate-900" htmlFor="promotion-y-option-unit">{t("products.unitType")}</label>
                                 <Select id="promotion-y-option-unit" value={newTargetOption.unitType} onValueChange={(value) => !Array.isArray(value) && setNewTargetOption((currentOption) => ({ ...currentOption, unitType: value as SellingOptionUnitType }))}>
-                                  {sellingOptionUnitTypes.map((unitType) => <option key={unitType} value={unitType}>{unitType}</option>)}
+                                  {sellingOptionUnitTypes.map((unitType) => <option key={unitType} value={unitType}>{getUnitTypeLabel(unitType, t)}</option>)}
                                 </Select>
                               </div>
-                              <Input id="promotion-y-option-price" label="Price (AMD)" type="number" min="0" step="1" value={newTargetOption.price} onChange={(event) => setNewTargetOption((currentOption) => ({ ...currentOption, price: event.target.value }))} placeholder="0" required />
-                              <Input id="promotion-y-option-compare-at-price" label="Compare-at (AMD)" type="number" min="0" step="1" value={newTargetOption.compareAtPrice} onChange={(event) => setNewTargetOption((currentOption) => ({ ...currentOption, compareAtPrice: event.target.value }))} placeholder="Optional" />
-                              <Input id="promotion-y-option-minimum-order" label="Minimum order" type="number" min="1" step="1" value={newTargetOption.minimumOrderQuantity} onChange={(event) => setNewTargetOption((currentOption) => ({ ...currentOption, minimumOrderQuantity: event.target.value }))} placeholder="1" required />
+                              <Input id="promotion-y-option-price" label={t("promotions.priceAmd")} type="number" min="0" step="1" value={newTargetOption.price} onChange={(event) => setNewTargetOption((currentOption) => ({ ...currentOption, price: event.target.value }))} placeholder="0" required />
+                              <Input id="promotion-y-option-compare-at-price" label={t("promotions.compareAtAmd")} type="number" min="0" step="1" value={newTargetOption.compareAtPrice} onChange={(event) => setNewTargetOption((currentOption) => ({ ...currentOption, compareAtPrice: event.target.value }))} placeholder={t("common.optional")} />
+                              <Input id="promotion-y-option-minimum-order" label={t("products.minOrderQuantity")} type="number" min="1" step="1" value={newTargetOption.minimumOrderQuantity} onChange={(event) => setNewTargetOption((currentOption) => ({ ...currentOption, minimumOrderQuantity: event.target.value }))} placeholder="1" required />
                             </div>
-                            {newTargetOption.unitType === "Package" ? <Input id="promotion-y-option-pieces-per-package" label="Pieces per Package" type="number" min="1" step="1" inputMode="numeric" value={newTargetOption.piecesPerPackage} onChange={(event) => setNewTargetOption((currentOption) => ({ ...currentOption, piecesPerPackage: event.target.value }))} placeholder="e.g. 12" required error={Boolean(newTargetOption.piecesPerPackage) && !isPositiveWholeNumber(newTargetOption.piecesPerPackage)} errorMessage={Boolean(newTargetOption.piecesPerPackage) && !isPositiveWholeNumber(newTargetOption.piecesPerPackage) ? "Enter a positive whole number." : undefined} containerClassName="mt-3" /> : null}
-                            {newTargetOption.unitType === "Custom selling unit" ? <Input id="promotion-y-option-custom-unit" label="Custom unit name" value={newTargetOption.customUnit} onChange={(event) => setNewTargetOption((currentOption) => ({ ...currentOption, customUnit: event.target.value }))} placeholder="e.g. 20 L keg or service tray" containerClassName="mt-3" required /> : null}
-                            <p className="mt-3 text-xs text-slate-500">Promotion uses: <span className="font-semibold text-slate-700">{getPromotionOnlyOptionLabel(newTargetOption)}</span>{newTargetOption.price ? ` — ${formatCurrency(Number(newTargetOption.price))}` : ""}{newTargetOption.compareAtPrice ? <><span className="mx-1.5 text-slate-400">was</span><span className="text-slate-400 line-through">{formatCurrency(Number(newTargetOption.compareAtPrice))}</span></> : null}<span className="ml-2">Minimum order: {newTargetOption.minimumOrderQuantity || "—"} selling units</span></p>
+                            {newTargetOption.unitType === "Package" ? <Input id="promotion-y-option-pieces-per-package" label={t("products.piecesPerPackage")} type="number" min="1" step="1" inputMode="numeric" value={newTargetOption.piecesPerPackage} onChange={(event) => setNewTargetOption((currentOption) => ({ ...currentOption, piecesPerPackage: event.target.value }))} placeholder="e.g. 12" required error={Boolean(newTargetOption.piecesPerPackage) && !isPositiveWholeNumber(newTargetOption.piecesPerPackage)} errorMessage={Boolean(newTargetOption.piecesPerPackage) && !isPositiveWholeNumber(newTargetOption.piecesPerPackage) ? t("products.positiveWholeNumberError") : undefined} containerClassName="mt-3" /> : null}
+                            {newTargetOption.unitType === "Custom selling unit" ? <Input id="promotion-y-option-custom-unit" label={t("products.customUnitName")} value={newTargetOption.customUnit} onChange={(event) => setNewTargetOption((currentOption) => ({ ...currentOption, customUnit: event.target.value }))} placeholder="e.g. 20 L keg or service tray" containerClassName="mt-3" required /> : null}
+                            <p className="mt-3 text-xs text-slate-500">{t("promotions.promotionUses")}: <span className="font-semibold text-slate-700">{getPromotionOnlyOptionLabel(newTargetOption)}</span>{newTargetOption.price ? ` — ${formatCurrency(Number(newTargetOption.price))}` : ""}{newTargetOption.compareAtPrice ? <><span className="mx-1.5 text-slate-400">{t("promotions.wasPrice")}</span><span className="text-slate-400 line-through">{formatCurrency(Number(newTargetOption.compareAtPrice))}</span></> : null}<span className="ml-2">{t("promotions.minOrderUnits")}: {newTargetOption.minimumOrderQuantity || "—"}</span></p>
                             {newTargetOptionError ? <p role="alert" className="mt-3 text-sm font-medium text-rose-700">{newTargetOptionError}</p> : null}
-                            <button type="button" onClick={createTargetSellingOption} className="mt-4 inline-flex items-center gap-2 rounded-lg bg-violet-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-violet-700"><Plus className="h-4 w-4" aria-hidden="true" />Create selling option</button>
+                            <button type="button" onClick={createTargetSellingOption} className="mt-4 inline-flex items-center gap-2 rounded-lg bg-violet-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-violet-700"><Plus className="h-4 w-4" aria-hidden="true" />{t("promotions.createSellingOptionBtn")}</button>
                           </div>
                         ) : promotionOnlyTargetOption?.productId === targetProduct.id ? (
                           <div className="rounded-xl border border-violet-200 bg-white p-4">
-                            <p className="text-sm font-semibold text-violet-950">Promotion-only Y option</p>
+                            <p className="text-sm font-semibold text-violet-950">{t("promotions.promotionOnlyYOption")}</p>
                             <p className="mt-1 text-sm text-slate-700">{getPromotionOnlyOptionLabel(promotionOnlyTargetOption)} · {formatCurrency(Number(promotionOnlyTargetOption.price))}</p>
-                            <p className="mt-1 text-xs leading-5 text-violet-700">This option is valid only for this promotion and is not added to the product catalog.</p>
-                            <div className="mt-3 flex flex-wrap gap-3"><button type="button" onClick={() => { setNewTargetOption(promotionOnlyTargetOption); setIsCreatingTargetSellingOption(true); }} className="text-sm font-semibold text-violet-700 transition hover:text-violet-950">Edit option</button><button type="button" onClick={() => { setNewTargetOption({ id: "promotion-only-y-option", productId: targetProduct.id, quantity: "", unitType: "Piece (հատ)", piecesPerPackage: "", customUnit: "", price: "", compareAtPrice: "", minimumOrderQuantity: "1" }); setPromotionOnlyTargetOption(null); setIsCreatingTargetSellingOption(true); }} className="text-sm font-semibold text-violet-700 transition hover:text-violet-950">Create another option</button><button type="button" onClick={() => { setPromotionOnlyTargetOption(null); setTargetOptionId(targetProduct.sellingOptions[0]?.id ?? ""); }} className="text-sm font-semibold text-violet-700 transition hover:text-violet-950">Use existing option</button></div>
+                            <p className="mt-1 text-xs leading-5 text-violet-700">{t("promotions.promotionOnlyYOptionDesc")}</p>
+                            <div className="mt-3 flex flex-wrap gap-3"><button type="button" onClick={() => { setNewTargetOption(promotionOnlyTargetOption); setIsCreatingTargetSellingOption(true); }} className="text-sm font-semibold text-violet-700 transition hover:text-violet-950">{t("promotions.editOption")}</button><button type="button" onClick={() => { setNewTargetOption({ id: "promotion-only-y-option", productId: targetProduct.id, quantity: "", unitType: "Piece (հատ)", piecesPerPackage: "", customUnit: "", price: "", compareAtPrice: "", minimumOrderQuantity: "1" }); setPromotionOnlyTargetOption(null); setIsCreatingTargetSellingOption(true); }} className="text-sm font-semibold text-violet-700 transition hover:text-violet-950">{t("promotions.createAnotherOption")}</button><button type="button" onClick={() => { setPromotionOnlyTargetOption(null); setTargetOptionId(targetProduct.sellingOptions[0]?.id ?? ""); }} className="text-sm font-semibold text-violet-700 transition hover:text-violet-950">{t("promotions.useExistingOption")}</button></div>
                           </div>
                         ) : (
                           <>
                             <label htmlFor="target-selling-option" className="mb-2 block text-sm font-medium text-violet-900">
-                              Selling option
+                              {t("promotions.sellingOption")}
                             </label>
                             <Select
                               id="target-selling-option"
@@ -1090,7 +1166,7 @@ export default function PromotionEditor({
                                 </option>
                               ))}
                             </Select>
-                            <button type="button" onClick={() => { setNewTargetOption({ id: "promotion-only-y-option", productId: targetProduct.id, quantity: "", unitType: "Piece (հատ)", piecesPerPackage: "", customUnit: "", price: "", compareAtPrice: "", minimumOrderQuantity: "1" }); setPromotionOnlyTargetOption(null); setIsCreatingTargetSellingOption(true); setTargetOptionId(""); setNewTargetOptionError(""); }} className="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-violet-700 transition hover:text-violet-950"><Plus className="h-4 w-4" aria-hidden="true" />Create a promotion-only selling option</button>
+                            <button type="button" onClick={() => { setNewTargetOption({ id: "promotion-only-y-option", productId: targetProduct.id, quantity: "", unitType: "Piece (հատ)", piecesPerPackage: "", customUnit: "", price: "", compareAtPrice: "", minimumOrderQuantity: "1" }); setPromotionOnlyTargetOption(null); setIsCreatingTargetSellingOption(true); setTargetOptionId(""); setNewTargetOptionError(""); }} className="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-violet-700 transition hover:text-violet-950"><Plus className="h-4 w-4" aria-hidden="true" />{t("promotions.createPromotionOnlyOptionBtn")}</button>
                           </>
                         )}
                       </div>
@@ -1102,28 +1178,28 @@ export default function PromotionEditor({
               <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-7">
                 <SectionHeading
                   icon={<PackagePlus className="h-5 w-5" aria-hidden="true" />}
-                  title="Discount value"
-                  description="Choose how the promotion changes the product price."
+                  title={t("promotions.discountValue")}
+                  description={t("promotions.discountValueDesc")}
                 />
                 <div className="space-y-5">
                   <div className={`grid gap-3 ${discountType === "percentage" ? "sm:grid-cols-[minmax(0,1fr)_9rem]" : ""}`}>
                     <div>
                       <label htmlFor="discount-type" className="mb-2 block text-sm font-medium text-slate-900">
-                        Discount type
+                        {t("promotions.promotionType")}
                       </label>
                       <Select
                         id="discount-type"
                         value={discountType}
                         onValueChange={handleDiscountTypeChange}
                       >
-                        <option value="fixed-price">Fixed price</option>
-                        <option value="percentage">Percentage discount</option>
+                        <option value="fixed-price">{t("promotions.fixedPrice")}</option>
+                        <option value="percentage">{t("promotions.percentageDiscount")}</option>
                       </Select>
                     </div>
                     {discountType === "percentage" ? (
                       <Input
                         id="discount-value"
-                        label="Percent"
+                        label={t("promotions.percent")}
                         type="number"
                         min="0"
                         max="100"
@@ -1142,40 +1218,40 @@ export default function PromotionEditor({
                   >
                     <PackagePlus className="h-4 w-4" aria-hidden="true" />
                     {discountProductIds.length > 0
-                      ? `${discountProductIds.length} ${discountProductIds.length === 1 ? "product" : "products"} selected`
-                      : "Choose products"}
+                      ? t("promotions.productsSelected", { count: discountProductIds.length })
+                      : t("promotions.chooseProducts")}
                   </button>
                   {selectedDiscountProducts.length > 0 ? (
                     <>
                       {discountType === "percentage" ? (
                         <div>
                           <label htmlFor="discount-scope" className="mb-2 block text-sm font-medium text-slate-900">
-                            Selling options to discount
+                            {t("promotions.sellingOptionsToDiscount")}
                           </label>
                           <Select
                             id="discount-scope"
                             value={discountScope}
                             onValueChange={(value) => !Array.isArray(value) && setDiscountScope(value as DiscountScope)}
                           >
-                            <option value="all-options">All current selling options</option>
-                            <option value="specific-options">Specific selling options</option>
+                            <option value="all-options">{t("promotions.allCurrentSellingOptions")}</option>
+                            <option value="specific-options">{t("promotions.specificSellingOptions")}</option>
                           </Select>
                           <p className="mt-2 text-xs leading-5 text-slate-500">
                             {discountScope === "all-options"
-                              ? "This promotion covers every selling option currently offered by these products. New options will need to be added deliberately."
-                              : "Choose exactly which pack sizes and units receive the discount."}
+                              ? t("promotions.allOptionsHint")
+                              : t("promotions.specificOptionsHint")}
                           </p>
                         </div>
                       ) : (
                         <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-5 text-amber-900">
-                          Fixed prices apply to specific selling options so unlike pack sizes never share a price.
+                          {t("promotions.fixedPriceNotice")}
                         </div>
                       )}
 
                       <div className="overflow-hidden rounded-2xl border border-slate-200">
                         <div className="flex items-center gap-2 border-b border-slate-200 bg-slate-50 px-4 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
                           <Boxes className="h-4 w-4 text-primary" aria-hidden="true" />
-                          Selling options
+                          {t("promotions.sellingOptions")}
                         </div>
                         <div className="divide-y divide-slate-100">
                           {selectedDiscountProducts.flatMap((product) =>
@@ -1192,17 +1268,17 @@ export default function PromotionEditor({
                                       disabled={discountScope === "all-options"}
                                       onChange={() => toggleDiscountOption(product.id, option.id)}
                                       className="mt-0.5 h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary/15 disabled:cursor-not-allowed"
-                                      aria-label={`Apply promotion to ${product.name}, ${option.label}`}
+                                      aria-label={`${t("promotions.applyToProductOption")} ${product.name}, ${option.label}`}
                                     />
                                     <span className="min-w-0">
                                       <span className="block text-sm font-semibold text-slate-900">{product.name}</span>
-                                      <span className="mt-0.5 block text-xs text-slate-500">{option.label} · {formatCurrency(option.price)} · Min. {option.minimumOrderQuantity}</span>
+                                      <span className="mt-0.5 block text-xs text-slate-500">{option.label} · {formatCurrency(option.price)} · {t("promotions.minQuantityShort")} {option.minimumOrderQuantity}</span>
                                     </span>
                                   </label>
                                   {discountType === "fixed-price" && isSelected ? (
                                     <Input
                                       id={`fixed-price-${key}`}
-                                      label="Promotional price"
+                                      label={t("promotions.promotionalPrice")}
                                       type="number"
                                       min="0"
                                       step="0.01"
@@ -1220,11 +1296,11 @@ export default function PromotionEditor({
                       </div>
                       <div className="border-y border-slate-100">
                         <SwitchField
-                          title="Apply to company-specific prices"
+                          title={t("promotions.applyIndividualPricing")}
                           description={
                             applyOnIndividualPricing
-                              ? "This promotion also changes eligible customers' company-specific prices."
-                              : "Company-specific prices stay separate and do not stack with this promotion."
+                              ? t("promotions.applyIndividualPricingDescTrue")
+                              : t("promotions.applyIndividualPricingDescFalse")
                           }
                           checked={applyOnIndividualPricing}
                           onSave={setApplyOnIndividualPricing}
@@ -1239,21 +1315,21 @@ export default function PromotionEditor({
             <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-7">
               <SectionHeading
                 icon={<UsersRound className="h-5 w-5" aria-hidden="true" />}
-                title="Eligibility"
-                description="Choose which customers can see and use this promotion."
+                title={t("promotions.eligibility")}
+                description={t("promotions.eligibilityDesc")}
               />
               <div className="space-y-5">
                 <div>
                   <label htmlFor="promotion-eligibility" className="mb-2 block text-sm font-medium text-slate-900">
-                    Eligible customers
+                    {t("promotions.eligibleCustomers")}
                   </label>
                   <Select
                     id="promotion-eligibility"
                     value={eligibility}
                     onValueChange={handleEligibilityChange}
                   >
-                    <option value="all-customers">All customers</option>
-                    <option value="specific-customers">Specific customers</option>
+                    <option value="all-customers">{t("promotions.allCustomers")}</option>
+                    <option value="specific-customers">{t("promotions.specificCustomers")}</option>
                   </Select>
                 </div>
                 {eligibility === "specific-customers" ? (
@@ -1264,8 +1340,8 @@ export default function PromotionEditor({
                   >
                     <UsersRound className="h-4 w-4" aria-hidden="true" />
                     {eligibleCustomerIds.length > 0
-                      ? `${eligibleCustomerIds.length} ${eligibleCustomerIds.length === 1 ? "customer" : "customers"} selected`
-                      : "Select customers"}
+                      ? t("promotions.customersSelected", { count: eligibleCustomerIds.length })
+                      : t("common.selectCustomers")}
                   </button>
                 ) : null}
               </div>
@@ -1274,13 +1350,13 @@ export default function PromotionEditor({
             <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-7">
               <SectionHeading
                 icon={<Gift className="h-5 w-5" aria-hidden="true" />}
-                title="Promote this offer"
-                description="Decide whether this offer should be discovered before buyers reach the product."
+                title={t("promotions.promoteOffer")}
+                description={t("promotions.promoteOfferDesc")}
               />
               <div className={`rounded-2xl border px-4 ${isBannerEnabled ? "border-primary/20 bg-primary/[0.035]" : "border-slate-200 bg-slate-50"}`}>
                 <SwitchField
-                  title={isBannerEnabled ? "Promotion banner is on" : "Promotion banner is off"}
-                  description={isBannerEnabled ? "Choose where buyers can discover this offer." : "Product prices, promotion labels, and cart benefits still appear whenever this offer applies."}
+                  title={isBannerEnabled ? t("promotions.bannerOn") : t("promotions.bannerOff")}
+                  description={isBannerEnabled ? t("promotions.bannerOnDesc") : t("promotions.bannerOffDesc")}
                   checked={isBannerEnabled}
                   onSave={setIsBannerEnabled}
                   size="lg"
@@ -1289,9 +1365,9 @@ export default function PromotionEditor({
               {isBannerEnabled ? (
                 <div className="mt-6 space-y-6">
                   <div>
-                    <p className="text-sm font-semibold text-slate-900">Where should it appear?</p>
+                    <p className="text-sm font-semibold text-slate-900">{t("promotions.whereShouldItAppear")}</p>
                     <p className="mt-1 text-xs leading-5 text-slate-500">
-                      This changes discovery only. Product and cart promotion details are always shown when relevant.
+                      {t("promotions.whereShouldItAppearDesc")}
                     </p>
                     <div className="mt-3 grid gap-2 sm:grid-cols-3">
                       {bannerPlacementOptions.map(({ value, title, description, icon: Icon }) => {
@@ -1309,35 +1385,35 @@ export default function PromotionEditor({
                   </div>
 
                   <div className="border-t border-slate-100 pt-5">
-                    <p className="text-sm font-medium text-slate-900">Banner visual <span className="font-normal text-slate-500">(optional)</span></p>
-                    <p className="mt-1 text-xs leading-5 text-slate-500">Upload a JPG or PNG image up to 5 MB for the HORECA Home and Promotions banners.</p>
+                    <p className="text-sm font-medium text-slate-900">{t("promotions.bannerVisual")} <span className="font-normal text-slate-500">({t("common.optional")})</span></p>
+                    <p className="mt-1 text-xs leading-5 text-slate-500">{t("promotions.bannerVisualDesc")}</p>
                     {visualUrl ? (
                       <div className="group relative mt-3 aspect-[16/7] overflow-hidden rounded-2xl bg-slate-100">
-                        <img src={visualUrl} alt="Promotion banner preview" className="h-full w-full object-cover" />
+                        <img src={visualUrl} alt={t("promotions.bannerPreview")} className="h-full w-full object-cover" />
                         <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-3 bg-gradient-to-t from-slate-950/80 to-transparent px-3 pb-3 pt-10">
-                          <span className="text-xs font-semibold text-white">{bannerImage?.fileName ?? "Banner preview"}</span>
-                          <button type="button" onClick={clearBannerVisual} className="inline-flex items-center gap-1 rounded-lg bg-white/90 px-2 py-1 text-xs font-bold text-slate-700 transition hover:bg-white"><X className="h-3.5 w-3.5" aria-hidden="true" />Remove</button>
+                          <span className="text-xs font-semibold text-white">{bannerImage?.fileName ?? t("promotions.bannerPreview")}</span>
+                          <button type="button" onClick={clearBannerVisual} className="inline-flex items-center gap-1 rounded-lg bg-white/90 px-2 py-1 text-xs font-bold text-slate-700 transition hover:bg-white"><X className="h-3.5 w-3.5" aria-hidden="true" />{t("common.remove")}</button>
                         </div>
                       </div>
                     ) : (
                       <label htmlFor="promotion-visual" className="mt-3 flex cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-7 text-center transition hover:border-primary/50 hover:bg-primary/5">
                         <span className="grid h-10 w-10 place-items-center rounded-xl bg-white text-primary shadow-sm"><ImagePlus className="h-5 w-5" aria-hidden="true" /></span>
-                        <span className="mt-2 text-sm font-semibold text-slate-800">Upload banner image</span>
-                        <span className="mt-1 text-xs text-slate-500">JPG or PNG · up to 5 MB</span>
+                        <span className="mt-2 text-sm font-semibold text-slate-800">{t("promotions.uploadBannerImage")}</span>
+                        <span className="mt-1 text-xs text-slate-500">{t("promotions.uploadBannerImageSpecs")}</span>
                       </label>
                     )}
                     <input ref={visualUploadInputRef} id="promotion-visual" type="file" accept=".jpg,.jpeg,.png,image/jpeg,image/png" onChange={handleVisualUpload} className="sr-only" />
-                    {visualUrl ? <label htmlFor="promotion-visual" className="mt-3 inline-flex cursor-pointer items-center gap-2 text-sm font-semibold text-primary hover:text-primary/75"><ImagePlus className="h-4 w-4" aria-hidden="true" />Replace image</label> : null}
+                    {visualUrl ? <label htmlFor="promotion-visual" className="mt-3 inline-flex cursor-pointer items-center gap-2 text-sm font-semibold text-primary hover:text-primary/75"><ImagePlus className="h-4 w-4" aria-hidden="true" />{t("promotions.replaceImage")}</label> : null}
                     {visualError ? <p className="mt-2 text-xs font-medium text-rose-600">{visualError}</p> : null}
                   </div>
 
                   <div className="border-t border-slate-100 pt-5">
-                    <label htmlFor="brand-colour-fallback" className="text-sm font-medium text-slate-900">Brand colour fallback</label>
-                    <p className="mt-1 text-xs leading-5 text-slate-500">Used to render the promotion banner when no image is uploaded.</p>
+                    <label htmlFor="brand-colour-fallback" className="text-sm font-medium text-slate-900">{t("promotions.brandColorFallback")}</label>
+                    <p className="mt-1 text-xs leading-5 text-slate-500">{t("promotions.brandColorFallbackDesc")}</p>
                     <div className="mt-3 flex items-center gap-3">
-                      <input id="brand-colour-fallback" type="color" value={brandColorFallback} onChange={(event) => setBrandColorFallback(event.target.value)} className="h-11 w-12 cursor-pointer rounded-lg border border-slate-200 bg-white p-1" aria-label="Brand colour fallback" />
+                      <input id="brand-colour-fallback" type="color" value={brandColorFallback} onChange={(event) => setBrandColorFallback(event.target.value)} className="h-11 w-12 cursor-pointer rounded-lg border border-slate-200 bg-white p-1" aria-label={t("promotions.brandColorFallback")} />
                       <span className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold uppercase text-slate-700">{brandColorFallback}</span>
-                      {!visualUrl ? <span className="h-11 flex-1 rounded-lg" style={{ backgroundColor: brandColorFallback }} aria-label="Brand colour banner preview" /> : null}
+                      {!visualUrl ? <span className="h-11 flex-1 rounded-lg" style={{ backgroundColor: brandColorFallback }} aria-label={t("promotions.brandColorFallback")} /> : null}
                     </div>
                   </div>
                 </div>
@@ -1351,15 +1427,15 @@ export default function PromotionEditor({
                 <div className="flex items-center justify-between gap-4">
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
-                      Promotion brief
+                      {t("promotions.briefEyebrow")}
                     </p>
                     <h2 className="mt-1 text-lg font-semibold text-slate-900">
-                      Promotion summary
+                      {t("promotions.summaryTitle")}
                     </h2>
                   </div>
                   <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold shadow-sm ring-1 ${isActive ? "bg-emerald-50 text-emerald-700 ring-emerald-200" : "bg-slate-100 text-slate-600 ring-slate-200"}`}>
                     <Check className={`h-3.5 w-3.5 ${isActive ? "text-emerald-600" : "text-slate-500"}`} aria-hidden="true" />
-                    {isActive ? "Live" : "Draft"}
+                    {isActive ? t("promotions.statusLive") : t("promotions.statusDraft")}
                   </span>
                 </div>
               </div>
@@ -1371,20 +1447,20 @@ export default function PromotionEditor({
                   className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 focus:outline-none focus-visible:ring-4 focus-visible:ring-slate-900/15"
                 >
                   <Eye className="h-4 w-4" aria-hidden="true" />
-                  Preview banner
+                  {t("promotions.previewBanner")}
                 </button>
               </div>
 
               <dl className="divide-y divide-slate-100 px-6 sm:px-7">
                 <div className="py-4">
                   <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
-                    Promotion status
+                    {t("promotions.promotionStatus")}
                   </dt>
-                  <dd className="mt-1.5 text-sm font-semibold text-slate-900">{isActive ? "Live" : "Draft"}</dd>
+                  <dd className="mt-1.5 text-sm font-semibold text-slate-900">{isActive ? t("promotions.statusLive") : t("promotions.statusDraft")}</dd>
                 </div>
                 <div className="py-4">
                   <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
-                    Promotion type
+                    {t("promotions.promotionType")}
                   </dt>
                   <dd className="mt-1.5 text-sm font-semibold text-slate-900">
                     {promotionTypeLabel}
@@ -1392,15 +1468,15 @@ export default function PromotionEditor({
                 </div>
 
                 <div className="py-4">
-                  <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Banner visual</dt>
+                  <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{t("promotions.bannerVisual")}</dt>
                   <dd className="mt-1.5 flex items-center gap-2 text-sm font-semibold text-slate-900">
                     {visualUrl ? <img src={visualUrl} alt="" className="h-7 w-12 rounded-md object-cover ring-1 ring-slate-200" /> : null}
-                    {visualUrl ? "Custom image uploaded" : "No image uploaded"}
+                    {visualUrl ? t("promotions.customImageUploaded") : t("promotions.noImageUploaded")}
                   </dd>
                 </div>
 
                 <div className="py-4">
-                  <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Brand colour fallback</dt>
+                  <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{t("promotions.brandColorFallback")}</dt>
                   <dd className="mt-1.5 flex items-center gap-2 text-sm font-semibold text-slate-900">
                     <span className="h-5 w-5 rounded-full ring-1 ring-slate-200" style={{ backgroundColor: brandColorFallback }} aria-hidden="true" />
                     {brandColorFallback.toUpperCase()}
@@ -1408,31 +1484,31 @@ export default function PromotionEditor({
                 </div>
 
                 <div className="py-4">
-                  <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Customer discovery</dt>
+                  <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{t("promotions.customerDiscovery")}</dt>
                   <dd className="mt-1.5 text-sm font-semibold text-slate-900">
-                    {isBannerEnabled ? display === "both" ? "Home banner and promotion list" : display === "home-banner" ? "Home banner only" : "Promotion list only" : "Banners disabled"}
+                    {isBannerEnabled ? (display === "both" ? t("promotions.discoveryBoth") : display === "home-banner" ? t("promotions.discoveryHome") : t("promotions.discoveryPromotions")) : t("promotions.discoveryDisabled")}
                   </dd>
                 </div>
 
                 <div className="py-4">
                   <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
-                    Selling options
+                    {t("promotions.sellingOptions")}
                   </dt>
                   <dd className="mt-2">
                     {isBuyXGetY ? (
                       <div className="space-y-2">
                         <div className="flex items-center justify-between gap-3 text-sm">
-                          <span className="text-slate-500">Buy X</span>
+                          <span className="text-slate-500">{t("promotions.buyX")}</span>
                           <span className="truncate text-right font-semibold text-slate-900">
-                            {triggerProduct?.name ?? "Not selected"}
+                            {triggerProduct?.name ?? t("promotions.notSelected")}
                             {triggerOption ? ` · ${triggerOption.label}` : ""}
                             {triggerQuantity ? ` · ${triggerQuantity}` : ""}
                           </span>
                         </div>
                         <div className="flex items-center justify-between gap-3 text-sm">
-                          <span className="text-slate-500">Get Y</span>
+                          <span className="text-slate-500">{t("promotions.getY")}</span>
                           <span className="truncate text-right font-semibold text-slate-900">
-                            {targetProduct?.name ?? "Not selected"}
+                            {targetProduct?.name ?? t("promotions.notSelected")}
                             {targetOption ? ` · ${targetOption.label}` : ""}
                             {targetQuantity ? ` · ${targetQuantity}` : ""}
                           </span>
@@ -1448,18 +1524,18 @@ export default function PromotionEditor({
                         ))}
                       </ul>
                     ) : (
-                      <p className="text-sm text-slate-500">No selling options selected</p>
+                      <p className="text-sm text-slate-500">{t("promotions.noSellingOptionsSelected")}</p>
                     )}
                   </dd>
                 </div>
 
                 <div className="py-4">
                   <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
-                    Eligible customers
+                    {t("promotions.eligibleCustomers")}
                   </dt>
                   <dd className="mt-2">
                     {eligibility === "all-customers" ? (
-                      <p className="text-sm font-semibold text-slate-900">All customers</p>
+                      <p className="text-sm font-semibold text-slate-900">{t("promotions.allCustomers")}</p>
                     ) : eligibleCustomers.length > 0 ? (
                       <ul className="max-h-32 space-y-1.5 overflow-y-auto pr-1">
                         {eligibleCustomers.map((customer) => (
@@ -1470,16 +1546,16 @@ export default function PromotionEditor({
                         ))}
                       </ul>
                     ) : (
-                      <p className="text-sm text-amber-700">No customers selected</p>
+                      <p className="text-sm text-amber-700">{t("promotions.noCustomersSelected")}</p>
                     )}
                   </dd>
                 </div>
                 <div className="py-4">
                   <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
-                    Company-specific prices
+                    {t("promotions.companySpecificPrices")}
                   </dt>
                   <dd className="mt-1.5 text-sm font-semibold text-slate-900">
-                    {isBuyXGetY || !applyOnIndividualPricing ? "Kept separate" : "Promotion also applies"}
+                    {isBuyXGetY || !applyOnIndividualPricing ? t("promotions.keptSeparate") : t("promotions.promotionAlsoApplies")}
                   </dd>
                 </div>
               </dl>
@@ -1488,16 +1564,16 @@ export default function PromotionEditor({
             <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-7">
               <SectionHeading
                 icon={<Power className="h-5 w-5" aria-hidden="true" />}
-                title="Status"
-                description="Control whether this promotion is available to customers."
+                title={t("common.status")}
+                description={t("promotions.statusSectionDesc")}
               />
               <div className="border-y border-slate-100">
                 <SwitchField
-                  title={isActive ? "Active" : "Deactivated"}
+                  title={isActive ? t("promotions.statusActive") : t("promotions.statusDeactivated")}
                   description={
                     isActive
-                      ? "Customers can use this promotion during its active dates."
-                      : "Customers cannot use this promotion until you activate it."
+                      ? t("promotions.statusActiveDesc")
+                      : t("promotions.statusDeactivatedDesc")
                   }
                   checked={isActive}
                   onSave={handleStatusChange}
@@ -1506,16 +1582,16 @@ export default function PromotionEditor({
               </div>
             </section>
 
-             <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-7">
+            <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-7">
               <SectionHeading
                 icon={<CalendarDays className="h-5 w-5" aria-hidden="true" />}
-                title="Active dates"
-                description="Set when customers can use this promotion."
+                title={t("promotions.activeDates")}
+                description={t("promotions.activeDatesDesc")}
               />
               <div className="space-y-5">
                 <Input
                   id="promotion-start-date"
-                  label="Start date"
+                  label={t("promotions.startDate")}
                   type="date"
                   value={startDate}
                   onChange={(event) => setStartDate(event.target.value)}
@@ -1523,8 +1599,8 @@ export default function PromotionEditor({
                 />
                 <div className="border-y border-slate-100">
                   <SwitchField
-                    title="Set an end date"
-                    description="Turn this on to automatically end the offer."
+                    title={t("promotions.setEndDate")}
+                    description={t("promotions.setEndDateDesc")}
                     checked={hasEndDate}
                     onSave={setHasEndDate}
                   />
@@ -1532,7 +1608,7 @@ export default function PromotionEditor({
                 {hasEndDate ? (
                   <Input
                     id="promotion-end-date"
-                    label="End date"
+                    label={t("promotions.endDate")}
                     type="date"
                     min={startDate}
                     value={endDate}
@@ -1546,37 +1622,37 @@ export default function PromotionEditor({
         </div>
 
         {isEditing && promotionId ? (
-          <p className="text-center text-xs text-slate-400">Promotion ID: {promotionId}</p>
+          <p className="text-center text-xs text-slate-400">{t("promotions.promotionIdLabel")} {promotionId}</p>
         ) : null}
       </form>
 
       <Modal
         isOpen={isPreviewOpen}
-        title="Promotion banner preview"
-        description="This is a read-only view of the banner buyers will see. Closing it keeps every unsaved form change in place."
+        title={t("promotions.previewModalTitle")}
+        description={t("promotions.previewModalDesc")}
         onClose={() => setIsPreviewOpen(false)}
         size="lg"
       >
         <div className="mx-auto max-w-sm">
           {!isBannerEnabled ? (
             <p className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-5 text-amber-900">
-              Discovery banners are currently turned off. This shows the design if you enable them before saving.
+              {t("promotions.previewBannersOffNotice")}
             </p>
           ) : null}
           <PromotionBanner promotion={previewPromotion} />
           <p className="mt-4 text-center text-xs leading-5 text-slate-500">
-            Preview only — no promotion was created, updated, or published.
+            {t("promotions.previewFooterText")}
           </p>
         </div>
       </Modal>
 
       <Modal
         isOpen={productSelectionTarget !== null}
-        title={`Select product${isSingleProductSelection ? "" : "s"}`}
+        title={isSingleProductSelection ? t("promotions.selectProductModalTitle") : t("promotions.selectProductsModalTitle")}
         description={
           isSingleProductSelection
-            ? "Choose the product for this promotion rule."
-            : "Choose the products this promotion applies to."
+            ? t("promotions.selectProductModalDescSingle")
+            : t("promotions.selectProductsModalDescMultiple")
         }
         onClose={() => setProductSelectionTarget(null)}
         size="md"
@@ -1588,10 +1664,10 @@ export default function PromotionEditor({
                 htmlFor="promotion-product-search"
                 className="text-sm font-medium text-slate-900"
               >
-                Products
+                {t("products.title")}
               </label>
               <span className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
-                {selectedProductIds.length} selected
+                {t("promotions.countSelected", { count: selectedProductIds.length })}
               </span>
             </div>
             <div className="relative">
@@ -1604,7 +1680,7 @@ export default function PromotionEditor({
                 type="search"
                 value={productSearch}
                 onChange={(event) => setProductSearch(event.target.value)}
-                placeholder="Search products"
+                placeholder={t("products.searchPlaceholder")}
                 className="w-full rounded-xl border border-slate-200 bg-white py-3 pl-10 pr-4 text-sm text-slate-900 placeholder:text-slate-400 transition hover:border-slate-300 focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/15"
               />
             </div>
@@ -1622,11 +1698,17 @@ export default function PromotionEditor({
                         isSelected ? "bg-primary/5" : "hover:bg-slate-50"
                       }`}
                     >
-                      <img
-                        src={product.imageUrl}
-                        alt=""
-                        className="h-11 w-11 shrink-0 rounded-xl object-cover ring-1 ring-slate-200"
-                      />
+                      {product.imageUrl ? (
+                        <img
+                          src={product.imageUrl}
+                          alt=""
+                          className="h-11 w-11 shrink-0 rounded-xl object-cover ring-1 ring-slate-200"
+                        />
+                      ) : (
+                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-400 ring-1 ring-slate-200">
+                          <Boxes className="h-5 w-5" />
+                        </div>
+                      )}
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm font-semibold text-slate-900">
                           {product.name}
@@ -1644,7 +1726,7 @@ export default function PromotionEditor({
                         checked={isSelected}
                         onChange={() => toggleProduct(product.id)}
                         className="h-5 w-5 shrink-0 border-slate-300 text-primary focus:ring-4 focus:ring-primary/15"
-                        aria-label={`Select ${product.name}`}
+                        aria-label={`${t("common.select")} ${product.name}`}
                       />
                     </label>
                   </li>
@@ -1653,7 +1735,7 @@ export default function PromotionEditor({
             </ul>
           ) : (
             <p className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
-              No products match your search.
+              {t("products.noProductsFound")}
             </p>
           )}
 
@@ -1663,7 +1745,7 @@ export default function PromotionEditor({
               onClick={() => setProductSelectionTarget(null)}
               className="rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
             >
-              Cancel
+              {t("common.cancel")}
             </button>
             <button
               type="button"
@@ -1671,7 +1753,7 @@ export default function PromotionEditor({
               className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-content transition hover:brightness-95"
             >
               <Check className="h-4 w-4" aria-hidden="true" />
-              Apply selection
+              {t("promotions.applySelection")}
             </button>
           </div>
         </div>
@@ -1679,8 +1761,8 @@ export default function PromotionEditor({
 
       <Modal
         isOpen={isCustomerSelectorOpen}
-        title="Select customers"
-        description="Choose the customers who can see and use this promotion."
+        title={t("common.selectCustomers")}
+        description={t("promotions.selectCustomersModalDesc")}
         onClose={() => setIsCustomerSelectorOpen(false)}
         size="md"
       >
@@ -1691,10 +1773,10 @@ export default function PromotionEditor({
                 htmlFor="promotion-customer-search"
                 className="text-sm font-medium text-slate-900"
               >
-                Customers
+                {t("customers.title")}
               </label>
               <span className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
-                {selectedCustomerIds.length} selected
+                {t("promotions.countSelected", { count: selectedCustomerIds.length })}
               </span>
             </div>
             <div className="relative">
@@ -1707,7 +1789,7 @@ export default function PromotionEditor({
                 type="search"
                 value={customerSearch}
                 onChange={(event) => setCustomerSearch(event.target.value)}
-                placeholder="Search customers"
+                placeholder={t("customers.searchPlaceholder")}
                 className="w-full rounded-xl border border-slate-200 bg-white py-3 pl-10 pr-4 text-sm text-slate-900 placeholder:text-slate-400 transition hover:border-slate-300 focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/15"
               />
             </div>
@@ -1725,11 +1807,9 @@ export default function PromotionEditor({
                         isSelected ? "bg-primary/5" : "hover:bg-slate-50"
                       }`}
                     >
-                      <img
-                        src={`https://ui-avatars.com/api/?name=${encodeURIComponent(customer.companyName)}&background=0f766e&color=ffffff&bold=true&size=96`}
-                        alt=""
-                        className="h-11 w-11 shrink-0 rounded-xl object-cover ring-1 ring-slate-200"
-                      />
+                      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-xs font-semibold text-primary ring-1 ring-primary/20">
+                        {customer.companyName.trim().slice(0, 2).toUpperCase() || "CU"}
+                      </span>
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm font-semibold text-slate-900">
                           {customer.companyName}
@@ -1743,7 +1823,7 @@ export default function PromotionEditor({
                         checked={isSelected}
                         onChange={() => toggleCustomer(customer.id)}
                         className="h-5 w-5 shrink-0 rounded border-slate-300 text-primary focus:ring-4 focus:ring-primary/15"
-                        aria-label={`Select ${customer.companyName}`}
+                        aria-label={`${t("common.select")} ${customer.companyName}`}
                       />
                     </label>
                   </li>
@@ -1752,7 +1832,7 @@ export default function PromotionEditor({
             </ul>
           ) : (
             <p className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
-              No customers match your search.
+              {t("promotions.noCustomersMatchSearch")}
             </p>
           )}
 
@@ -1762,7 +1842,7 @@ export default function PromotionEditor({
               onClick={() => setIsCustomerSelectorOpen(false)}
               className="rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
             >
-              Cancel
+              {t("common.cancel")}
             </button>
             <button
               type="button"
@@ -1770,7 +1850,7 @@ export default function PromotionEditor({
               className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-content transition hover:brightness-95"
             >
               <Check className="h-4 w-4" aria-hidden="true" />
-              Apply selection
+              {t("promotions.applySelection")}
             </button>
           </div>
         </div>

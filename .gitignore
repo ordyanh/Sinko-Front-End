@@ -1,8 +1,14 @@
 .DS_Store
 .env
+!.env.production
+.env.deploy
+.env.deploy.local
 /node_modules/
 deploy.sh
 
 # React Router
 /.react-router/
 /build/
+
+# Visual Studio
+.vs/

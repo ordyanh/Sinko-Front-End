@@ -5,6 +5,7 @@ import {
   type HTMLInputTypeAttribute,
 } from "react";
 import Input from "./form/input";
+import { useTranslation } from "~/shared/lib/i18n";
 
 type EditableInfoFieldProps = {
   label: string;
@@ -21,10 +22,12 @@ export default function EditableInfoField({
   value,
   onSave,
   isSubmitting = false,
-  editLabel = "Edit",
+  editLabel,
   placeholder,
   inputType = "text",
 }: EditableInfoFieldProps) {
+  const { t } = useTranslation();
+  const effectiveEditLabel = editLabel ?? t("common.edit", "Edit");
   const [isEditing, setIsEditing] = useState(false);
   const [draftValue, setDraftValue] = useState(value);
   const wasSubmittingRef = useRef(isSubmitting);
@@ -86,7 +89,7 @@ export default function EditableInfoField({
             disabled={isSubmitting}
             className="shrink-0 text-sm font-semibold text-emerald-600 transition hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {isSubmitting ? "Saving..." : "Save"}
+            {isSubmitting ? t("common.saving", "Saving...") : t("common.save", "Save")}
           </button>
           <button
             type="button"
@@ -94,7 +97,7 @@ export default function EditableInfoField({
             disabled={isSubmitting}
             className="shrink-0 text-sm font-medium text-slate-400 transition hover:text-slate-600 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            Cancel
+            {t("common.cancel", "Cancel")}
           </button>
         </div>
       ) : (
@@ -106,7 +109,7 @@ export default function EditableInfoField({
             disabled={isSubmitting}
             className="shrink-0 text-sm font-semibold text-emerald-600 transition hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {editLabel}
+            {effectiveEditLabel}
           </button>
         </div>
       )}

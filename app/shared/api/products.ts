@@ -61,6 +61,7 @@ export type UpdateProductRequest = CreateProductRequest;
 export type UpsertProductRequest = {
   id?: number | null;
   code: string;
+  name?: string;
   names?: Record<string, string> | null;
   unit?: number;
   sellingUnit?: number | null;
@@ -160,10 +161,33 @@ export async function getSupplierCatalog(): Promise<BackendProductDto[]> {
 }
 
 export async function getProducts(): Promise<BackendProductDto[]> {
-  const res = await apiRequest<BackendProductDto[]>("/api/Products", {
-    method: "GET",
-  });
-  return Array.isArray(res) ? res : [];
+  try {
+    const res = await apiRequest<any>("/api/Marketplace/products", {
+      method: "GET",
+    });
+    const raw = Array.isArray(res) ? res : (res?.value || res?.items || res?.data || []);
+    if (Array.isArray(raw) && raw.length > 0) {
+      return raw.map((p: any) => ({
+        ...p,
+        id: p.id ?? p.productId,
+        name: p.name ?? p.productName,
+        price: p.price,
+        basePrice: p.basePrice ?? p.price,
+      }));
+    }
+  } catch {
+    // Fallback to /api/Products
+  }
+
+  try {
+    const res = await apiRequest<any>("/api/Products", {
+      method: "GET",
+    });
+    const raw = Array.isArray(res) ? res : (res?.value || res?.items || res?.data || []);
+    return Array.isArray(raw) ? raw : [];
+  } catch {
+    return [];
+  }
 }
 
 export async function getProductById(id: string | number): Promise<BackendProductDto> {
@@ -192,9 +216,21 @@ export async function updateProduct(
 }
 
 export async function upsertProduct(payload: UpsertProductRequest): Promise<UpsertProductResponse> {
+  const rawCat = payload.categoryId ? Number(payload.categoryId) : null;
+  const safeCategoryId =
+    rawCat && !isNaN(rawCat) && rawCat > 0 && rawCat <= 2147483647
+      ? Math.floor(rawCat)
+      : null;
+
+  const resolvedName =
+    payload.name || (payload.names ? Object.values(payload.names)[0] : undefined);
+
   // Ensure status is valid backend enum ("Active" | "Inactive")
   const sanitizedPayload: UpsertProductRequest = {
     ...payload,
+    categoryId: safeCategoryId ?? 1,
+    name: resolvedName,
+    names: payload.names || (resolvedName ? { "1": resolvedName } : undefined),
     status: toBackendProductStatus(payload.status),
     basePrice: Math.max(Number(payload.basePrice) || 0, 1),
     code: payload.code || `PRD-${Date.now().toString().slice(-6)}`,

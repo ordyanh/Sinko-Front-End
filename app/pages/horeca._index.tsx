@@ -7,19 +7,23 @@ import {
   Sparkles,
   Tag,
 } from "lucide-react";
+import { useEffect, useState } from "react";
 import { Link, useOutletContext } from "react-router";
 import {
   formatMarketplacePrice,
   getMarketplaceOptionLabel,
   getMarketplaceSellingOptions,
   marketplaceProducts,
+  type MarketplaceProduct,
 } from "~/entities/product";
 import {
   isPromotionVisibleOnHome,
   PromotionCard,
   type MarketplacePromotion,
 } from "~/entities/promotion";
+import { getMarketplaceSuppliers } from "~/shared/api";
 import { DashboardPageContent } from "~/shared/ui";
+import { useTranslation } from "~/shared/lib/i18n";
 
 type RecommendedSupplier = {
   name: string;
@@ -33,46 +37,10 @@ type RecommendedSupplier = {
   logoClassName: string;
 };
 
-const recommendedSuppliers: RecommendedSupplier[] = [
-  {
-    name: "Ararat Harvest",
-    initials: "AH",
-    description:
-      "Farm-picked vegetables, greens, and fruit for a sharper daily prep.",
-    deliveryNote: "Order by 18:00 for morning delivery",
-    deliveryWindow: "07:00–10:00",
-    serviceArea: "Yerevan & Kotayk",
-    categories: ["Fresh produce", "Herbs"],
-    accentClassName: "bg-[#dceede]",
-    logoClassName: "bg-[#236548] text-white",
-  },
-  {
-    name: "Lori Dairy Co.",
-    initials: "LD",
-    description:
-      "Regional dairy and cheeses with the consistency your service needs.",
-    deliveryNote: "Next delivery slot available tomorrow",
-    deliveryWindow: "08:00–12:00",
-    serviceArea: "Yerevan & Aragatsotn",
-    categories: ["Dairy", "Cheese"],
-    accentClassName: "bg-[#fff0c8]",
-    logoClassName: "bg-[#b7740d] text-white",
-  },
-  {
-    name: "Mare & Terra",
-    initials: "M&T",
-    description:
-      "A considered pantry of oils and Mediterranean staples for the pass.",
-    deliveryNote: "Free delivery on orders over 25,000 դրամ",
-    deliveryWindow: "10:00–15:00",
-    serviceArea: "Yerevan citywide",
-    categories: ["Pantry", "Oils"],
-    accentClassName: "bg-[#e8e3f8]",
-    logoClassName: "bg-[#655099] text-white",
-  },
-];
+const recommendedSuppliers: RecommendedSupplier[] = [];
 
 function SupplierCard({ supplier }: { supplier: RecommendedSupplier }) {
+  const { t } = useTranslation();
   return (
     <article className="group relative flex min-h-72 flex-col overflow-hidden rounded-[1.35rem] border border-slate-200 bg-white p-5 shadow-[0_2px_3px_rgba(15,23,42,0.02)] transition duration-300 hover:-translate-y-1 hover:border-slate-300 hover:shadow-[0_18px_36px_rgba(15,23,42,0.09)]">
       <div
@@ -86,7 +54,7 @@ function SupplierCard({ supplier }: { supplier: RecommendedSupplier }) {
         </div>
         <div className="flex items-center gap-1.5 rounded-full bg-[#f1f6ef] px-2.5 py-1 text-[11px] font-bold text-[#406a45]">
           <BadgeCheck className="h-3.5 w-3.5" aria-hidden="true" />
-          Recommended
+          {t("suppliers.verified")}
         </div>
       </div>
 
@@ -139,11 +107,20 @@ function PopularProductCard({
       to="/horeca/products"
       className="group flex min-w-0 items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3 transition duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
     >
-      <img
-        src={product.image}
-        alt=""
-        className="h-16 w-16 shrink-0 rounded-xl object-cover"
-      />
+      {product.image ? (
+        <img
+          src={product.image}
+          onError={(e) => {
+            e.currentTarget.style.display = "none";
+          }}
+          alt=""
+          className="h-16 w-16 shrink-0 rounded-xl object-cover"
+        />
+      ) : (
+        <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-400">
+          <Package className="h-7 w-7 text-slate-300" aria-hidden="true" />
+        </div>
+      )}
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-bold tracking-tight text-slate-900">
           {product.title}
@@ -172,8 +149,40 @@ function PopularProductCard({
 }
 
 export default function HorecaDashboardPage() {
-  const { promotions } = useOutletContext<{ promotions: MarketplacePromotion[] }>();
-  const popularProducts = marketplaceProducts.slice(0, 4);
+  const { t } = useTranslation();
+  const { promotions, catalogProducts } = useOutletContext<{
+    promotions: MarketplacePromotion[];
+    catalogProducts?: MarketplaceProduct[];
+  }>();
+  const [suppliers, setSuppliers] = useState<RecommendedSupplier[]>([]);
+
+  useEffect(() => {
+    let isActive = true;
+    getMarketplaceSuppliers()
+      .then((backendSuppliers) => {
+        if (!isActive || !backendSuppliers.length) return;
+        const accents = ["bg-[#dceede]", "bg-[#fff0c8]", "bg-[#e8e3f8]"];
+        const logos = ["bg-[#236548] text-white", "bg-[#b7740d] text-white", "bg-[#655099] text-white"];
+        const mapped = backendSuppliers.map((s, idx) => ({
+          name: s.companyName || "Supplier",
+          initials: (s.companyName || "S").split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase(),
+          description: s.description || "Trusted supplier on Sinko platform.",
+          deliveryNote: "Next delivery slot available tomorrow",
+          deliveryWindow: "08:00–14:00",
+          serviceArea: s.address || "Yerevan citywide",
+          categories: ["Produce", "General"],
+          accentClassName: accents[idx % accents.length],
+          logoClassName: logos[idx % logos.length],
+        }));
+        setSuppliers(mapped.slice(0, 6));
+      })
+      .catch(() => {});
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
+  const popularProducts = (catalogProducts || []).slice(0, 4);
   const homePromotions = promotions.filter(isPromotionVisibleOnHome);
 
   return (
@@ -188,14 +197,13 @@ export default function HorecaDashboardPage() {
             <div>
               <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-primary">
                 <span className="h-2 w-2 rounded-full bg-primary" />
-                Today&apos;s sourcing board
+                {t("dashboard.sourcingBoard")}
               </div>
               <h1 className="mt-3 max-w-2xl text-3xl font-bold tracking-[-0.05em] text-slate-950 sm:text-4xl">
-                The kitchen starts with good suppliers.
+                {t("dashboard.kitchenStarts")}
               </h1>
               <p className="mt-3 max-w-xl text-sm leading-6 text-slate-600 sm:text-base">
-                A focused shortlist of dependable partners and ingredients for
-                your next service.
+                {t("dashboard.kitchenSubtitle")}
               </p>
             </div>
             <div className="flex items-center gap-3 rounded-2xl border border-[#dce7d7] bg-white/80 px-4 py-3 shadow-sm backdrop-blur">
@@ -204,9 +212,9 @@ export default function HorecaDashboardPage() {
               </span>
               <p className="text-sm leading-5 text-slate-600">
                 <span className="block font-bold text-slate-950">
-                  Fresh stock, ready to order
+                  {t("dashboard.freshStock")}
                 </span>
-                Browse suppliers and add what you need.
+                {t("dashboard.browseSuppliers")}
               </p>
             </div>
           </div>
@@ -217,20 +225,20 @@ export default function HorecaDashboardPage() {
             <div>
               <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-primary">
                 <Tag className="h-4 w-4" aria-hidden="true" />
-                Supplier promotions
+                {t("dashboard.supplierPromotions")}
               </div>
               <h2 className="mt-2 text-2xl font-bold tracking-[-0.04em] text-slate-950 sm:text-3xl">
-                Offers from your suppliers
+                {t("dashboard.offersFromSuppliers")}
               </h2>
               <p className="mt-2 text-sm text-slate-600">
-                The active promotions each supplier chose to feature.
+                {t("dashboard.activePromotionsSubtitle")}
               </p>
             </div>
             <Link
               to="/horeca/promotions"
               className="hidden items-center gap-1.5 text-sm font-semibold text-primary transition hover:text-primary/75 sm:inline-flex"
             >
-              View all offers{" "}
+              {t("dashboard.viewAllOffers")}{" "}
               <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </Link>
           </div>
@@ -246,25 +254,25 @@ export default function HorecaDashboardPage() {
             <div>
               <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-primary">
                 <Sparkles className="h-4 w-4" aria-hidden="true" />
-                Handpicked for your kitchen
+                {t("dashboard.handpickedForKitchen")}
               </div>
               <h2 className="mt-2 text-2xl font-bold tracking-[-0.04em] text-slate-950 sm:text-3xl">
-                Recommended suppliers
+                {t("dashboard.recommendedSuppliers")}
               </h2>
               <p className="mt-2 text-sm text-slate-600">
-                A trusted mix for produce, pantry, and daily staples.
+                {t("dashboard.trustedMixSubtitle")}
               </p>
             </div>
             <Link
               to="/horeca/suppliers"
               className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 shadow-sm transition hover:border-primary hover:bg-primary hover:text-primary-content focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
             >
-              View all suppliers{" "}
+              {t("dashboard.viewAllSuppliers")}{" "}
               <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </Link>
           </div>
           <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
-            {recommendedSuppliers.map((supplier) => (
+            {suppliers.map((supplier) => (
               <SupplierCard key={supplier.name} supplier={supplier} />
             ))}
           </div>
@@ -274,17 +282,17 @@ export default function HorecaDashboardPage() {
           <div className="flex items-end justify-between gap-4">
             <div>
               <div className="text-xs font-bold uppercase tracking-[0.16em] text-primary">
-                Most ordered this week
+                {t("dashboard.mostOrderedThisWeek")}
               </div>
               <h2 className="mt-2 text-2xl font-bold tracking-[-0.04em] text-slate-950 sm:text-3xl">
-                Popular products
+                {t("dashboard.popularProducts")}
               </h2>
             </div>
             <Link
               to="/horeca/products"
               className="hidden items-center gap-1.5 text-sm font-semibold text-primary transition hover:text-primary/75 sm:inline-flex"
             >
-              Browse products{" "}
+              {t("dashboard.browseProducts")}{" "}
               <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </Link>
           </div>
@@ -297,7 +305,7 @@ export default function HorecaDashboardPage() {
             to="/horeca/products"
             className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-800 transition hover:border-primary hover:text-primary sm:hidden"
           >
-            Browse all products{" "}
+            {t("dashboard.browseAllProducts")}{" "}
             <ArrowRight className="h-4 w-4" aria-hidden="true" />
           </Link>
         </section>

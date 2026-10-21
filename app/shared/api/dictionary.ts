@@ -72,15 +72,30 @@ export async function getDictionarySellingUnits(): Promise<DictionaryUnitOption[
 }
 
 export async function createCustomRegion(name: string): Promise<unknown> {
-  return apiRequest<unknown>("/api/Dictionary/custom-region", {
+  const query = new URLSearchParams({ name });
+  return apiRequest<unknown>(`/api/Dictionary/custom-region?${query.toString()}`, {
     method: "POST",
     body: JSON.stringify({ name }),
   });
 }
 
-export async function createCustomCategory(name: string): Promise<unknown> {
-  return apiRequest<unknown>("/api/Dictionary/custom-category", {
-    method: "POST",
-    body: JSON.stringify({ name }),
-  });
+export type CreatedCategoryResponse = {
+  id: number;
+  name: string;
+  parentId?: number | null;
+};
+
+export async function createCustomCategory(
+  name: string,
+  supplierId?: string,
+): Promise<CreatedCategoryResponse> {
+  const query = new URLSearchParams({ name });
+  if (supplierId) query.set("supplierId", supplierId);
+  return apiRequest<CreatedCategoryResponse>(
+    `/api/Dictionary/custom-category?${query.toString()}`,
+    {
+      method: "POST",
+      body: JSON.stringify({ name, supplierId }),
+    },
+  );
 }

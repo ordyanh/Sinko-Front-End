@@ -1,6 +1,7 @@
 import { ClipboardList, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
+import { useTranslation, getLocalizedOrderStatus } from "~/shared/lib/i18n";
 import {
   formatAmd,
   formatAmdDelta,
@@ -25,8 +26,6 @@ import {
   type SearchFilterDefinition,
   type SearchFilterValue,
 } from "~/shared/ui";
-
-const pageSize = 5;
 
 const statusFilterOptions: Array<{ value: HorecaOrderStatus; label: string }> = (
   [
@@ -66,108 +65,120 @@ function FulfilmentMeter({ status }: { status: HorecaOrderStatus }) {
   );
 }
 
-const columns: TableColumn<HorecaOrder>[] = [
-  {
-    id: "order",
-    header: "Order",
-    cell: (order) => (
-      <div>
-        <span className="font-semibold text-slate-900 tabular-nums">
-          {order.id}
-        </span>
-        <p className="mt-0.5 text-xs text-slate-500">
-          Placed {formatOrderDate(order.placedAt)}
-        </p>
-      </div>
-    ),
-  },
-  {
-    id: "supplier",
-    header: "Supplier",
-    cell: (order) => (
-      <div>
-        <p className="font-medium text-slate-800">{order.supplierName}</p>
-        <p className="mt-0.5 text-xs text-slate-500">
-          {order.supplierContactName}
-        </p>
-      </div>
-    ),
-  },
-  {
-    id: "items",
-    header: "Items",
-    cell: (order) => {
-      const shortLineCount = getShortLineCount(order.lines);
-
-      return (
-        <div>
-          <span className="tabular-nums">{order.lines.length}</span>
-          {shortLineCount > 0 ? (
-            <p className="mt-0.5 text-xs font-medium text-rose-600">
-              {shortLineCount} short
-            </p>
-          ) : null}
-        </div>
-      );
-    },
-  },
-  {
-    id: "delivery",
-    header: "Delivery",
-    cell: (order) => formatOrderDate(order.deliveryDate),
-  },
-  {
-    id: "status",
-    header: "Status",
-    cell: (order) => (
-      <div>
-        <span
-          className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${horecaOrderStatusClasses[order.status]}`}
-        >
-          {horecaOrderStatusLabels[order.status]}
-        </span>
-        <FulfilmentMeter status={order.status} />
-      </div>
-    ),
-  },
-  {
-    id: "total",
-    header: "Total",
-    headerClassName: "text-right",
-    className: "text-right",
-    cell: (order) => {
-      const offeredTotal = getOfferedTotal(order.lines);
-      const delta = offeredTotal - getRequestedTotal(order.lines);
-      const tone = getOfferTone(delta, getShortLineCount(order.lines));
-      const hasOffer = order.offerReceivedAt !== null;
-
-      return (
-        <div>
-          <p className="font-semibold text-slate-900 tabular-nums">
-            {formatAmd(offeredTotal)}
-          </p>
-          {hasOffer && delta !== 0 ? (
-            <p
-              className={`mt-0.5 text-xs font-medium tabular-nums ${offerToneClasses[tone]}`}
-            >
-              {formatAmdDelta(delta)} vs requested
-            </p>
-          ) : null}
-        </div>
-      );
-    },
-  },
-];
-
 export default function HorecaOrdersPage() {
+  const { t } = useTranslation();
   const [searchParams] = useSearchParams();
   const [searchValue, setSearchValue] = useState("");
   const [selectedFilters, setSelectedFilters] = useState<SearchFilterValue[]>(
     [],
   );
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [orders, setOrders] = useState<HorecaOrder[]>([]);
   const [isLoadingOrders, setIsLoadingOrders] = useState(true);
+
+  const columns: TableColumn<HorecaOrder>[] = useMemo(
+    () => [
+      {
+        id: "order",
+        header: t("orders.orderId"),
+        cell: (order) => (
+          <div>
+            <span className="font-semibold text-slate-900 tabular-nums">
+              {order.id}
+            </span>
+            <p className="mt-0.5 text-xs text-slate-500">
+              {t("orders.placedAtDate", "Placed")} {formatOrderDate(order.placedAt)}
+            </p>
+          </div>
+        ),
+      },
+      {
+        id: "supplier",
+        header: t("orders.supplier"),
+        cell: (order) => (
+          <div>
+            <p className="font-medium text-slate-800">{order.supplierName}</p>
+            <p className="mt-0.5 text-xs text-slate-500">
+              {order.supplierContactName}
+            </p>
+          </div>
+        ),
+      },
+      {
+        id: "items",
+        header: t("orders.items"),
+        cell: (order) => {
+          const shortLineCount = getShortLineCount(order.lines);
+
+          return (
+            <div>
+              <span className="tabular-nums">{order.lines.length}</span>
+              {shortLineCount > 0 ? (
+                <p className="mt-0.5 text-xs font-medium text-rose-600">
+                  {shortLineCount} {t("orders.shortCount", "short")}
+                </p>
+              ) : null}
+            </div>
+          );
+        },
+      },
+      {
+        id: "delivery",
+        header: t("orders.date"),
+        cell: (order) => formatOrderDate(order.deliveryDate),
+      },
+      {
+        id: "status",
+        header: t("orders.status"),
+        cell: (order) => (
+          <div>
+            <span
+              className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${horecaOrderStatusClasses[order.status]}`}
+            >
+              {getLocalizedOrderStatus(order.status, t)}
+            </span>
+            <FulfilmentMeter status={order.status} />
+          </div>
+        ),
+      },
+      {
+        id: "total",
+        header: t("orders.total"),
+        headerClassName: "text-right",
+        className: "text-right",
+        cell: (order) => {
+          const calculatedOffered = getOfferedTotal(order.lines);
+          const offeredTotal = calculatedOffered > 0
+            ? calculatedOffered
+            : (order.finalPrice ?? order.totalPrice ?? order.totalAmount ?? 0);
+          const calculatedRequested = getRequestedTotal(order.lines);
+          const requestedTotal = calculatedRequested > 0
+            ? calculatedRequested
+            : (order.totalPrice ?? order.finalPrice ?? order.totalAmount ?? 0);
+          const delta = offeredTotal - requestedTotal;
+          const tone = getOfferTone(delta, getShortLineCount(order.lines));
+          const hasOffer = order.offerReceivedAt !== null;
+
+          return (
+            <div>
+              <p className="font-semibold text-slate-900 tabular-nums">
+                {formatAmd(offeredTotal)}
+              </p>
+              {hasOffer && delta !== 0 ? (
+                <p
+                  className={`mt-0.5 text-xs font-medium tabular-nums ${offerToneClasses[tone]}`}
+                >
+                  {formatAmdDelta(delta)} {t("orders.vsRequested", "vs requested")}
+                </p>
+              ) : null}
+            </div>
+          );
+        },
+      },
+    ],
+    [t],
+  );
 
   useEffect(() => {
     let isCurrent = true;
@@ -190,12 +201,12 @@ export default function HorecaOrdersPage() {
   const orderSearchFilters: SearchFilterDefinition[] = [
     {
       id: "status",
-      label: "Status",
+      label: t("orders.status", "Status"),
       options: statusFilterOptions,
     },
     {
       id: "supplier",
-      label: "Supplier",
+      label: t("orders.supplier", "Supplier"),
       options: Array.from(new Set(orders.map((order) => order.supplierName))).map(
         (supplier) => ({ value: supplier, label: supplier }),
       ),
@@ -290,7 +301,7 @@ export default function HorecaOrdersPage() {
   return (
     <DashboardTableContent>
       <TableLayout
-        title="Orders"
+        title={t("orders.title")}
         icon={<ClipboardList className="h-5 w-5" aria-hidden="true" />}
         additionalContent={
           awaitingReviewCount > 0 || isReviewFilterOn ? (
@@ -302,9 +313,7 @@ export default function HorecaOrdersPage() {
                 <span className="font-semibold text-slate-900 tabular-nums">
                   {awaitingReviewCount}
                 </span>{" "}
-                {awaitingReviewCount === 1 ? "offer needs" : "offers need"} your
-                review before the supplier can prepare{" "}
-                {awaitingReviewCount === 1 ? "it" : "them"}.
+                {t("orders.offersNeedReview", "offers need your review before the supplier can prepare them.")}
               </span>
               {isReviewFilterOn ? (
                 <button
@@ -313,7 +322,7 @@ export default function HorecaOrdersPage() {
                   className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-semibold text-slate-600 transition hover:bg-primary/10 hover:text-slate-900"
                 >
                   <X className="h-4 w-4" aria-hidden="true" />
-                  Show all orders
+                  {t("orders.showAllOrders", "Show all orders")}
                 </button>
               ) : (
                 <button
@@ -321,7 +330,7 @@ export default function HorecaOrdersPage() {
                   onClick={showReviewOrders}
                   className="rounded-lg bg-primary px-3 py-1.5 text-sm font-semibold text-primary-content transition hover:brightness-95"
                 >
-                  Review offers
+                  {t("orders.reviewOffers", "Review offers")}
                 </button>
               )}
             </div>
@@ -329,7 +338,7 @@ export default function HorecaOrdersPage() {
         }
         searchValue={searchValue}
         onSearchChange={handleSearchChange}
-        searchPlaceholder="Search by order, supplier, or status"
+        searchPlaceholder={t("orders.searchOrdersPlaceholder", "Search by order, supplier, or status")}
         searchFilters={orderSearchFilters}
         selectedSearchFilters={selectedFilters}
         onSelectedSearchFiltersChange={handleSelectedFiltersChange}
@@ -340,8 +349,10 @@ export default function HorecaOrdersPage() {
         page={page}
         onPageChange={setPage}
         pageSize={pageSize}
+        onPageSizeChange={setPageSize}
+        pageSizeOptions={[5, 10, 25, 50, 100]}
         totalCount={filteredOrders.length}
-        emptyMessage={isLoadingOrders ? "Loading orders…" : "No orders match your search."}
+        emptyMessage={isLoadingOrders ? t("orders.loadingOrders", "Loading orders…") : t("orders.noOrdersMatch", "No orders match your search.")}
       />
     </DashboardTableContent>
   );
