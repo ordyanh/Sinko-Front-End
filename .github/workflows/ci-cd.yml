@@ -1,0 +1,69 @@
+name: Synco Frontend CI/CD
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+concurrency:
+  group: synco-frontend-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: Build & Validate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run TypeScript typecheck
+        run: npm run typecheck
+
+      - name: Build frontend production bundle
+        run: npm run build
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: synco-frontend-build
+          path: build/
+          retention-days: 7
+
+  deploy:
+    name: Deploy to DigitalOcean
+    needs: build-and-test
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Trigger deployment
+        env:
+          DO_TOKEN: ${{ secrets.DO_API_TOKEN || secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+          DO_APP_ID: ${{ secrets.DO_APP_ID }}
+        run: |
+          if [ -n "$DO_TOKEN" ]; then
+            echo "Triggering DigitalOcean deployment via do-deploy script..."
+            node scripts/do-deploy.js
+          else
+            echo "Notice: DO_API_TOKEN secret is not set in repository secrets."
+            echo "DigitalOcean auto-deployment is natively triggered by Git push to 'main'."
+          fi

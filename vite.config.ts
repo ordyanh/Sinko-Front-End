@@ -6,10 +6,11 @@ import { defineConfig, loadEnv } from "vite";
 
 const normalizeUrl = (url: string) => url.replace(/\/+$/, "");
 
-// Заменено localhost на 127.0.0.1 для исключения проблем с IPv6 (::1)
-// Порт Core заменен с 5206 на реальный 5180
-const REMOTE_AUTH_DEFAULT = "http://127.0.0.1:5180";
-const REMOTE_CORE_DEFAULT = "http://127.0.0.1:5180";
+// Default URLs (using 127.0.0.1 to prevent Windows IPv6 ::1 lookup issues)
+const LOCAL_AUTH_DEFAULT = "http://127.0.0.1:5273";
+const LOCAL_CORE_DEFAULT = "http://127.0.0.1:5206";
+const REMOTE_AUTH_DEFAULT = "https://lobster-app-zhysf.ondigitalocean.app";
+const REMOTE_CORE_DEFAULT = "https://octopus-app-bomx6.ondigitalocean.app";
 
 function getActiveTarget(cwd: string, mode: string) {
   if (process.env.VITE_BACKEND_TARGET) {
@@ -72,7 +73,7 @@ export default defineConfig(({ mode }) => {
             });
           },
         },
-        "^/api/([Dd]ictionary|[Pp]roducts|[Oo]rders|[Cc]art|[Pp]romotions|[Cc]ustomers|[Mm]arketplace|[Nn]otifications|[Ss]ubscription|[Aa]dmin|[Ss]upplier|[Dd]ashboard)": {
+        "^/api/": {
           target: coreUrl,
           changeOrigin: true,
           secure: false,

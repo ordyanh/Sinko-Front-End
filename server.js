@@ -14,8 +14,8 @@ const isAzure = Boolean(process.env.WEBSITE_INSTANCE_ID || process.env.WEBSITE_S
 const defaultTarget = isAzure || process.env.NODE_ENV === "production" ? "remote" : "local";
 const isLocal = (process.env.VITE_BACKEND_TARGET || defaultTarget).toLowerCase() === "local";
 
-const LOCAL_AUTH_DEFAULT = "http://localhost:5273";
-const LOCAL_CORE_DEFAULT = "http://localhost:5206";
+const LOCAL_AUTH_DEFAULT = "http://127.0.0.1:5273";
+const LOCAL_CORE_DEFAULT = "http://127.0.0.1:5206";
 const REMOTE_AUTH_DEFAULT = "https://lobster-app-zhysf.ondigitalocean.app";
 const REMOTE_CORE_DEFAULT = "https://octopus-app-bomx6.ondigitalocean.app";
 
@@ -52,10 +52,7 @@ app.use(
 // Proxy Core Service APIs
 app.use(
   createProxyMiddleware({
-    pathFilter: (pathname) =>
-      /^\/api\/(dictionary|products|orders|cart|promotions|customers|marketplace|notifications|subscription|admin|supplier|dashboard)/i.test(
-        pathname
-      ),
+    pathFilter: (pathname) => pathname.startsWith("/api"),
     target: CORE_SERVICE_URL,
     changeOrigin: true,
     secure: false,

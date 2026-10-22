@@ -32,8 +32,8 @@ const getEnvVar = (key: string): string | undefined => {
 
 const normalizeUrl = (url: string) => url.replace(/\/+$/, "");
 
-export const LOCAL_AUTH_URL = "http://localhost:5273";
-export const LOCAL_CORE_URL = "http://localhost:5206";
+export const LOCAL_AUTH_URL = "http://127.0.0.1:5273";
+export const LOCAL_CORE_URL = "http://127.0.0.1:5206";
 export const REMOTE_AUTH_URL =
   "https://lobster-app-zhysf.ondigitalocean.app";
 export const REMOTE_CORE_URL =
@@ -306,11 +306,18 @@ export const resolveRequestUrl = (path: string) => {
     return path;
   }
 
+  // In the browser, always use relative URLs (/api/...).
+  // This routes requests through the frontend reverse proxy (Vite / Express),
+  // completely eliminating CORS, Mixed Content (HTTPS -> HTTP), and Private Network Access (PNA) blocks!
+  if (typeof window !== "undefined") {
+    return path.startsWith("/") ? path : `/${path}`;
+  }
+
+  // In SSR (Server-Side Rendering in Node.js), fetch requires an absolute URL
   const isLocal = isLocalBackend();
   const fallbackAuth = isLocal ? LOCAL_AUTH_URL : REMOTE_AUTH_URL;
   const fallbackCore = isLocal ? LOCAL_CORE_URL : REMOTE_CORE_URL;
 
-  // Always resolve directly to target backend (AuthService: 5273 or Core: 5206)
   if (isAuthEndpoint(path)) {
     return withBaseUrl(getAuthBaseUrl(), path, fallbackAuth);
   }
