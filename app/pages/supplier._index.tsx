@@ -26,6 +26,7 @@ import {
   ORDERS_UPDATED_EVENT,
   type StoredOrder,
 } from "~/shared/lib/indexed-db";
+import { NOTIFICATION_RECEIVED_EVENT } from "~/shared/api/notification-socket";
 import { useTranslation } from "~/shared/lib/i18n";
 
 type DashboardNotificationView = {
@@ -128,10 +129,12 @@ export default function SupplierPage() {
       if (isCurrent) setIsLoadingOrders(false);
     });
     window.addEventListener(ORDERS_UPDATED_EVENT, refreshOrderCounts);
+    window.addEventListener(NOTIFICATION_RECEIVED_EVENT, refreshOrderCounts);
 
     return () => {
       isCurrent = false;
       window.removeEventListener(ORDERS_UPDATED_EVENT, refreshOrderCounts);
+      window.removeEventListener(NOTIFICATION_RECEIVED_EVENT, refreshOrderCounts);
     };
   }, []);
 

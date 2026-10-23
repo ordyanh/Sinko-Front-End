@@ -16,12 +16,18 @@ type NotificationDrawerProps = {
   open: boolean;
   onClose: (open: boolean) => void;
   notifications: DashboardNotification[];
+  onMarkRead?: (id: string) => void;
+  onMarkAllRead?: () => void;
+  isConnected?: boolean;
 };
 
 export default function NotificationDrawer({
   open,
   onClose,
   notifications,
+  onMarkRead,
+  onMarkAllRead,
+  isConnected = false,
 }: NotificationDrawerProps) {
   const { t } = useTranslation();
   const unreadCount = notifications.filter((notification) => notification.unread).length;
@@ -36,15 +42,32 @@ export default function NotificationDrawer({
               <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-primary">
                 <Bell className="h-4 w-4" aria-hidden="true" />
                 {t("notifications.updates", "Updates")}
+                {isConnected ? (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-600/20">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    Live
+                  </span>
+                ) : null}
               </div>
               <DialogTitle className="mt-1 text-xl font-bold tracking-tight text-slate-950">
                 {t("notifications.title", "Notifications")}
               </DialogTitle>
-              <p className="mt-1 text-sm text-slate-500">
-                {unreadCount > 0
-                  ? `${unreadCount} ${unreadCount === 1 ? t("notifications.newUpdate", "new update") : t("notifications.newUpdates", "new updates")}`
-                  : t("notifications.allCaughtUp", "You’re all caught up")}
-              </p>
+              <div className="mt-1 flex items-center gap-3">
+                <p className="text-sm text-slate-500">
+                  {unreadCount > 0
+                    ? `${unreadCount} ${unreadCount === 1 ? t("notifications.newUpdate", "new update") : t("notifications.newUpdates", "new updates")}`
+                    : t("notifications.allCaughtUp", "You’re all caught up")}
+                </p>
+                {unreadCount > 0 && onMarkAllRead ? (
+                  <button
+                    type="button"
+                    onClick={() => onMarkAllRead()}
+                    className="text-xs font-medium text-primary hover:underline"
+                  >
+                    {t("notifications.markAllRead", "Mark all read")}
+                  </button>
+                ) : null}
+              </div>
             </div>
             <button
               type="button"
@@ -65,7 +88,12 @@ export default function NotificationDrawer({
                   return (
                     <li
                       key={notification.id}
-                      className={`relative flex gap-3 rounded-2xl px-3 py-3.5 transition hover:bg-slate-50 ${
+                      onClick={() => {
+                        if (notification.unread && onMarkRead) {
+                          onMarkRead(notification.id);
+                        }
+                      }}
+                      className={`relative flex gap-3 rounded-2xl px-3 py-3.5 transition hover:bg-slate-50 cursor-pointer ${
                         notification.unread ? "bg-primary/[0.045]" : ""
                       }`}
                     >

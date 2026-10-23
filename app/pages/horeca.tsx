@@ -116,25 +116,6 @@ export default function HorecaPage() {
       } catch (err) {
         console.error("Failed to load initial cart:", err);
       }
-
-      try {
-        const notifs = await getNotifications();
-        if (Array.isArray(notifs) && notifs.length > 0 && isActive) {
-          setNotifications(
-            notifs.map((n) => ({
-              id: n.id,
-              title: n.title,
-              detail: n.message,
-              time: formatNotificationTime(n.createdAt || n.creationDate),
-              icon: n.title.toLowerCase().includes("delivery") ? Truck : CheckCircle2,
-              accentClassName: n.isRead ? "bg-slate-100 text-slate-700" : "bg-sky-100 text-sky-700",
-              unread: !n.isRead,
-            })),
-          );
-        }
-      } catch {
-        // Fallback to local default notifications
-      }
     }
 
     void initHoreca();
@@ -413,7 +394,7 @@ export default function HorecaPage() {
 
   return (
     <>
-      <DashboardLayout accountType="horeca" menuLinks={horecaDashboardMenuLinks} userName={authUser?.displayName ?? ""} companyName={authUser?.companyName ?? ""} logoutHref="/logout" notifications={notifications} desktopHeaderAction={cartButton} mobileHeaderAction={cartButton}>
+      <DashboardLayout accountType="horeca" menuLinks={horecaDashboardMenuLinks} userName={authUser?.displayName ?? ""} companyName={authUser?.companyName ?? ""} logoutHref="/logout" desktopHeaderAction={cartButton} mobileHeaderAction={cartButton}>
         <Outlet context={{ cartLines, setCartLineQuantity, promotions, catalogProducts, promotionRewards, promotionGiftProductIds, setPromotionGiftProductId, removePromotionGift, completeOrder }} />
       </DashboardLayout>
 

@@ -25,6 +25,7 @@ import NotificationDrawer, {
 } from "./notification-drawer";
 import LanguageSwitcher from "./language-switcher";
 import { useTranslation } from "~/shared/lib/i18n";
+import { useNotifications } from "~/shared/lib/notifications-context";
 import {
   DashboardHeaderActionsContext,
   type DashboardHeaderActionContent,
@@ -169,9 +170,24 @@ export default function DashboardLayout({
     return isPathWithin(item.href);
   }
 
-  const unreadNotificationCount = notifications.filter(
-    (notification) => notification.unread,
-  ).length;
+  let notificationContext: ReturnType<typeof useNotifications> | null = null;
+  try {
+    notificationContext = useNotifications();
+  } catch {
+    // fallback if outside provider
+  }
+
+  const effectiveNotifications =
+    notifications && notifications.length > 0
+      ? notifications
+      : (notificationContext?.notifications ?? []);
+
+  const unreadNotificationCount =
+    notifications && notifications.length > 0
+      ? notifications.filter((notification) => notification.unread).length
+      : (notificationContext?.unreadCount ?? 0);
+
+  const isSocketConnected = notificationContext?.isConnected ?? false;
 
   const notificationButton = (
     <button
@@ -181,6 +197,12 @@ export default function DashboardLayout({
       aria-label={`Open notifications${unreadNotificationCount > 0 ? `, ${unreadNotificationCount} unread` : ""}`}
     >
       <Bell className="h-5 w-5" aria-hidden="true" />
+      {isSocketConnected ? (
+        <span
+          className="absolute bottom-1 right-1 h-2 w-2 rounded-full bg-emerald-500 ring-2 ring-white"
+          title="Live WebSocket Connected"
+        />
+      ) : null}
       {unreadNotificationCount > 0 ? (
         <span className="absolute -right-1.5 -top-1.5 grid h-5 min-w-5 place-items-center rounded-full bg-primary px-1 text-[11px] font-bold leading-none text-primary-content ring-2 ring-[#f3f6f4] tabular-nums">
           {unreadNotificationCount > 99 ? "99+" : unreadNotificationCount}
@@ -531,7 +553,10 @@ export default function DashboardLayout({
       <NotificationDrawer
         open={isNotificationsOpen}
         onClose={setIsNotificationsOpen}
-        notifications={notifications}
+        notifications={effectiveNotifications}
+        onMarkRead={notificationContext?.markAsRead}
+        onMarkAllRead={notificationContext?.markAllAsRead}
+        isConnected={isSocketConnected}
       />
 
       <footer className="border-t border-slate-200 bg-white/80 px-4 py-3 text-xs text-slate-500 lg:hidden sm:px-6">

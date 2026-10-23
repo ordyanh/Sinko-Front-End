@@ -9,6 +9,7 @@ export * from "./orders";
 export * from "./promotions";
 export * from "./customers";
 export * from "./notifications";
+export * from "./notification-socket";
 export * from "./dashboard";
 export * from "./supplier-profile";
 export { ApiError, apiRequest, resolveRequestUrl, SYNCO_BASE_URL, AUTH_BASE_URL } from "./http";

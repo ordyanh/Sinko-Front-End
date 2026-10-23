@@ -9,8 +9,10 @@ const normalizeUrl = (url: string) => url.replace(/\/+$/, "");
 // Default URLs (using 127.0.0.1 to prevent Windows IPv6 ::1 lookup issues)
 const LOCAL_AUTH_DEFAULT = "http://127.0.0.1:5273";
 const LOCAL_CORE_DEFAULT = "http://127.0.0.1:5206";
+const LOCAL_NOTIFICATION_DEFAULT = "http://127.0.0.1:5147";
 const REMOTE_AUTH_DEFAULT = "https://lobster-app-zhysf.ondigitalocean.app";
 const REMOTE_CORE_DEFAULT = "https://octopus-app-bomx6.ondigitalocean.app";
+const REMOTE_NOTIFICATION_DEFAULT = "https://websocket-fzc3fcb7cyh4hde9.swedencentral-01.azurewebsites.net";
 
 function getActiveTarget(cwd: string, mode: string) {
   if (process.env.VITE_BACKEND_TARGET) {
@@ -47,10 +49,17 @@ export default defineConfig(({ mode }) => {
       : env.VITE_REMOTE_CORE_URL || env.VITE_CORE_API_URL || REMOTE_CORE_DEFAULT
   );
 
+  const notificationUrl = normalizeUrl(
+    isLocal
+      ? env.VITE_LOCAL_NOTIFICATION_URL || LOCAL_NOTIFICATION_DEFAULT
+      : env.VITE_REMOTE_NOTIFICATION_URL || env.VITE_NOTIFICATION_API_URL || REMOTE_NOTIFICATION_DEFAULT
+  );
+
   console.log(`\n======================================================`);
   console.log(`🚀 [Synco Dev Proxy] Active Target: ${isLocal ? "LOCAL" : "REMOTE (Cloud)"}`);
-  console.log(`   Auth Service: ${authUrl}`);
-  console.log(`   Core Service: ${coreUrl}`);
+  console.log(`   Auth Service:         ${authUrl}`);
+  console.log(`   Core Service:         ${coreUrl}`);
+  console.log(`   Notification Service: ${notificationUrl}`);
   console.log(`======================================================\n`);
 
   return {
@@ -62,6 +71,30 @@ export default defineConfig(({ mode }) => {
       host: true,
       allowedHosts: true,
       proxy: {
+        // WebSocket Notification Hub (Sinko.Notification)
+        "^/orderhub": {
+          target: notificationUrl,
+          ws: true,
+          changeOrigin: true,
+          secure: false,
+          configure: (proxy) => {
+            proxy.on("error", (err, _req, _res) => {
+              console.error(`[Notification WS Proxy Error]: ${err.message} -> Target: ${notificationUrl}`);
+            });
+          },
+        },
+        // Sinko.Notification microservice API (Notification/send and PushSubscription)
+        "^/api/[Nn]otification(/|$)": {
+          target: notificationUrl,
+          changeOrigin: true,
+          secure: false,
+          followRedirects: true,
+          configure: (proxy) => {
+            proxy.on("error", (err, _req, _res) => {
+              console.error(`[Notification API Proxy Error]: ${err.message} -> Target: ${notificationUrl}`);
+            });
+          },
+        },
         "^/(api/([Aa]uth|[Cc]ompany|[Ee]mployee|verification-request|auth/complete-onboarding|[Ss]upplier/(register|verify|resend-code)|me)|me)": {
           target: authUrl,
           changeOrigin: true,
@@ -78,6 +111,19 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
           secure: false,
           followRedirects: true,
+          bypass: (req) => {
+            const pathname = req.url ? req.url.split("?")[0] : "";
+            // Bypass React Router internal data endpoints and resource routes
+            if (
+              pathname.endsWith(".data") ||
+              pathname === "/api/categories" ||
+              pathname === "/api/regions" ||
+              pathname.startsWith("/api/categories.") ||
+              pathname.startsWith("/api/regions.")
+            ) {
+              return req.url;
+            }
+          },
           configure: (proxy) => {
             proxy.on("error", (err, _req, _res) => {
               console.error(`[Core Proxy Error]: ${err.message} -> Target: ${coreUrl}`);

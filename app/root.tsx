@@ -14,6 +14,7 @@ import { ToastProvider } from "~/shared/ui/toast";
 import { initializeDatabase } from "~/shared/lib/indexed-db";
 import { BackendEnvironmentBadge } from "~/shared/ui/backend-indicator";
 import { I18nProvider } from "~/shared/lib/i18n";
+import { NotificationProvider } from "~/shared/lib/notifications-context";
 
 export const links: Route.LinksFunction = () => [
   { rel: "preconnect", href: "https://fonts.googleapis.com" },
@@ -54,8 +55,10 @@ export default function App() {
   return (
     <I18nProvider>
       <ToastProvider>
-        <Outlet />
-        <BackendEnvironmentBadge />
+        <NotificationProvider>
+          <Outlet />
+          <BackendEnvironmentBadge />
+        </NotificationProvider>
       </ToastProvider>
     </I18nProvider>
   );

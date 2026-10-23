@@ -16,7 +16,6 @@ export default function SupplierPage() {
   const navigate = useNavigate();
   const [isPreparingDashboard, setIsPreparingDashboard] = useState(true);
   const [authUser, setAuthUser] = useState<LoggedInUser | null>(null);
-  const [notifications, setNotifications] = useState<DashboardNotification[]>([]);
 
   useEffect(() => {
     let isActive = true;
@@ -29,26 +28,6 @@ export default function SupplierPage() {
         setIsPreparingDashboard(false);
       } else {
         navigate("/login", { replace: true });
-        return;
-      }
-
-      try {
-        const notifs = await getNotifications();
-        if (Array.isArray(notifs) && notifs.length > 0 && isActive) {
-          setNotifications(
-            notifs.map((n) => ({
-              id: n.id,
-              title: n.title,
-              detail: n.message,
-              time: formatNotificationTime(n.createdAt || n.creationDate),
-              icon: n.title.toLowerCase().includes("order") ? ShoppingBag : CheckCircle2,
-              accentClassName: n.isRead ? "bg-slate-100 text-slate-700" : "bg-sky-100 text-sky-700",
-              unread: !n.isRead,
-            })),
-          );
-        }
-      } catch {
-        // fallback
       }
     }
 
@@ -57,7 +36,7 @@ export default function SupplierPage() {
     return () => {
       isActive = false;
     };
-  }, []);
+  }, [navigate]);
 
   if (isPreparingDashboard) {
     return null;
@@ -70,7 +49,6 @@ export default function SupplierPage() {
       userName={authUser?.displayName ?? ""}
       companyName={authUser?.companyName ?? ""}
       logoutHref="/logout"
-      notifications={notifications}
     >
       <Outlet />
     </DashboardLayout>
