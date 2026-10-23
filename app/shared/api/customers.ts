@@ -8,6 +8,16 @@ export type CustomerClientDto = {
   email?: string;
   phoneNumber?: string;
   address?: string;
+  lat?: number | null;
+  lon?: number | null;
+  serviceAreas?: Array<{
+    id: number;
+    name: string;
+    province?: string;
+    isCustom?: boolean;
+    lat?: number | null;
+    lon?: number | null;
+  }>;
   hvhh?: string;
   taxCode?: string;
   totalOrders?: number;
@@ -124,4 +134,30 @@ export async function addDeliveryPoint(payload: DeliveryPointRequest): Promise<u
     method: "POST",
     body: JSON.stringify(payload),
   });
+}
+
+export type UserDeliveryPointDto = {
+  id: string;
+  userId: string;
+  deliveryAddress: string;
+  phoneNumber: string;
+  pointName: string;
+  isActive: boolean;
+  creationDate?: string;
+  provinceId: number;
+  cityId: number;
+  lat?: number | null;
+  lon?: number | null;
+  customRegion?: string | null;
+};
+
+export async function getDeliveryPoints(): Promise<UserDeliveryPointDto[]> {
+  try {
+    const res = await apiRequest<UserDeliveryPointDto[]>("/api/Customers/delivery-points", {
+      method: "GET",
+    });
+    return Array.isArray(res) ? res : [];
+  } catch {
+    return [];
+  }
 }

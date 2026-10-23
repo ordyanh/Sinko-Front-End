@@ -13,7 +13,7 @@ export type ModalProps = {
   description?: string;
   isOpen: boolean;
   onClose?: () => void;
-  size?: "sm" | "md" | "lg";
+  size?: "sm" | "md" | "lg" | "xl" | "2xl";
   children: ReactNode;
 };
 
@@ -21,6 +21,8 @@ const sizeClasses: Record<NonNullable<ModalProps["size"]>, string> = {
   sm: "sm:max-w-md",
   md: "sm:max-w-2xl",
   lg: "sm:max-w-4xl",
+  xl: "sm:max-w-6xl",
+  "2xl": "sm:max-w-7xl",
 };
 
 export default function Modal({
@@ -42,7 +44,7 @@ export default function Modal({
         <div className="flex min-h-full items-end justify-center p-0 sm:items-center sm:p-6">
           <DialogPanel
             transition
-            className={`relative flex w-full flex-col overflow-hidden border border-slate-200 bg-white shadow-2xl shadow-slate-900/15 transition duration-200 data-closed:translate-y-6 data-closed:opacity-0 sm:max-h-[min(85vh,48rem)] sm:rounded-[1.75rem] sm:data-closed:translate-y-0 sm:data-closed:scale-95 ${sizeClasses[size]} rounded-t-[1.75rem]`}
+            className={`relative flex w-full flex-col overflow-hidden border border-slate-200 bg-white shadow-2xl shadow-slate-900/15 transition duration-200 data-closed:translate-y-6 data-closed:opacity-0 sm:max-h-[min(92vh,56rem)] sm:rounded-[1.75rem] sm:data-closed:translate-y-0 sm:data-closed:scale-95 ${sizeClasses[size]} rounded-t-[1.75rem]`}
           >
             <button
               type="button"

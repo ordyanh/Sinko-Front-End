@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { AlertCircle, Building2, CheckCircle2, Lock, MapPin, PencilLine, Plus, RefreshCw } from "lucide-react";
 import { useForm, type SubmitHandler } from "react-hook-form";
@@ -7,11 +7,12 @@ import Button from "~/shared/ui/button";
 import { FieldError, Input } from "~/shared/ui/form";
 import Modal from "~/shared/ui/modal";
 import { useToast } from "~/shared/ui/toast";
-import { DashboardPageContent } from "~/shared/ui";
+import { DashboardPageContent, ArmeniaMapPicker, AddressAutocomplete } from "~/shared/ui";
 import { getCurrentUserEmployeeRole } from "~/shared/lib/auth-token";
 import {
   getDeliveryAddressesForCurrentHoreca,
   saveDeliveryAddressForCurrentHoreca,
+  syncDeliveryAddressesForCurrentHoreca,
   type StoredDeliveryAddress,
 } from "~/shared/lib/indexed-db";
 import {
@@ -57,6 +58,8 @@ const deliveryAddressFormSchema = z.object({
   fullAddress: z.string().trim().min(1, "Full address is required."),
   contactPerson: z.string().trim().min(1, "Contact person is required."),
   contactPhone: armenianPhoneSchema,
+  lat: z.number().nullable().optional(),
+  lon: z.number().nullable().optional(),
 });
 
 type DeliveryAddressFormValues = z.infer<typeof deliveryAddressFormSchema>;
@@ -69,6 +72,8 @@ function getDeliveryAddressFormDefaults(
     fullAddress: address?.fullAddress ?? "",
     contactPerson: address?.contactPerson ?? "",
     contactPhone: address?.contactPhone ?? "",
+    lat: address?.lat ?? null,
+    lon: address?.lon ?? null,
   };
 }
 
@@ -99,6 +104,8 @@ export default function HorecaCompanyInformationPage() {
     reset,
     formState: { errors, isSubmitting },
   } = form;
+  const resetRef = useRef(reset);
+  resetRef.current = reset;
 
   const deliveryAddressForm = useForm<DeliveryAddressFormValues>({
     resolver: zodResolver(deliveryAddressFormSchema),
@@ -140,10 +147,10 @@ export default function HorecaCompanyInformationPage() {
         };
 
         setCompanyInfo(merged);
-        reset(merged);
+        resetRef.current(merged);
 
-        // If backend returned delivery addresses, seed them
-        if (info.deliveryAddresses && info.deliveryAddresses.length > 0) {
+        // If backend returned delivery addresses, seed them as the authoritative source
+        if (info.deliveryAddresses && Array.isArray(info.deliveryAddresses)) {
           const mapped: StoredDeliveryAddress[] = info.deliveryAddresses.map((da) => ({
             id: da.id,
             label: da.label ?? "Delivery address",
@@ -153,15 +160,11 @@ export default function HorecaCompanyInformationPage() {
             active: da.active,
             approved: da.approved,
             accountId: info.id ?? "current-company",
+            lat: da.lat ?? null,
+            lon: da.lon ?? null,
           }));
-          setDeliveryAddresses((prev) => {
-            const mergedMap = new Map<string, StoredDeliveryAddress>();
-            mapped.forEach((a) => mergedMap.set(a.id, a));
-            prev.forEach((a) => {
-              if (!mergedMap.has(a.id)) mergedMap.set(a.id, a);
-            });
-            return Array.from(mergedMap.values());
-          });
+          setDeliveryAddresses(mapped);
+          void syncDeliveryAddressesForCurrentHoreca(mapped);
         }
       }
     } catch (err) {
@@ -169,8 +172,9 @@ export default function HorecaCompanyInformationPage() {
       setCompanyLoadError(msg);
     } finally {
       setIsLoadingCompany(false);
+      setIsLoadingDeliveryAddresses(false);
     }
-  }, [reset]);
+  }, []);
 
   useEffect(() => {
     let isCurrent = true;
@@ -180,12 +184,7 @@ export default function HorecaCompanyInformationPage() {
     void getDeliveryAddressesForCurrentHoreca()
       .then((addresses) => {
         if (isCurrent && addresses.length > 0) {
-          setDeliveryAddresses((prev) => {
-            const mergedMap = new Map<string, StoredDeliveryAddress>();
-            prev.forEach((a) => mergedMap.set(a.id, a));
-            addresses.forEach((a) => mergedMap.set(a.id, a));
-            return Array.from(mergedMap.values());
-          });
+          setDeliveryAddresses((prev) => (prev.length === 0 ? addresses : prev));
         }
       })
       .catch((error) => {
@@ -339,6 +338,8 @@ export default function HorecaCompanyInformationPage() {
           deliveryAddress: values.fullAddress,
           phoneNumber: values.contactPhone,
           pointName: values.label || values.contactPerson,
+          lat: values.lat,
+          lon: values.lon,
         });
       } catch (backendErr) {
         console.warn("Backend addDeliveryPoint notice:", backendErr);
@@ -359,6 +360,9 @@ export default function HorecaCompanyInformationPage() {
       resetDeliveryAddress(getDeliveryAddressFormDefaults(savedAddress));
       setIsDeliveryAddressModalOpen(false);
       setEditingDeliveryAddress(undefined);
+
+      // Re-fetch backend company data to get the backend-assigned IDs and synchronize
+      void loadCompanyData();
 
       showToast({
         title: editingDeliveryAddress ? "Delivery address updated" : "Delivery address added",
@@ -558,6 +562,12 @@ export default function HorecaCompanyInformationPage() {
                       <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${address.active ? "bg-primary/10 text-primary" : "bg-slate-100 text-slate-600"}`}>
                         {address.active ? t("common.active") : t("common.inactive")}
                       </span>
+                      {address.lat && address.lon ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200/70 px-2 py-0.5 text-xs font-medium text-emerald-700">
+                          <MapPin className="h-3 w-3 text-emerald-600" />
+                          {address.lat.toFixed(4)}, {address.lon.toFixed(4)}
+                        </span>
+                      ) : null}
                     </div>
                     <p className="mt-1 text-sm text-slate-600">{address.fullAddress}</p>
                     <p className="mt-1 text-xs text-slate-500">{address.contactPerson} · {address.contactPhone}</p>
@@ -631,7 +641,7 @@ export default function HorecaCompanyInformationPage() {
               id="productCategories"
               label={t("auth.categories")}
               className="sm:col-span-2"
-              placeholder="e.g. Armenian Cuisine, Beverages, Bakery"
+              placeholder={t("settings.categoriesPlaceholder")}
               errorMessage={errors.productCategories?.message}
               {...register("productCategories")}
             />
@@ -639,7 +649,7 @@ export default function HorecaCompanyInformationPage() {
               id="serviceAreas"
               label={t("auth.activityType")}
               className="sm:col-span-2"
-              placeholder="e.g. Kentron, Arabkir, Ajapnyak"
+              placeholder={t("settings.serviceAreasPlaceholder")}
               errorMessage={errors.serviceAreas?.message}
               {...register("serviceAreas")}
             />
@@ -664,19 +674,94 @@ export default function HorecaCompanyInformationPage() {
 
       <Modal
         isOpen={isDeliveryAddressModalOpen}
-        size="sm"
+        size="xl"
         title={editingDeliveryAddress ? t("settings.editDeliveryAddress") : t("settings.addDeliveryAddress")}
         description={t("settings.deliveryAddressModalDesc")}
         onClose={closeDeliveryAddressModal}
       >
         <form className="flex flex-col gap-5" noValidate onSubmit={deliveryAddressForm.handleSubmit(handleSaveDeliveryAddress)}>
-          <div className="grid gap-5">
-            <Input id="deliveryAddressLabel" label={t("settings.addressNameOptional")} placeholder="e.g. Main receiving dock" errorMessage={deliveryAddressErrors.label?.message} {...registerDeliveryAddress("label")} />
-            <Input id="deliveryAddressFullAddress" label={t("settings.fullAddress")} autoComplete="street-address" errorMessage={deliveryAddressErrors.fullAddress?.message} {...registerDeliveryAddress("fullAddress")} />
-            <Input id="deliveryAddressContactPerson" label={t("settings.contactPerson")} autoComplete="name" errorMessage={deliveryAddressErrors.contactPerson?.message} {...registerDeliveryAddress("contactPerson")} />
-            <Input id="deliveryAddressContactPhone" type="tel" label={t("settings.contactPhone")} placeholder={t("auth.mobilePlaceholder")} autoComplete="tel" errorMessage={deliveryAddressErrors.contactPhone?.message} {...registerDeliveryAddress("contactPhone")} />
-            <FieldError message={deliveryAddressErrors.root?.serverError?.message} />
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+            {/* Form Fields: 5 columns on desktop */}
+            <div className="lg:col-span-5 flex flex-col gap-4">
+              <Input
+                id="deliveryAddressLabel"
+                label={t("settings.addressNameOptional")}
+                placeholder={t("settings.addressNamePlaceholder")}
+                errorMessage={deliveryAddressErrors.label?.message}
+                {...registerDeliveryAddress("label")}
+              />
+              <AddressAutocomplete
+                id="deliveryAddressFullAddress"
+                label={t("settings.fullAddress")}
+                placeholder={t("settings.fullAddressPlaceholder")}
+                value={deliveryAddressForm.watch("fullAddress") || ""}
+                onChange={(val) => {
+                  deliveryAddressForm.setValue("fullAddress", val, { shouldValidate: true });
+                }}
+                onSelectAddress={(selectedAddr, coords) => {
+                  deliveryAddressForm.setValue("fullAddress", selectedAddr, { shouldValidate: true });
+                  deliveryAddressForm.setValue("lat", coords.lat, { shouldValidate: true });
+                  deliveryAddressForm.setValue("lon", coords.lon, { shouldValidate: true });
+                }}
+                hint={t("settings.addressInputHint")}
+                errorMessage={deliveryAddressErrors.fullAddress?.message}
+              />
+              <Input
+                id="deliveryAddressContactPerson"
+                label={t("settings.contactPerson")}
+                autoComplete="name"
+                errorMessage={deliveryAddressErrors.contactPerson?.message}
+                {...registerDeliveryAddress("contactPerson")}
+              />
+              <Input
+                id="deliveryAddressContactPhone"
+                type="tel"
+                label={t("settings.contactPhone")}
+                placeholder={t("auth.mobilePlaceholder")}
+                autoComplete="tel"
+                errorMessage={deliveryAddressErrors.contactPhone?.message}
+                {...registerDeliveryAddress("contactPhone")}
+              />
+              <FieldError message={deliveryAddressErrors.root?.serverError?.message} />
+            </div>
+
+            {/* Map Picker: 7 columns on desktop */}
+            <div className="lg:col-span-7 flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-semibold uppercase tracking-wider text-slate-600 flex items-center gap-1.5">
+                  <MapPin className="h-3.5 w-3.5 text-rose-500" />
+                  {t("settings.armeniaMapTitle")}
+                </label>
+                {deliveryAddressForm.watch("lat") && deliveryAddressForm.watch("lon") ? (
+                  <span className="text-[11px] font-medium text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                    {t("settings.pointSelected")}: {deliveryAddressForm.watch("lat")?.toFixed(4)}, {deliveryAddressForm.watch("lon")?.toFixed(4)}
+                  </span>
+                ) : (
+                  <span className="text-[11px] text-slate-400">
+                    {t("settings.pointNotSelected")}
+                  </span>
+                )}
+              </div>
+              <ArmeniaMapPicker
+                value={{
+                  lat: deliveryAddressForm.watch("lat") ?? null,
+                  lon: deliveryAddressForm.watch("lon") ?? null,
+                }}
+                onChange={(coords) => {
+                  deliveryAddressForm.setValue("lat", coords.lat, { shouldValidate: true });
+                  deliveryAddressForm.setValue("lon", coords.lon, { shouldValidate: true });
+                }}
+                onAddressResolved={(resolvedAddr) => {
+                  if (resolvedAddr) {
+                    deliveryAddressForm.setValue("fullAddress", resolvedAddr, { shouldValidate: true });
+                  }
+                }}
+                initialAddressQuery={deliveryAddressForm.getValues("fullAddress")}
+                height="420px"
+              />
+            </div>
           </div>
+
           <div className="flex flex-wrap justify-end gap-3 border-t border-slate-200 pt-5">
             <Button type="button" variant="ghost" className="w-full sm:w-32" onClick={closeDeliveryAddressModal} disabled={isSavingDeliveryAddress}>{t("common.cancel")}</Button>
             <Button type="submit" className="w-full sm:w-40" loading={isSavingDeliveryAddress}>{editingDeliveryAddress ? t("common.save") : t("settings.addAddress")}</Button>

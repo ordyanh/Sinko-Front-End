@@ -1,2 +1,3 @@
 @import "tailwindcss";
 @import "./theme.pcss";
+@import "leaflet/dist/leaflet.css";

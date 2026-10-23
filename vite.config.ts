@@ -74,6 +74,12 @@ export default defineConfig(({ mode }) => {
           secure: false,
           followRedirects: true,
         },
+        "/orderhub": {
+          target: "http://localhost:5147",
+          ws: true,
+          changeOrigin: true,
+          secure: false,
+        },
       },
     },
   };

@@ -333,14 +333,27 @@ export async function apiRequest<TResponse>(
   };
 
   let response: Response;
+  const timeoutSignal =
+    init?.signal ??
+    (typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function"
+      ? AbortSignal.timeout(10000)
+      : undefined);
+
   try {
     response = await fetch(resolveRequestUrl(path), {
       ...init,
+      signal: timeoutSignal,
       headers,
     });
   } catch (networkError) {
-    const errorMsg =
-      networkError instanceof Error ? networkError.message : "Network error";
+    const isTimeout =
+      networkError instanceof Error &&
+      (networkError.name === "TimeoutError" || networkError.name === "AbortError");
+    const errorMsg = isTimeout
+      ? "Request timed out after 10 seconds"
+      : networkError instanceof Error
+        ? networkError.message
+        : "Network error";
     throw new ApiError(
       `Bad Gateway (502): Unable to connect to the backend server (${errorMsg}). Please ensure the service is running.`,
       502,
