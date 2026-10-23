@@ -61,6 +61,9 @@ export default defineConfig(({ mode }) => {
     server: {
       host: true,
       allowedHosts: true,
+      watch: {
+        ignored: ["**/.vs/**", "**/.git/**", "**/bin/**", "**/obj/**"],
+      },
       proxy: {
         "^/(api/([Aa]uth|[Cc]ompany|[Ee]mployee|verification-request|auth/complete-onboarding|[Ss]upplier/(register|verify|resend-code)|me)|me)": {
           target: authUrl,
