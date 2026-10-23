@@ -28,6 +28,7 @@ type NotificationDrawerProps = {
   notifications: DashboardNotification[];
   onMarkAllRead?: () => void;
   onOpenOrder?: (orderId?: string, deepLink?: string) => void;
+  isConnected?: boolean;
 };
 
 export default function NotificationDrawer({
@@ -36,6 +37,7 @@ export default function NotificationDrawer({
   notifications,
   onMarkAllRead,
   onOpenOrder,
+  isConnected = false,
 }: NotificationDrawerProps) {
   const { t } = useTranslation();
   const unreadCount = notifications.filter((notification) => notification.unread).length;
@@ -59,6 +61,12 @@ export default function NotificationDrawer({
               <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-primary">
                 <Bell className="h-4 w-4" aria-hidden="true" />
                 {t("notifications.updates", "Updates")}
+                {isConnected ? (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-600/20">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    Live
+                  </span>
+                ) : null}
               </div>
               <DialogTitle className="mt-1 text-xl font-bold tracking-tight text-slate-950">
                 {t("notifications.title", "Notifications")}

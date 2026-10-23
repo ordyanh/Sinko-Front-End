@@ -255,6 +255,12 @@ export default function DashboardLayout({
       aria-label={`Open notifications${effectiveUnreadCount > 0 ? `, ${effectiveUnreadCount} unread` : ""}`}
     >
       <Bell className="h-5 w-5" aria-hidden="true" />
+      {notifCenter.isConnected ? (
+        <span
+          className="absolute bottom-1 right-1 h-2 w-2 rounded-full bg-emerald-500 ring-2 ring-white"
+          title="Live WebSocket Connected"
+        />
+      ) : null}
       {effectiveUnreadCount > 0 ? (
         <span className="absolute -right-1.5 -top-1.5 grid h-5 min-w-5 place-items-center rounded-full bg-rose-600 px-1 text-[11px] font-bold leading-none text-white ring-2 ring-[#f3f6f4] tabular-nums shadow-sm">
           {effectiveUnreadCount > 99 ? "99+" : effectiveUnreadCount}
@@ -616,6 +622,7 @@ export default function DashboardLayout({
         onClose={setIsNotificationsOpen}
         notifications={displayNotifications}
         onMarkAllRead={notifCenter.markAllRead}
+        isConnected={notifCenter.isConnected}
         onOpenOrder={(orderId, deepLink) => {
           notifCenter.openOrder(orderId, deepLink);
         }}

@@ -211,13 +211,9 @@ export function useNotificationCenter(accountType: DashboardAccountType = "horec
     setUnreadCount(0);
   }, []);
 
-  // 1. Initial fetch & periodic background polling (every 6 seconds)
+  // 1. Initial fetch on mount (database history)
   useEffect(() => {
     void refreshNotifications();
-    const interval = setInterval(() => {
-      void refreshNotifications();
-    }, 6000);
-    return () => clearInterval(interval);
   }, [refreshNotifications]);
 
   // 2. BroadcastChannel for instant cross-tab & local notification sync
@@ -265,11 +261,14 @@ export function useNotificationCenter(accountType: DashboardAccountType = "horec
     };
   }, [accountType, addToast]);
 
-  // 3. Native WebSocket connection to /orderhub
+  const [isConnected, setIsConnected] = useState(false);
+
+  // 3. Real-time WebSocket connection to /orderhub (Sinko.Notification)
   useEffect(() => {
     if (typeof window === "undefined") return;
 
     let isDisposed = false;
+    let pingInterval: ReturnType<typeof setInterval> | null = null;
 
     function connectWs() {
       if (isDisposed) return;
@@ -292,32 +291,71 @@ export function useNotificationCenter(accountType: DashboardAccountType = "horec
         socketRef.current = ws;
 
         ws.onopen = () => {
-          // Connected to notification hub
+          setIsConnected(true);
+          console.log("[NotificationCenter] Connected to WebSocket notification hub (/orderhub).");
+
+          // Keep alive ping every 25 seconds
+          if (pingInterval) clearInterval(pingInterval);
+          pingInterval = setInterval(() => {
+            if (ws.readyState === WebSocket.OPEN) {
+              try {
+                ws.send(JSON.stringify({ type: "PING" }));
+              } catch {
+                // ignore
+              }
+            }
+          }, 25000);
         };
 
         ws.onmessage = (event) => {
           try {
             const raw = JSON.parse(event.data);
+
+            // Ignore system / ping acks
+            if (raw?.type === "CONNECTED" || raw?.type === "PONG") {
+              return;
+            }
+
             const normalized = normalizeNotification(raw);
             setNotifications((prev) => [normalized, ...prev.filter((n) => n.id !== normalized.id)]);
             setUnreadCount((prev) => prev + 1);
             addToast(normalized);
+
+            // If notification is order-related, trigger order tables update
+            if (raw.orderId || raw.OrderId || raw.type === "NEW_ORDER" || normalized.data?.orderId) {
+              window.dispatchEvent(
+                new CustomEvent("synco:orders-updated", {
+                  detail: { orderId: raw.orderId || raw.OrderId },
+                })
+              );
+            }
           } catch {
             // Non-JSON message or ping
           }
         };
 
         ws.onerror = () => {
-          ws.close();
+          setIsConnected(false);
+          try {
+            ws.close();
+          } catch {
+            // ignore
+          }
         };
 
         ws.onclose = () => {
+          setIsConnected(false);
+          if (pingInterval) {
+            clearInterval(pingInterval);
+            pingInterval = null;
+          }
           socketRef.current = null;
           if (!isDisposed) {
             reconnectTimeoutRef.current = setTimeout(connectWs, 5000);
           }
         };
       } catch {
+        setIsConnected(false);
         if (!isDisposed) {
           reconnectTimeoutRef.current = setTimeout(connectWs, 5000);
         }
@@ -328,6 +366,10 @@ export function useNotificationCenter(accountType: DashboardAccountType = "horec
 
     return () => {
       isDisposed = true;
+      setIsConnected(false);
+      if (pingInterval) {
+        clearInterval(pingInterval);
+      }
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
       }
@@ -342,6 +384,7 @@ export function useNotificationCenter(accountType: DashboardAccountType = "horec
     notifications,
     unreadCount,
     activeToasts,
+    isConnected,
     dismissToast,
     openOrder,
     markAsRead,
