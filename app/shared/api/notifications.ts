@@ -2,14 +2,212 @@ import { apiRequest } from "./http";
 
 export type NotificationItemDto = {
   id: string;
+  userId?: string;
+  orderId?: string;
+  orderNum?: string;
+  relatedId?: string;
+  promotionId?: string;
   title: string;
   message: string;
   type?: string;
+  notificationType?: number;
+  notificationTypeName?: string;
+  status?: number;
+  deepLink?: string;
   isRead: boolean;
   createdAt: string;
   creationDate?: string;
   data?: Record<string, unknown>;
 };
+
+export type NotificationStatusKind = "rejected" | "confirmed" | "progress" | "pending" | "promotion" | "info";
+
+export type NotificationTheme = {
+  kind: NotificationStatusKind;
+  badgeLabel: string;
+  badgeClass: string;
+  borderClass: string;
+  barClass: string;
+  bgClass: string;
+  textClass: string;
+  iconBg: string;
+  actionButtonClass: string;
+};
+
+export function getNotificationTheme(
+  item: {
+    status?: number | string;
+    notificationType?: number;
+    title?: string;
+    message?: string;
+    relatedId?: string;
+    promotionId?: string;
+  },
+  t?: (key: string, fallback?: string) => string,
+): NotificationTheme {
+  const statusNum = typeof item.status === "number" ? item.status : parseInt(String(item.status || ""), 10);
+  const typeNum = item.notificationType;
+  const combinedText = `${item.title || ""} ${item.message || ""}`.toLowerCase();
+  const tr = (key: string, fallback: string) => (t ? t(key, fallback) : fallback);
+
+  // 0. Promotions (Vibrant Purple / Fuchsia / Pink Gradient with Special Badge & Button!)
+  if (
+    typeNum === 50 || // NotificationType.Promotion
+    combinedText.includes("promotion") ||
+    combinedText.includes("промо") ||
+    combinedText.includes("акция") ||
+    combinedText.includes("ակցիա") ||
+    combinedText.includes("զեղչ") ||
+    item.relatedId?.toLowerCase().startsWith("promo-") ||
+    item.promotionId
+  ) {
+    return {
+      kind: "promotion",
+      badgeLabel: tr("notifications.statusPromotion", "Промо-акция"),
+      badgeClass: "bg-gradient-to-r from-purple-600 via-fuchsia-600 to-pink-600 text-white font-extrabold shadow-sm border-transparent",
+      borderClass: "border-purple-300/90 bg-gradient-to-br from-purple-50/90 via-fuchsia-50/40 to-white shadow-purple-100",
+      barClass: "bg-gradient-to-b from-purple-600 via-fuchsia-500 to-pink-500",
+      bgClass: "bg-gradient-to-r from-purple-50/80 to-fuchsia-50/50",
+      textClass: "text-purple-900",
+      iconBg: "bg-gradient-to-tr from-purple-600 via-fuchsia-600 to-pink-500 text-white shadow-md shadow-purple-200",
+      actionButtonClass: "bg-gradient-to-r from-purple-600 via-fuchsia-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white shadow-md shadow-purple-200 font-bold",
+    };
+  }
+
+  // 1. Rejected / Cancelled (Red)
+  if (
+    statusNum === 7 ||
+    typeNum === 5 || // SupplierOfferRejected
+    combinedText.includes("reject") ||
+    combinedText.includes("cancel") ||
+    combinedText.includes("отказ") ||
+    combinedText.includes("отменен") ||
+    combinedText.includes("մերժված") ||
+    combinedText.includes("չեղարկված")
+  ) {
+    const isCancelled = combinedText.includes("cancel") || combinedText.includes("отменен") || combinedText.includes("չեղարկված");
+    return {
+      kind: "rejected",
+      badgeLabel: isCancelled
+        ? tr("notifications.statusCancelled", "Отменен")
+        : tr("notifications.statusRejected", "Отказ"),
+      badgeClass: "bg-rose-100 text-rose-800 border-rose-200",
+      borderClass: "border-rose-400/80 shadow-rose-100",
+      barClass: "bg-rose-500",
+      bgClass: "bg-rose-50/50",
+      textClass: "text-rose-700",
+      iconBg: "bg-rose-100 text-rose-600",
+      actionButtonClass: "bg-rose-600 hover:bg-rose-700 text-white",
+    };
+  }
+
+  // 2. Confirmed / Accepted / Delivered / Finished (Green)
+  if (
+    statusNum === 3 ||
+    statusNum === 6 ||
+    statusNum === 9 ||
+    statusNum === 10 ||
+    typeNum === 4 || // SupplierOfferAccepted
+    typeNum === 24 || // ClientOfferAccepted
+    combinedText.includes("accept") ||
+    combinedText.includes("confirm") ||
+    combinedText.includes("deliver") ||
+    combinedText.includes("подтвержден") ||
+    combinedText.includes("принят") ||
+    combinedText.includes("доставлен") ||
+    combinedText.includes("հաստատված") ||
+    combinedText.includes("ընդունված")
+  ) {
+    const isDelivered = statusNum === 6 || combinedText.includes("deliver") || combinedText.includes("доставлен") || combinedText.includes("առաքված");
+    return {
+      kind: "confirmed",
+      badgeLabel: isDelivered
+        ? tr("notifications.statusDelivered", "Доставлен")
+        : tr("notifications.statusConfirmed", "Подтвержден"),
+      badgeClass: "bg-emerald-100 text-emerald-800 border-emerald-200",
+      borderClass: "border-emerald-400/80 shadow-emerald-100",
+      barClass: "bg-emerald-500",
+      bgClass: "bg-emerald-50/50",
+      textClass: "text-emerald-700",
+      iconBg: "bg-emerald-100 text-emerald-600",
+      actionButtonClass: "bg-emerald-600 hover:bg-emerald-700 text-white",
+    };
+  }
+
+  // 3. In Progress / Preparing / Shipped (Blue / Indigo)
+  if (
+    statusNum === 4 ||
+    statusNum === 5 ||
+    combinedText.includes("in progress") ||
+    combinedText.includes("preparing") ||
+    combinedText.includes("shipped") ||
+    combinedText.includes("ready for delivery") ||
+    combinedText.includes("в пути") ||
+    combinedText.includes("готов") ||
+    combinedText.includes("пакуется") ||
+    combinedText.includes("ճանապարհին") ||
+    combinedText.includes("պատրաստվում")
+  ) {
+    const isShipped = statusNum === 5 || combinedText.includes("shipped") || combinedText.includes("в пути") || combinedText.includes("ճանապարհին");
+    return {
+      kind: "progress",
+      badgeLabel: isShipped
+        ? tr("notifications.statusShipped", "В пути")
+        : tr("notifications.statusInProgress", "В обработке"),
+      badgeClass: "bg-sky-100 text-sky-800 border-sky-200",
+      borderClass: "border-sky-400/80 shadow-sky-100",
+      barClass: "bg-sky-500",
+      bgClass: "bg-sky-50/50",
+      textClass: "text-sky-700",
+      iconBg: "bg-sky-100 text-sky-600",
+      actionButtonClass: "bg-sky-600 hover:bg-sky-700 text-white",
+    };
+  }
+
+  // 4. New Order / Price Offer / Waiting Confirmation (Amber)
+  if (
+    statusNum === 1 ||
+    statusNum === 8 ||
+    typeNum === 1 || // SupplierNewOrder
+    typeNum === 20 || // ClientOrderSubmitted
+    typeNum === 21 || // ClientPriceOfferReceived
+    combinedText.includes("new order") ||
+    combinedText.includes("новый заказ") ||
+    combinedText.includes("price offer") ||
+    combinedText.includes("offer") ||
+    combinedText.includes("предложение") ||
+    combinedText.includes("առաջարկ") ||
+    combinedText.includes("նոր պատվեր")
+  ) {
+    const isOffer = statusNum === 8 || typeNum === 21 || combinedText.includes("offer") || combinedText.includes("предложение");
+    return {
+      kind: "pending",
+      badgeLabel: isOffer
+        ? tr("notifications.priceOfferTitle", "Предложение")
+        : tr("notifications.statusNewOrder", "Новый заказ"),
+      badgeClass: "bg-amber-100 text-amber-800 border-amber-200",
+      borderClass: "border-amber-400/80 shadow-amber-100",
+      barClass: "bg-amber-500",
+      bgClass: "bg-amber-50/50",
+      textClass: "text-amber-800",
+      iconBg: "bg-amber-100 text-amber-700",
+      actionButtonClass: "bg-amber-600 hover:bg-amber-700 text-white",
+    };
+  }
+
+  // 5. Default
+  return {
+    kind: "info",
+    badgeLabel: tr("notifications.statusUpdate", "Информация"),
+    badgeClass: "bg-slate-100 text-slate-700 border-slate-200",
+    borderClass: "border-slate-300",
+    barClass: "bg-slate-400",
+    bgClass: "bg-slate-50",
+    textClass: "text-slate-700",
+    iconBg: "bg-slate-100 text-slate-600",
+    actionButtonClass: "bg-slate-800 hover:bg-slate-900 text-white",
+  };
+}
 
 export type NotificationSettingsDto = {
   emailNotifications?: boolean;
@@ -48,24 +246,117 @@ export function normalizeNotification(raw: any): NotificationItemDto {
     parsedDateIso = new Date().toISOString();
   }
 
-  return {
-    id: String(raw.id ?? ""),
-    title: String(raw.title ?? ""),
-    message: String(raw.message ?? raw.detail ?? ""),
-    type: raw.type ? String(raw.type) : undefined,
-    isRead: Boolean(raw.isRead ?? raw.read),
-    createdAt: parsedDateIso,
-    creationDate: parsedDateIso,
-    data: raw.data,
-  };
-}
+  const notifType =
+    raw.notificationType !== undefined && raw.notificationType !== null
+      ? Number(raw.notificationType)
+      : raw.NotificationType !== undefined && raw.NotificationType !== null
+        ? Number(raw.NotificationType)
+        : undefined;
 
-export function formatNotificationTime(input?: string | number | Date | null): string {
+  const rawRelatedId = raw.relatedId ?? raw.RelatedId;
+  const msg = String(raw.message ?? raw.Message ?? raw.detail ?? "");
+  const title = String(raw.title ?? raw.Title ?? "");
+  const combinedText = `${title} ${msg}`.toLowerCase();
+
+  const isPromoType =
+    notifType === 50 ||
+    String(raw.type || "").toLowerCase().includes("promo") ||
+    combinedText.includes("промо") ||
+    combinedText.includes("ակցիա") ||
+    combinedText.includes("promotion") ||
+    (typeof rawRelatedId === "string" && rawRelatedId.toLowerCase().startsWith("promo-")) ||
+    Boolean(raw.promotionId || raw.PromotionId || raw.data?.promotionId || raw.data?.PromotionId);
+
+  const rawOrderId =
+    raw.orderId ??
+    raw.OrderId ??
+    (!isPromoType ? rawRelatedId : undefined) ??
+    raw.data?.orderId ??
+    raw.data?.OrderId;
+
+  let orderId = rawOrderId ? String(rawOrderId).trim() : undefined;
+  if (!isPromoType && !orderId) {
+    const match = msg.match(/#([a-zA-Z0-9-]+)/) || title.match(/#([a-zA-Z0-9-]+)/);
+    if (match) {
+      orderId = match[1];
+    }
+  }
+
+  const rawOrderNum =
+    raw.orderNum ??
+    raw.OrderNum ??
+    raw.data?.orderNum ??
+    raw.data?.OrderNum;
+
+  let orderNum = rawOrderNum ? String(rawOrderNum).trim() : undefined;
+  if (!orderNum) {
+    const friendlyMatch = msg.match(/#([A-Za-z]{3}-\d{10})/) || title.match(/#([A-Za-z]{3}-\d{10})/);
+    if (friendlyMatch) {
+      orderNum = friendlyMatch[1];
+    } else if (orderId && /^[A-Za-z]{3}-\d{10}$/.test(orderId)) {
+      orderNum = orderId;
+    }
+  }
+
+  const promoId = isPromoType
+    ? String(rawRelatedId || raw.promotionId || raw.PromotionId || raw.data?.promotionId || raw.data?.PromotionId || "").trim() || undefined
+    : undefined;
+
+  const statusNum =
+    raw.status !== undefined && raw.status !== null
+      ? Number(raw.status)
+      : raw.Status !== undefined && raw.Status !== null
+        ? Number(raw.Status)
+        : undefined;
+
+  let deepLink = raw.deepLink ?? raw.DeepLink;
+  if (!deepLink) {
+    if (isPromoType) {
+      deepLink = promoId ? `/horeca/promotions/${promoId}` : `/horeca/promotions`;
+    } else if (orderId) {
+      deepLink = `/orders/${orderId}`;
+    }
+  }
+
+  return {
+    id: String(raw.id ?? raw.Id ?? (orderId ? `${orderId}-${parsedDateIso}` : promoId ? `${promoId}-${parsedDateIso}` : `notif-${Date.now()}`)),
+    userId: raw.userId ?? raw.UserId ? String(raw.userId ?? raw.UserId) : undefined,
+    orderId,
+    orderNum,
+    relatedId: rawRelatedId ? String(rawRelatedId) : undefined,
+    promotionId: promoId,
+    title,
+    message: msg,
+      type: raw.type
+        ? String(raw.type)
+        : raw.notificationTypeName ?? raw.NotificationTypeName
+          ? String(raw.notificationTypeName ?? raw.NotificationTypeName)
+          : undefined,
+      notificationType: notifType,
+      notificationTypeName: raw.notificationTypeName ?? raw.NotificationTypeName ? String(raw.notificationTypeName ?? raw.NotificationTypeName) : undefined,
+      status: statusNum,
+      deepLink,
+      isRead: Boolean(raw.isRead ?? raw.IsRead ?? raw.read),
+      createdAt: parsedDateIso,
+      creationDate: parsedDateIso,
+      data: raw.data,
+    };
+  }
+
+export function formatNotificationTime(
+  input?: string | number | Date | null,
+  t?: (key: string, fallback?: string) => string,
+): string {
   if (!input) return "";
   const date = input instanceof Date ? input : new Date(input);
   if (isNaN(date.getTime())) return "";
 
   const now = new Date();
+  const diffSec = Math.floor((now.getTime() - date.getTime()) / 1000);
+  if (diffSec >= 0 && diffSec < 45) {
+    return t ? t("notifications.justNow", "Just now") : "Just now";
+  }
+
   const isToday =
     date.getDate() === now.getDate() &&
     date.getMonth() === now.getMonth() &&

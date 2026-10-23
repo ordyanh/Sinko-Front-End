@@ -9,6 +9,7 @@ export type SeedUser = {
   companyName: string;
   address: string;
   displayName: string;
+  phoneNumber?: string;
 };
 
 export type LoggedInUser = Omit<SeedUser, "password">;
@@ -166,6 +167,8 @@ export type StoredDeliveryAddress = {
   contactPhone: string;
   approved: boolean;
   active: boolean;
+  lat?: number | null;
+  lon?: number | null;
 };
 
 /** Immutable delivery information copied onto an order at placement time. */
@@ -175,11 +178,15 @@ export type StoredOrderDeliveryAddressSnapshot = {
   label?: string;
   contactPerson: string;
   contactPhone: string;
+  lat?: number | null;
+  lon?: number | null;
 };
 
 /** An order shared between the buyer and supplier accounts that own it. */
 export type StoredOrder = {
   id: string;
+  orderNum?: string;
+  orderNumber?: string;
   horecaAccountId: string;
   horecaName: string;
   horecaContactName: string;

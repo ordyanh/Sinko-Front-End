@@ -70,6 +70,17 @@ export default defineConfig(({ mode }) => {
     server: {
       host: true,
       allowedHosts: true,
+      watch: {
+        ignored: [
+          (file: string) => file.includes(".vs") || file.includes(".git"),
+          /[\\/]\.vs([\\/]|$)/,
+          /[\\/]\.git([\\/]|$)/,
+          "**/.vs/**",
+          "**/.git/**",
+          "**/bin/**",
+          "**/obj/**",
+        ],
+      },
       proxy: {
         // WebSocket Notification Hub (Sinko.Notification)
         "^/orderhub": {
@@ -129,6 +140,12 @@ export default defineConfig(({ mode }) => {
               console.error(`[Core Proxy Error]: ${err.message} -> Target: ${coreUrl}`);
             });
           },
+        },
+        "/orderhub": {
+          target: "http://localhost:5147",
+          ws: true,
+          changeOrigin: true,
+          secure: false,
         },
       },
     },

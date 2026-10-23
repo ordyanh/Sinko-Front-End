@@ -3,17 +3,31 @@ import { apiRequest } from "./http";
 export type CustomerClientDto = {
   id: string;
   clientId?: string;
+  restaurantId?: string;
   companyName: string;
+  restaurantName?: string;
   contactPerson?: string;
   email?: string;
   phoneNumber?: string;
   address?: string;
+  lat?: number | null;
+  lon?: number | null;
+  serviceAreas?: Array<{
+    id: number;
+    name: string;
+    province?: string;
+    isCustom?: boolean;
+    lat?: number | null;
+    lon?: number | null;
+  }>;
   hvhh?: string;
   taxCode?: string;
   totalOrders?: number;
+  totalOrdersCount?: number;
   totalSpent?: number;
   lastOrderDate?: string;
   status?: string;
+  completedOrders?: any[];
 };
 
 export type DeliveryPointRequest = {
@@ -39,16 +53,20 @@ export type DailySummaryDto = {
 
 export async function getMyClients(): Promise<CustomerClientDto[]> {
   try {
-    const res = await apiRequest<CustomerClientDto[]>("/api/Customers/my-clients", {
+    const res = await apiRequest<any>("/api/Customers/my-clients", {
       method: "GET",
     });
-    return Array.isArray(res) ? res : [];
+    if (Array.isArray(res)) return res;
+    if (Array.isArray(res?.items)) return res.items;
+    return [];
   } catch {
     try {
-      const fallback = await apiRequest<CustomerClientDto[]>("/api/Customers", {
+      const fallback = await apiRequest<any>("/api/Customers", {
         method: "GET",
       });
-      return Array.isArray(fallback) ? fallback : [];
+      if (Array.isArray(fallback)) return fallback;
+      if (Array.isArray(fallback?.items)) return fallback.items;
+      return [];
     } catch {
       return [];
     }
@@ -124,4 +142,30 @@ export async function addDeliveryPoint(payload: DeliveryPointRequest): Promise<u
     method: "POST",
     body: JSON.stringify(payload),
   });
+}
+
+export type UserDeliveryPointDto = {
+  id: string;
+  userId: string;
+  deliveryAddress: string;
+  phoneNumber: string;
+  pointName: string;
+  isActive: boolean;
+  creationDate?: string;
+  provinceId: number;
+  cityId: number;
+  lat?: number | null;
+  lon?: number | null;
+  customRegion?: string | null;
+};
+
+export async function getDeliveryPoints(): Promise<UserDeliveryPointDto[]> {
+  try {
+    const res = await apiRequest<UserDeliveryPointDto[]>("/api/Customers/delivery-points", {
+      method: "GET",
+    });
+    return Array.isArray(res) ? res : [];
+  } catch {
+    return [];
+  }
 }

@@ -85,7 +85,7 @@ export default function HorecaOrdersPage() {
         cell: (order) => (
           <div>
             <span className="font-semibold text-slate-900 tabular-nums">
-              {order.id}
+              {order.orderNumber || order.orderNum || order.id}
             </span>
             <p className="mt-0.5 text-xs text-slate-500">
               {t("orders.placedAtDate", "Placed")} {formatOrderDate(order.placedAt)}
@@ -245,6 +245,8 @@ export default function HorecaOrdersPage() {
   const normalizedSearchValue = searchValue.trim().toLowerCase();
   const filteredOrders = orders.filter((order) => {
     const matchesSearch = [
+      order.orderNumber,
+      order.orderNum,
       order.id,
       order.supplierName,
       order.supplierContactName,

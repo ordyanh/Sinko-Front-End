@@ -1,4 +1,5 @@
 import {
+  AlertCircle,
   ArrowLeft,
   Boxes,
   CalendarDays,
@@ -318,6 +319,14 @@ export default function PromotionEditor({
   // This panel opens only while a supplier is creating a new catalog option
   // for one of the selected Y products.
   const showLegacyTargetOptionEditor = isCreatingTargetSellingOption;
+  const hasSelectedProducts = isBuyXGetY
+    ? Boolean(
+        triggerProductId &&
+        triggerOption &&
+        giftChoices.length > 0 &&
+        giftChoices.some((choice) => choice.productId && choice.optionId),
+      )
+    : discountProductIds.length > 0 && selectedDiscountOptions.length > 0;
   const eligibleCustomers = availableCustomers.filter((customer) =>
     eligibleCustomerIds.includes(customer.id),
   );
@@ -559,6 +568,7 @@ export default function PromotionEditor({
   }
 
   function applyProductSelection() {
+    if (selectedProductIds.length === 0) return;
     if (productSelectionTarget === "discount") {
       setDiscountProductIds(selectedProductIds);
       setDiscountOptionKeys((currentOptionKeys) =>
@@ -833,13 +843,41 @@ export default function PromotionEditor({
       return;
     }
 
+    if (catalogProducts.length === 0) {
+      showToast({
+        title: t("promotions.atLeastOneProductRequiredTitle"),
+        description: t("promotions.noProductsInCatalogNotice"),
+        variant: "error",
+      });
+      return;
+    }
+
+    if (!hasSelectedProducts) {
+      showToast({
+        title: t("promotions.atLeastOneProductRequiredTitle"),
+        description: isBuyXGetY
+          ? t("promotions.bxgySelectOptionsAlert")
+          : t("promotions.atLeastOneProductRequiredDesc"),
+        variant: "error",
+      });
+      return;
+    }
+
     if (isBuyXGetY && (!triggerOption || giftChoices.length === 0 || giftChoices.some((choice) => !choice.optionId))) {
-      window.alert(t("promotions.bxgySelectOptionsAlert"));
+      showToast({
+        title: t("promotions.atLeastOneProductRequiredTitle"),
+        description: t("promotions.bxgySelectOptionsAlert"),
+        variant: "error",
+      });
       return;
     }
 
     if (!isBuyXGetY && selectedDiscountOptions.length === 0) {
-      window.alert(t("promotions.selectAtLeastOneOptionAlert"));
+      showToast({
+        title: t("promotions.atLeastOneProductRequiredTitle"),
+        description: t("promotions.selectAtLeastOneOptionAlert"),
+        variant: "error",
+      });
       return;
     }
 
@@ -850,7 +888,11 @@ export default function PromotionEditor({
         return !Number.isFinite(price) || price < 0 || price >= option.price;
       })
     ) {
-      window.alert(t("promotions.priceMustBeLowerAlert"));
+      showToast({
+        title: t("promotions.couldNotSaveTitle"),
+        description: t("promotions.priceMustBeLowerAlert"),
+        variant: "error",
+      });
       return;
     }
 
@@ -947,6 +989,8 @@ export default function PromotionEditor({
           JSON.stringify(eligibleCustomerIds),
           isBannerEnabled,
           display,
+          hasSelectedProducts,
+          catalogProducts.length,
         ].join("|")}
         back={
           <Link
@@ -968,8 +1012,15 @@ export default function PromotionEditor({
             <button
               type="submit"
               form="promotion-editor"
-              disabled={isSaving || isLoadingPromotion}
-              className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-content transition hover:brightness-95"
+              disabled={isSaving || isLoadingPromotion || !hasSelectedProducts || catalogProducts.length === 0}
+              title={
+                catalogProducts.length === 0
+                  ? t("promotions.noProductsInCatalogNotice")
+                  : !hasSelectedProducts
+                    ? t("promotions.atLeastOneProductRequiredDesc")
+                    : undefined
+              }
+              className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-content transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Save className="h-4 w-4" aria-hidden="true" />
               {isSaving ? t("promotions.savingPromotion") : isEditing ? t("common.saveChanges") : t("promotions.createPromotion")}
@@ -980,6 +1031,12 @@ export default function PromotionEditor({
       <form id="promotion-editor" noValidate onSubmit={handleSubmit} className="space-y-6">
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(18rem,0.8fr)]">
           <div className="space-y-6">
+            {catalogProducts.length === 0 ? (
+              <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+                <p>{t("promotions.noProductsInCatalogNotice")}</p>
+              </div>
+            ) : null}
             <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-7">
               <SectionHeading
                 icon={<PackagePlus className="h-5 w-5" aria-hidden="true" />}
@@ -1043,6 +1100,12 @@ export default function PromotionEditor({
                         required
                       />
                     </div>
+                    {!triggerProduct ? (
+                      <p className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-rose-600">
+                        <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                        <span>{t("promotions.atLeastOneProductRequiredDesc")}</span>
+                      </p>
+                    ) : null}
                     {triggerProduct ? (
                       <div className="mt-3">
                         <label htmlFor="trigger-selling-option" className="mb-2 block text-sm font-medium text-slate-700">
@@ -1087,6 +1150,12 @@ export default function PromotionEditor({
                         required
                       />
                     </div>
+                    {giftChoices.length === 0 ? (
+                      <p className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-rose-600">
+                        <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                        <span>{t("promotions.atLeastOneProductRequiredDesc")}</span>
+                      </p>
+                    ) : null}
                     {giftChoices.length > 0 ? (
                       <div className="mt-3 space-y-2">
                         <p className="text-xs font-semibold text-violet-800">{t("promotions.horecaBuyersGiftNotice")}</p>
@@ -1221,6 +1290,12 @@ export default function PromotionEditor({
                       ? t("promotions.productsSelected", { count: discountProductIds.length })
                       : t("promotions.chooseProducts")}
                   </button>
+                  {discountProductIds.length === 0 ? (
+                    <p className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-rose-600">
+                      <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                      <span>{t("promotions.atLeastOneProductRequiredDesc")}</span>
+                    </p>
+                  ) : null}
                   {selectedDiscountProducts.length > 0 ? (
                     <>
                       {discountType === "percentage" ? (
@@ -1750,7 +1825,9 @@ export default function PromotionEditor({
             <button
               type="button"
               onClick={applyProductSelection}
-              className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-content transition hover:brightness-95"
+              disabled={selectedProductIds.length === 0}
+              title={selectedProductIds.length === 0 ? t("promotions.atLeastOneProductRequiredDesc") : undefined}
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-content transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Check className="h-4 w-4" aria-hidden="true" />
               {t("promotions.applySelection")}

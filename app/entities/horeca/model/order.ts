@@ -30,6 +30,8 @@ export type HorecaOrderEvent = {
 
 export type HorecaOrder = {
   id: string;
+  orderNum?: string;
+  orderNumber?: string;
   supplierId: string;
   supplierName: string;
   supplierContactName: string;

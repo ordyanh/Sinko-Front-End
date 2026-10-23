@@ -18,14 +18,18 @@ import {
   Users2,
   type LucideIcon,
   X,
+  Truck,
+  Gift,
 } from "lucide-react";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, useMemo, type ReactNode } from "react";
 import NotificationDrawer, {
   type DashboardNotification,
 } from "./notification-drawer";
+import NotificationToastContainer from "./notification-toast";
+import { useNotificationCenter } from "~/shared/lib/use-notification-center";
+import { getNotificationTheme, formatNotificationTime } from "~/shared/api/notifications";
 import LanguageSwitcher from "./language-switcher";
 import { useTranslation } from "~/shared/lib/i18n";
-import { useNotifications } from "~/shared/lib/notifications-context";
 import {
   DashboardHeaderActionsContext,
   type DashboardHeaderActionContent,
@@ -170,42 +174,90 @@ export default function DashboardLayout({
     return isPathWithin(item.href);
   }
 
-  let notificationContext: ReturnType<typeof useNotifications> | null = null;
-  try {
-    notificationContext = useNotifications();
-  } catch {
-    // fallback if outside provider
-  }
+  const notifCenter = useNotificationCenter(accountType);
 
-  const effectiveNotifications =
-    notifications && notifications.length > 0
-      ? notifications
-      : (notificationContext?.notifications ?? []);
+  const displayNotifications: DashboardNotification[] = useMemo(() => {
+    if (notifCenter.notifications.length > 0) {
+      return notifCenter.notifications.map((n) => {
+        const theme = getNotificationTheme(n, t);
+        const isDelivery =
+          n.title.toLowerCase().includes("delivery") ||
+          n.message.toLowerCase().includes("delivery") ||
+          n.message.toLowerCase().includes("առաքում");
+        const isOrder =
+          n.title.toLowerCase().includes("order") ||
+          n.message.toLowerCase().includes("order") ||
+          n.message.toLowerCase().includes("պատվեր");
 
-  const unreadNotificationCount =
-    notifications && notifications.length > 0
-      ? notifications.filter((notification) => notification.unread).length
-      : (notificationContext?.unreadCount ?? 0);
+        let Icon = ShoppingBag;
+        if (theme.kind === "promotion") Icon = Gift;
+        else if (isDelivery) Icon = Truck;
+        else if (theme.kind === "confirmed") Icon = Package;
+        else if (theme.kind === "rejected") Icon = X;
+        else if (isOrder) Icon = ShoppingBag;
 
-  const isSocketConnected = notificationContext?.isConnected ?? false;
+        return {
+          id: n.id,
+          title: n.title,
+          detail: n.message,
+          time: formatNotificationTime(n.createdAt || n.creationDate, t),
+          icon: Icon,
+          accentClassName: n.isRead ? "bg-slate-100 text-slate-700" : theme.iconBg,
+          unread: !n.isRead,
+          orderId: n.orderId,
+          orderNum: n.orderNum,
+          status: n.status,
+          statusKind: theme.kind,
+          deepLink: n.deepLink,
+          onOpen: () => {
+            void notifCenter.markAsRead(n.id);
+            notifCenter.openOrder(n.orderId, n.deepLink);
+          },
+        };
+      });
+    }
+
+    return notifications;
+  }, [notifCenter, notifications, t]);
+
+  const [hasDismissedBadge, setHasDismissedBadge] = useState(false);
+  const [prevUnreadCount, setPrevUnreadCount] = useState(0);
+
+  useEffect(() => {
+    if (isNotificationsOpen) {
+      setHasDismissedBadge(true);
+      void notifCenter.markAllRead();
+    }
+  }, [isNotificationsOpen, notifCenter]);
+
+  useEffect(() => {
+    if (notifCenter.unreadCount > prevUnreadCount) {
+      setHasDismissedBadge(false);
+    }
+    setPrevUnreadCount(notifCenter.unreadCount);
+  }, [notifCenter.unreadCount, prevUnreadCount]);
+
+  const effectiveUnreadCount = hasDismissedBadge
+    ? 0
+    : notifCenter.unreadCount > 0
+      ? notifCenter.unreadCount
+      : notifications.filter((notification) => notification.unread).length;
 
   const notificationButton = (
     <button
       type="button"
-      onClick={() => setIsNotificationsOpen(true)}
+      onClick={() => {
+        setIsNotificationsOpen(true);
+        setHasDismissedBadge(true);
+        void notifCenter.markAllRead();
+      }}
       className="relative inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:-translate-y-0.5 hover:border-primary/30 hover:bg-primary/5 hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-      aria-label={`Open notifications${unreadNotificationCount > 0 ? `, ${unreadNotificationCount} unread` : ""}`}
+      aria-label={`Open notifications${effectiveUnreadCount > 0 ? `, ${effectiveUnreadCount} unread` : ""}`}
     >
       <Bell className="h-5 w-5" aria-hidden="true" />
-      {isSocketConnected ? (
-        <span
-          className="absolute bottom-1 right-1 h-2 w-2 rounded-full bg-emerald-500 ring-2 ring-white"
-          title="Live WebSocket Connected"
-        />
-      ) : null}
-      {unreadNotificationCount > 0 ? (
-        <span className="absolute -right-1.5 -top-1.5 grid h-5 min-w-5 place-items-center rounded-full bg-primary px-1 text-[11px] font-bold leading-none text-primary-content ring-2 ring-[#f3f6f4] tabular-nums">
-          {unreadNotificationCount > 99 ? "99+" : unreadNotificationCount}
+      {effectiveUnreadCount > 0 ? (
+        <span className="absolute -right-1.5 -top-1.5 grid h-5 min-w-5 place-items-center rounded-full bg-rose-600 px-1 text-[11px] font-bold leading-none text-white ring-2 ring-[#f3f6f4] tabular-nums shadow-sm">
+          {effectiveUnreadCount > 99 ? "99+" : effectiveUnreadCount}
         </span>
       ) : null}
     </button>
@@ -550,13 +602,23 @@ export default function DashboardLayout({
         </Dialog>
       </div>
 
+      <NotificationToastContainer
+        toasts={notifCenter.activeToasts}
+        onClose={notifCenter.dismissToast}
+        onOpenOrder={(orderId, deepLink, toastId) => {
+          if (toastId) void notifCenter.markAsRead(toastId);
+          notifCenter.openOrder(orderId, deepLink, toastId);
+        }}
+      />
+
       <NotificationDrawer
         open={isNotificationsOpen}
         onClose={setIsNotificationsOpen}
-        notifications={effectiveNotifications}
-        onMarkRead={notificationContext?.markAsRead}
-        onMarkAllRead={notificationContext?.markAllAsRead}
-        isConnected={isSocketConnected}
+        notifications={displayNotifications}
+        onMarkAllRead={notifCenter.markAllRead}
+        onOpenOrder={(orderId, deepLink) => {
+          notifCenter.openOrder(orderId, deepLink);
+        }}
       />
 
       <footer className="border-t border-slate-200 bg-white/80 px-4 py-3 text-xs text-slate-500 lg:hidden sm:px-6">

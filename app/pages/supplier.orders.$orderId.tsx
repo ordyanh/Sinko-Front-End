@@ -1,12 +1,19 @@
 import {
   ArrowLeft,
-  CircleCheck,
+  Building2,
+  Check,
   ChevronRight,
-  ClipboardList,
   CircleAlert,
+  CircleCheck,
+  ClipboardList,
   Clock3,
+  Copy,
+  ExternalLink,
   Mail,
   MapPin,
+  Maximize2,
+  Minimize2,
+  Navigation,
   Package,
   PackageCheck,
   Pencil,
@@ -35,7 +42,9 @@ import {
   sendPriceOffer as backendSendPriceOffer,
   assignOrder as backendAssignOrder,
 } from "~/shared/api/orders";
+import { broadcastOrderNotification } from "~/shared/lib/use-notification-center";
 import { getEmployeesList, type EmployeeListItem } from "~/shared/api/employee";
+import { getClientProfile } from "~/shared/api/customers";
 import type { StoredEmployee } from "~/shared/lib/indexed-db";
 import { getCurrentUserEmployeeRole } from "~/shared/lib/auth-token";
 import { useTranslation } from "~/shared/lib/i18n";
@@ -263,6 +272,21 @@ export default function SupplierOrderDetailsPage() {
   const [savePrices, setSavePrices] = useState(true);
   const [isEditingOffer, setIsEditingOffer] = useState(false);
   const [offerSaveError, setOfferSaveError] = useState<string>();
+  const [isMapExpanded, setIsMapExpanded] = useState(false);
+  const [hasCopiedAddress, setHasCopiedAddress] = useState(false);
+
+  const handleCopyAddress = (textToCopy: string) => {
+    if (!textToCopy) return;
+    try {
+      void navigator.clipboard?.writeText(textToCopy);
+      setHasCopiedAddress(true);
+      setTimeout(() => {
+        setHasCopiedAddress(false);
+      }, 2000);
+    } catch {
+      // ignore
+    }
+  };
 
   useEffect(() => {
     let isCurrent = true;
@@ -296,6 +320,49 @@ export default function SupplierOrderDetailsPage() {
 
       const storedOrder = await getOrderForSupplier(user.id, orderId);
       if (!isCurrent || !storedOrder) return;
+
+      // Ensure delivery address & coordinates are resolved from client profile if missing
+      if (
+        storedOrder.horecaAccountId &&
+        (storedOrder.deliveryAddressSnapshot?.lat == null ||
+          !storedOrder.deliveryAddress ||
+          storedOrder.deliveryAddress === "[No Address]")
+      ) {
+        try {
+          const client = await getClientProfile(storedOrder.horecaAccountId);
+          if (client) {
+            const enrichedAddress =
+              client.address ||
+              (client.serviceAreas && client.serviceAreas.length > 0
+                ? client.serviceAreas[0].name
+                : "");
+            if (
+              (!storedOrder.deliveryAddress ||
+                storedOrder.deliveryAddress === "[No Address]") &&
+              enrichedAddress
+            ) {
+              storedOrder.deliveryAddress = enrichedAddress;
+              storedOrder.horecaAddress = enrichedAddress;
+              if (storedOrder.deliveryAddressSnapshot) {
+                storedOrder.deliveryAddressSnapshot.fullAddress = enrichedAddress;
+              }
+            }
+            if (storedOrder.deliveryAddressSnapshot) {
+              if (storedOrder.deliveryAddressSnapshot.lat == null) {
+                storedOrder.deliveryAddressSnapshot.lat =
+                  client.lat ?? client.serviceAreas?.[0]?.lat ?? null;
+              }
+              if (storedOrder.deliveryAddressSnapshot.lon == null) {
+                storedOrder.deliveryAddressSnapshot.lon =
+                  client.lon ?? client.serviceAreas?.[0]?.lon ?? null;
+              }
+            }
+          }
+        } catch {
+          // ignore
+        }
+      }
+
       setOrder(storedOrder);
       setStatus(storedOrder.status);
       setLines(storedOrder.lines.map((line) => ({
@@ -342,18 +409,64 @@ export default function SupplierOrderDetailsPage() {
 
   const deliveryAddress = order.deliveryAddressSnapshot ?? {
     addressId: "legacy-address",
-    fullAddress: order.deliveryAddress,
+    fullAddress: order.deliveryAddress || order.horecaAddress,
     contactPerson: order.horecaContactName,
     contactPhone: order.horecaPhone,
   };
   const customer = {
     companyName: order.horecaName,
-    contactName: deliveryAddress.contactPerson,
+    contactName: deliveryAddress.contactPerson || order.horecaContactName,
     email: order.horecaEmail,
-    phone: deliveryAddress.contactPhone,
-    address: deliveryAddress.fullAddress,
+    phone: deliveryAddress.contactPhone || order.horecaPhone,
+    address: deliveryAddress.fullAddress || order.deliveryAddress || order.horecaAddress,
   };
   const activeOrder = order;
+
+  const lat = deliveryAddress.lat ?? (order as any).lat ?? null;
+  const lon = deliveryAddress.lon ?? (order as any).lon ?? null;
+  const hasCoordinates =
+    lat !== null &&
+    lat !== undefined &&
+    !isNaN(Number(lat)) &&
+    lon !== null &&
+    lon !== undefined &&
+    !isNaN(Number(lon)) &&
+    Number(lat) !== 0 &&
+    Number(lon) !== 0;
+
+  const rawAddressText =
+    customer.address && customer.address !== "[No Address]" ? customer.address.trim() : "";
+  const displayAddress =
+    rawAddressText ||
+    (hasCoordinates ? `${Number(lat).toFixed(5)}, ${Number(lon).toFixed(5)}` : "—");
+
+  let mapQuery = "";
+  if (hasCoordinates) {
+    mapQuery = `${lat},${lon}`;
+  } else if (rawAddressText) {
+    const lower = rawAddressText.toLowerCase();
+    if (
+      lower.includes("armenia") ||
+      lower.includes("yerevan") ||
+      lower.includes("ереван") ||
+      lower.includes("հայաստան") ||
+      lower.includes("երևան")
+    ) {
+      mapQuery = rawAddressText;
+    } else {
+      mapQuery = `${rawAddressText}, Armenia`;
+    }
+  }
+
+  const googleMapsEmbedUrl = mapQuery
+    ? `https://maps.google.com/maps?q=${encodeURIComponent(mapQuery)}&t=&z=16&ie=UTF8&iwloc=&output=embed`
+    : "";
+  const googleMapsSearchUrl = mapQuery
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapQuery)}`
+    : "";
+  const googleMapsDirectionsUrl = mapQuery
+    ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(mapQuery)}`
+    : "";
 
   const isNegotiating = status === "New" || status === "Rejected";
   const canEditOffer = isNegotiating && isEditingOffer;
@@ -493,6 +606,62 @@ export default function SupplierOrderDetailsPage() {
       if (nextStatus === "Waiting for restaurant confirmation") {
         setIsEditingOffer(false);
       }
+
+      // Broadcast real-time notification to client
+      const displayOrderNum = activeOrder.orderNumber || activeOrder.orderNum || activeOrder.id.slice(0, 8);
+      const statusMeta: Record<string, { statusNum: number; title: string; desc: string }> = {
+        "Waiting for restaurant confirmation": {
+          statusNum: 8,
+          title: t("notifications.priceOfferTitle", "Предложение цены по заказу"),
+          desc: t("notifications.priceOfferDesc", { orderNum: displayOrderNum }),
+        },
+        Confirmed: {
+          statusNum: 3,
+          title: t("notifications.orderConfirmedTitle", "Заказ подтвержден поставщиком"),
+          desc: t("notifications.orderConfirmedDesc", { orderNum: displayOrderNum }),
+        },
+        Preparing: {
+          statusNum: 4,
+          title: t("notifications.orderPreparingTitle", "Заказ собирается"),
+          desc: t("notifications.orderPreparingDesc", { orderNum: displayOrderNum }),
+        },
+        Shipped: {
+          statusNum: 5,
+          title: t("notifications.orderShippedTitle", "Заказ в пути"),
+          desc: t("notifications.orderShippedDesc", { orderNum: displayOrderNum }),
+        },
+        Delivered: {
+          statusNum: 6,
+          title: t("notifications.orderDeliveredTitle", "Заказ доставлен"),
+          desc: t("notifications.orderDeliveredDesc", { orderNum: displayOrderNum }),
+        },
+        Rejected: {
+          statusNum: 7,
+          title: t("notifications.orderRejectedTitle", "Заказ отклонен"),
+          desc: t("notifications.orderRejectedDesc", { orderNum: displayOrderNum }),
+        },
+        Cancelled: {
+          statusNum: 7,
+          title: t("notifications.orderCancelledTitle", "Заказ отменен"),
+          desc: t("notifications.orderCancelledDesc", { orderNum: displayOrderNum }),
+        },
+      };
+
+      const meta = statusMeta[nextStatus] || {
+        statusNum: 1,
+        title: `${t("notifications.statusUpdate", "Обновление")}: ${nextStatus}`,
+        desc: `#${displayOrderNum} → ${nextStatus}`,
+      };
+
+      broadcastOrderNotification({
+        orderId: activeOrder.id,
+        orderNum: activeOrder.orderNumber || activeOrder.orderNum,
+        title: meta.title,
+        message: meta.desc,
+        status: meta.statusNum,
+        deepLink: `/horeca/orders/${activeOrder.id}`,
+        targetRole: "horeca",
+      });
     } catch (error) {
       const errorMsg =
         error instanceof Error ? error.message : "Couldn't update order status.";
@@ -563,7 +732,7 @@ export default function SupplierOrderDetailsPage() {
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
-                {t("orders.title")} {orderId ?? "ORD-9107"}
+                {t("orders.title")} {order.orderNumber || order.orderNum || (orderId ?? "ORD-9107")}
               </h1>
               <span
                 className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${statusStyles[status]}`}
@@ -606,7 +775,7 @@ export default function SupplierOrderDetailsPage() {
         </div>
       ) : null}
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
+      <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
         <div className="min-w-0 space-y-6">
           <section className="min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
             <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4 sm:px-6">
@@ -797,6 +966,144 @@ export default function SupplierOrderDetailsPage() {
             </section>
           ) : null}
 
+          {/* Large Google Map directly under Delivery Progress */}
+          <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div className="flex flex-col gap-3 border-b border-slate-100 p-5 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <div className="flex items-center gap-2">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <MapPin className="h-4 w-4" />
+                  </div>
+                  <SectionLabel>{t("orders.deliveryLocation")}</SectionLabel>
+                </div>
+                <p className="mt-1 text-sm font-medium text-slate-800">
+                  {displayAddress}
+                  {deliveryAddress.label ? (
+                    <span className="ml-2 inline-block rounded bg-slate-100 px-2 py-0.5 text-xs font-normal text-slate-600">
+                      📍 {deliveryAddress.label}
+                    </span>
+                  ) : null}
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                {rawAddressText ? (
+                  <button
+                    type="button"
+                    onClick={() => handleCopyAddress(rawAddressText)}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-xs transition hover:bg-slate-50"
+                  >
+                    {hasCopiedAddress ? (
+                      <>
+                        <Check className="h-3.5 w-3.5 text-emerald-600" />
+                        <span className="font-semibold text-emerald-700">{t("common.copied")}</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-3.5 w-3.5 text-slate-400" />
+                        <span>{t("orders.copyAddress")}</span>
+                      </>
+                    )}
+                  </button>
+                ) : null}
+
+                {mapQuery ? (
+                  <>
+                    <a
+                      href={googleMapsSearchUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-xs transition hover:bg-slate-50"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5 text-slate-500" />
+                      <span>Google Maps</span>
+                    </a>
+                    <a
+                      href={googleMapsDirectionsUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-content shadow-xs transition hover:brightness-95"
+                    >
+                      <Navigation className="h-3.5 w-3.5" />
+                      <span>{t("orders.route")}</span>
+                    </a>
+                  </>
+                ) : null}
+
+                <button
+                  type="button"
+                  onClick={() => setIsMapExpanded((prev) => !prev)}
+                  className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 shadow-xs transition hover:bg-slate-50"
+                  title={isMapExpanded ? t("common.collapse") : t("common.expand")}
+                >
+                  {isMapExpanded ? (
+                    <>
+                      <Minimize2 className="h-3.5 w-3.5 text-slate-600" />
+                      <span className="hidden sm:inline">{t("common.collapse")}</span>
+                    </>
+                  ) : (
+                    <>
+                      <Maximize2 className="h-3.5 w-3.5 text-slate-600" />
+                      <span className="hidden sm:inline">{t("common.expand")}</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Big Map iframe */}
+            <div className="relative bg-slate-100">
+              {mapQuery ? (
+                <iframe
+                  title="Google Maps Delivery Location"
+                  src={googleMapsEmbedUrl}
+                  className={`w-full border-0 transition-all duration-300 ${
+                    isMapExpanded ? "h-[700px]" : "h-[520px]"
+                  }`}
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                />
+              ) : (
+                <div className="flex h-64 flex-col items-center justify-center p-6 text-center text-slate-400">
+                  <MapPin className="mb-2 h-10 w-10 stroke-1 text-slate-300" />
+                  <p className="text-sm font-medium text-slate-500">
+                    {t("orders.deliveryPointNotSpecified")}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Details strip below map */}
+            <div className="flex flex-wrap items-center justify-between gap-4 border-t border-slate-100 bg-slate-50/80 px-5 py-3 text-xs text-slate-600">
+              <div className="flex flex-wrap items-center gap-4">
+                <span className="flex items-center gap-1.5">
+                  <Building2 className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                  <strong className="text-slate-800">{customer.companyName || t("common.customer")}</strong>
+                </span>
+                {customer.contactName ? (
+                  <span className="flex items-center gap-1.5">
+                    <UserRound className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                    <span>{customer.contactName}</span>
+                  </span>
+                ) : null}
+                {customer.phone ? (
+                  <span className="flex items-center gap-1.5">
+                    <Phone className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                    <a href={`tel:${customer.phone}`} className="font-medium text-primary hover:underline">
+                      {customer.phone}
+                    </a>
+                  </span>
+                ) : null}
+              </div>
+
+              {hasCoordinates ? (
+                <span className="font-mono text-slate-500">
+                  GPS: {Number(lat).toFixed(5)}, {Number(lon).toFixed(5)}
+                </span>
+              ) : null}
+            </div>
+          </section>
+
           {isTerminal ? (
             <section className="rounded-2xl border border-slate-200 bg-slate-50 px-5 py-4 text-sm text-slate-600">
               <span className="font-semibold text-slate-800">
@@ -809,30 +1116,119 @@ export default function SupplierOrderDetailsPage() {
 
         <aside className="space-y-6">
           <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <SectionLabel>{t("orders.deliveryAddress")}</SectionLabel>
-            <p className="mt-3 font-semibold text-slate-900">
-              {customer.companyName}
-            </p>
-            <div className="mt-4 space-y-3 text-sm text-slate-600">
-              {deliveryAddress.label ? (
-                <p className="font-semibold text-slate-900">{deliveryAddress.label}</p>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <MapPin className="h-4 w-4" />
+                </div>
+                <SectionLabel>{t("orders.deliveryAddress")}</SectionLabel>
+              </div>
+              {rawAddressText ? (
+                <button
+                  type="button"
+                  onClick={() => handleCopyAddress(rawAddressText)}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2 py-1 text-xs font-medium text-slate-600 transition hover:bg-slate-50 active:scale-95"
+                  title={t("orders.copyAddress")}
+                >
+                  {hasCopiedAddress ? (
+                    <>
+                      <Check className="h-3 w-3 text-emerald-600" />
+                      <span className="font-semibold text-emerald-700">{t("common.copied")}</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="h-3 w-3 text-slate-400" />
+                      <span>{t("common.copy")}</span>
+                    </>
+                  )}
+                </button>
               ) : null}
-              <p className="flex gap-2">
-                <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
-                {customer.address}
+            </div>
+
+            <div className="mt-3">
+              <div className="flex items-center gap-2">
+                <Building2 className="h-4 w-4 shrink-0 text-slate-400" />
+                <p className="font-semibold text-slate-900">{customer.companyName || t("common.customer")}</p>
+              </div>
+              {deliveryAddress.label ? (
+                <span className="mt-1.5 inline-block rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
+                  📍 {deliveryAddress.label}
+                </span>
+              ) : null}
+            </div>
+
+            <div className="mt-3 rounded-xl bg-slate-50 p-3 text-sm">
+              <p className="font-medium leading-snug text-slate-800">
+                {displayAddress}
               </p>
-              <p className="flex gap-2">
+              {hasCoordinates ? (
+                <div className="mt-2 flex items-center gap-2">
+                  <span className="inline-flex items-center gap-1 rounded border border-slate-200 bg-white px-2 py-0.5 font-mono text-[11px] text-slate-600 shadow-xs">
+                    <span>GPS:</span>
+                    <span className="font-semibold text-slate-800">
+                      {Number(lat).toFixed(5)}, {Number(lon).toFixed(5)}
+                    </span>
+                  </span>
+                </div>
+              ) : null}
+            </div>
+
+            {mapQuery ? (
+              <div className="mt-4 flex items-center gap-2 border-t border-slate-100 pt-3">
+                <a
+                  href={googleMapsSearchUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 shadow-xs transition hover:bg-slate-50"
+                >
+                  <ExternalLink className="h-3.5 w-3.5 text-slate-500" />
+                  <span>Google Maps</span>
+                </a>
+                <a
+                  href={googleMapsDirectionsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-primary px-2.5 py-1.5 text-xs font-semibold text-primary-content shadow-xs transition hover:brightness-95"
+                >
+                  <Navigation className="h-3.5 w-3.5" />
+                  <span>{t("orders.route")}</span>
+                </a>
+              </div>
+            ) : null}
+
+            <div className="mt-4 space-y-3 border-t border-slate-100 pt-4 text-sm text-slate-600">
+              <div className="flex items-center gap-2.5">
                 <UserRound className="h-4 w-4 shrink-0 text-slate-400" />
-                {customer.contactName}
-              </p>
-              <p className="flex gap-2">
+                <span className="font-medium text-slate-800">
+                  {customer.contactName || "—"}
+                </span>
+              </div>
+              <div className="flex items-center gap-2.5">
                 <Phone className="h-4 w-4 shrink-0 text-slate-400" />
-                {customer.phone}
-              </p>
-              <p className="flex gap-2 break-all">
+                {customer.phone ? (
+                  <a
+                    href={`tel:${customer.phone}`}
+                    className="font-medium text-primary hover:underline"
+                  >
+                    {customer.phone}
+                  </a>
+                ) : (
+                  <span className="text-slate-400">—</span>
+                )}
+              </div>
+              <div className="flex items-center gap-2.5 break-all">
                 <Mail className="h-4 w-4 shrink-0 text-slate-400" />
-                {customer.email}
-              </p>
+                {customer.email ? (
+                  <a
+                    href={`mailto:${customer.email}`}
+                    className="font-medium text-slate-700 hover:text-primary hover:underline"
+                  >
+                    {customer.email}
+                  </a>
+                ) : (
+                  <span className="text-slate-400">—</span>
+                )}
+              </div>
             </div>
           </section>
           <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">

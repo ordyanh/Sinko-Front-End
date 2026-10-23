@@ -25,6 +25,7 @@ import {
   approveOrder as backendApproveOrder,
   repeatOrder as backendRepeatOrder,
 } from "~/shared/api/orders";
+import { broadcastOrderNotification } from "~/shared/lib/use-notification-center";
 import { getCurrentUserEmployeeRole } from "~/shared/lib/auth-token";
 import { useTranslation, getLocalizedOrderStatus } from "~/shared/lib/i18n";
 import {
@@ -362,9 +363,21 @@ export default function HorecaOrderDetailsPage() {
       setStatus(nextOrder.status);
       setIsEditing(false);
       await saveOrder(nextOrder).catch(() => {});
+
+      const displayOrderNum = activeOrder.orderNumber || activeOrder.orderNum || activeOrder.id.slice(0, 8);
+      broadcastOrderNotification({
+        orderId: activeOrder.id,
+        orderNum: activeOrder.orderNumber || activeOrder.orderNum,
+        title: t("notifications.restaurantOfferAcceptedTitle", "Предложение принято клиентом"),
+        message: t("notifications.restaurantOfferAcceptedDesc", { orderNum: displayOrderNum }),
+        status: 3,
+        targetRole: "supplier",
+        deepLink: `/supplier/orders/${activeOrder.id}`,
+      });
+
       showToast({
         title: "Offer accepted",
-        description: `${activeOrder.supplierName} will start preparing order ${activeOrder.id}.`,
+        description: `${activeOrder.supplierName} will start preparing order ${activeOrder.orderNumber || activeOrder.orderNum || activeOrder.id}.`,
         variant: "success",
       });
     } catch (error) {
@@ -407,6 +420,18 @@ export default function HorecaOrderDetailsPage() {
       setStatus(nextOrder.status);
       setIsEditing(false);
       await saveOrder(nextOrder).catch(() => {});
+
+      const displayOrderNum = activeOrder.orderNumber || activeOrder.orderNum || activeOrder.id.slice(0, 8);
+      broadcastOrderNotification({
+        orderId: activeOrder.id,
+        orderNum: activeOrder.orderNumber || activeOrder.orderNum,
+        title: t("notifications.restaurantOfferChangesTitle", "Клиент запросил изменения"),
+        message: t("notifications.restaurantOfferChangesDesc", { orderNum: displayOrderNum }),
+        status: 7,
+        targetRole: "supplier",
+        deepLink: `/supplier/orders/${activeOrder.id}`,
+      });
+
       showToast({
         title: "Changes sent",
         description: `${activeOrder.supplierName} will review your changes and send a revised offer.`,
@@ -476,6 +501,18 @@ export default function HorecaOrderDetailsPage() {
       setOrder(nextOrder);
       setStatus("Cancelled");
       await saveOrder(nextOrder).catch(() => {});
+
+      const displayOrderNum = activeOrder.orderNumber || activeOrder.orderNum || activeOrder.id.slice(0, 8);
+      broadcastOrderNotification({
+        orderId: activeOrder.id,
+        orderNum: activeOrder.orderNumber || activeOrder.orderNum,
+        title: t("notifications.orderCancelledTitle", "Заказ отменен"),
+        message: t("notifications.orderCancelledDesc", { orderNum: displayOrderNum }),
+        status: 7,
+        targetRole: "supplier",
+        deepLink: `/supplier/orders/${activeOrder.id}`,
+      });
+
       showToast({
         title: "Order cancelled",
         description: "This order has been cancelled.",
@@ -644,7 +681,7 @@ export default function HorecaOrderDetailsPage() {
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
-                {t("orders.title")} {order.id}
+                {t("orders.title")} {order.orderNumber || order.orderNum || order.id}
               </h1>
               <span
                 className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${horecaOrderStatusClasses[status]}`}
