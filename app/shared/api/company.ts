@@ -1,4 +1,4 @@
-﻿import { apiRequest } from "./http";
+import { apiRequest } from "./http";
 
 export type CompanyCategoryDto = {
   id: number;
@@ -20,6 +20,8 @@ export type CompanyDeliveryAddressDto = {
   contactPhone?: string;
   active: boolean;
   approved: boolean;
+  lat?: number | null;
+  lon?: number | null;
 };
 
 export type CompanyInfoDto = {

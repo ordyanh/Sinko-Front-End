@@ -2,14 +2,170 @@ import { apiRequest } from "./http";
 
 export type NotificationItemDto = {
   id: string;
+  userId?: string;
+  orderId?: string;
+  orderNum?: string;
   title: string;
   message: string;
   type?: string;
+  notificationType?: number;
+  notificationTypeName?: string;
+  status?: number;
+  deepLink?: string;
   isRead: boolean;
   createdAt: string;
   creationDate?: string;
   data?: Record<string, unknown>;
 };
+
+export type NotificationStatusKind = "rejected" | "confirmed" | "progress" | "pending" | "info";
+
+export type NotificationTheme = {
+  kind: NotificationStatusKind;
+  badgeLabel: string;
+  badgeClass: string;
+  borderClass: string;
+  barClass: string;
+  bgClass: string;
+  textClass: string;
+  iconBg: string;
+  actionButtonClass: string;
+};
+
+export function getNotificationTheme(item: {
+  status?: number | string;
+  notificationType?: number;
+  title?: string;
+  message?: string;
+}): NotificationTheme {
+  const statusNum = typeof item.status === "number" ? item.status : parseInt(String(item.status || ""), 10);
+  const typeNum = item.notificationType;
+  const combinedText = `${item.title || ""} ${item.message || ""}`.toLowerCase();
+
+  // 1. Rejected / Cancelled (Red)
+  if (
+    statusNum === 7 ||
+    typeNum === 5 || // SupplierOfferRejected
+    combinedText.includes("reject") ||
+    combinedText.includes("cancel") ||
+    combinedText.includes("отказ") ||
+    combinedText.includes("отменен") ||
+    combinedText.includes("մերժված") ||
+    combinedText.includes("չեղարկված")
+  ) {
+    return {
+      kind: "rejected",
+      badgeLabel: combinedText.includes("cancel") || combinedText.includes("отменен") ? "Отменен" : "Отказ",
+      badgeClass: "bg-rose-100 text-rose-800 border-rose-200",
+      borderClass: "border-rose-400/80 shadow-rose-100",
+      barClass: "bg-rose-500",
+      bgClass: "bg-rose-50/50",
+      textClass: "text-rose-700",
+      iconBg: "bg-rose-100 text-rose-600",
+      actionButtonClass: "bg-rose-600 hover:bg-rose-700 text-white",
+    };
+  }
+
+  // 2. Confirmed / Accepted / Delivered / Finished (Green)
+  if (
+    statusNum === 3 ||
+    statusNum === 6 ||
+    statusNum === 9 ||
+    statusNum === 10 ||
+    typeNum === 4 || // SupplierOfferAccepted
+    typeNum === 24 || // ClientOfferAccepted
+    combinedText.includes("accept") ||
+    combinedText.includes("confirm") ||
+    combinedText.includes("deliver") ||
+    combinedText.includes("подтвержден") ||
+    combinedText.includes("принят") ||
+    combinedText.includes("доставлен") ||
+    combinedText.includes("հաստատված") ||
+    combinedText.includes("ընդունված")
+  ) {
+    const isDelivered = statusNum === 6 || combinedText.includes("deliver") || combinedText.includes("доставлен");
+    return {
+      kind: "confirmed",
+      badgeLabel: isDelivered ? "Доставлен" : "Подтвержден",
+      badgeClass: "bg-emerald-100 text-emerald-800 border-emerald-200",
+      borderClass: "border-emerald-400/80 shadow-emerald-100",
+      barClass: "bg-emerald-500",
+      bgClass: "bg-emerald-50/50",
+      textClass: "text-emerald-700",
+      iconBg: "bg-emerald-100 text-emerald-600",
+      actionButtonClass: "bg-emerald-600 hover:bg-emerald-700 text-white",
+    };
+  }
+
+  // 3. In Progress / Preparing / Shipped (Blue / Indigo)
+  if (
+    statusNum === 4 ||
+    statusNum === 5 ||
+    combinedText.includes("in progress") ||
+    combinedText.includes("preparing") ||
+    combinedText.includes("shipped") ||
+    combinedText.includes("ready for delivery") ||
+    combinedText.includes("в пути") ||
+    combinedText.includes("готов") ||
+    combinedText.includes("пакуется") ||
+    combinedText.includes("ճանապարհին")
+  ) {
+    const isShipped = statusNum === 5 || combinedText.includes("shipped") || combinedText.includes("в пути");
+    return {
+      kind: "progress",
+      badgeLabel: isShipped ? "В пути" : "Готовится",
+      badgeClass: "bg-sky-100 text-sky-800 border-sky-200",
+      borderClass: "border-sky-400/80 shadow-sky-100",
+      barClass: "bg-sky-500",
+      bgClass: "bg-sky-50/50",
+      textClass: "text-sky-700",
+      iconBg: "bg-sky-100 text-sky-600",
+      actionButtonClass: "bg-sky-600 hover:bg-sky-700 text-white",
+    };
+  }
+
+  // 4. New Order / Price Offer / Waiting Confirmation (Amber)
+  if (
+    statusNum === 1 ||
+    statusNum === 8 ||
+    typeNum === 1 || // SupplierNewOrder
+    typeNum === 20 || // ClientOrderSubmitted
+    typeNum === 21 || // ClientPriceOfferReceived
+    combinedText.includes("new order") ||
+    combinedText.includes("новый заказ") ||
+    combinedText.includes("price offer") ||
+    combinedText.includes("offer") ||
+    combinedText.includes("предложение") ||
+    combinedText.includes("առաջարկ") ||
+    combinedText.includes("նոր պատվեր")
+  ) {
+    const isOffer = statusNum === 8 || typeNum === 21 || combinedText.includes("offer") || combinedText.includes("предложение");
+    return {
+      kind: "pending",
+      badgeLabel: isOffer ? "Предложение" : "Новый заказ",
+      badgeClass: "bg-amber-100 text-amber-800 border-amber-200",
+      borderClass: "border-amber-400/80 shadow-amber-100",
+      barClass: "bg-amber-500",
+      bgClass: "bg-amber-50/50",
+      textClass: "text-amber-800",
+      iconBg: "bg-amber-100 text-amber-700",
+      actionButtonClass: "bg-amber-600 hover:bg-amber-700 text-white",
+    };
+  }
+
+  // 5. Default
+  return {
+    kind: "info",
+    badgeLabel: "Информация",
+    badgeClass: "bg-slate-100 text-slate-700 border-slate-200",
+    borderClass: "border-slate-300",
+    barClass: "bg-slate-400",
+    bgClass: "bg-slate-50",
+    textClass: "text-slate-700",
+    iconBg: "bg-slate-100 text-slate-600",
+    actionButtonClass: "bg-slate-800 hover:bg-slate-900 text-white",
+  };
+}
 
 export type NotificationSettingsDto = {
   emailNotifications?: boolean;
@@ -48,12 +204,71 @@ export function normalizeNotification(raw: any): NotificationItemDto {
     parsedDateIso = new Date().toISOString();
   }
 
+  const rawOrderId =
+    raw.orderId ??
+    raw.OrderId ??
+    raw.relatedId ??
+    raw.RelatedId ??
+    raw.data?.orderId ??
+    raw.data?.OrderId;
+
+  let orderId = rawOrderId ? String(rawOrderId).trim() : undefined;
+  const msg = String(raw.message ?? raw.Message ?? raw.detail ?? "");
+  const title = String(raw.title ?? raw.Title ?? "");
+  if (!orderId) {
+    const match = msg.match(/#([a-zA-Z0-9-]+)/) || title.match(/#([a-zA-Z0-9-]+)/);
+    if (match) {
+      orderId = match[1];
+    }
+  }
+
+  const rawOrderNum =
+    raw.orderNum ??
+    raw.OrderNum ??
+    raw.data?.orderNum ??
+    raw.data?.OrderNum;
+
+  let orderNum = rawOrderNum ? String(rawOrderNum).trim() : undefined;
+  if (!orderNum) {
+    const friendlyMatch = msg.match(/#([A-Za-z]{3}-\d{10})/) || title.match(/#([A-Za-z]{3}-\d{10})/);
+    if (friendlyMatch) {
+      orderNum = friendlyMatch[1];
+    } else if (orderId && /^[A-Za-z]{3}-\d{10}$/.test(orderId)) {
+      orderNum = orderId;
+    }
+  }
+
+  const statusNum =
+    raw.status !== undefined && raw.status !== null
+      ? Number(raw.status)
+      : raw.Status !== undefined && raw.Status !== null
+        ? Number(raw.Status)
+        : undefined;
+
+  const notifType =
+    raw.notificationType !== undefined && raw.notificationType !== null
+      ? Number(raw.notificationType)
+      : raw.NotificationType !== undefined && raw.NotificationType !== null
+        ? Number(raw.NotificationType)
+        : undefined;
+
   return {
-    id: String(raw.id ?? ""),
-    title: String(raw.title ?? ""),
-    message: String(raw.message ?? raw.detail ?? ""),
-    type: raw.type ? String(raw.type) : undefined,
-    isRead: Boolean(raw.isRead ?? raw.read),
+    id: String(raw.id ?? raw.Id ?? (orderId ? `${orderId}-${parsedDateIso}` : `notif-${Date.now()}`)),
+    userId: raw.userId ?? raw.UserId ? String(raw.userId ?? raw.UserId) : undefined,
+    orderId,
+    orderNum,
+    title: String(raw.title ?? raw.Title ?? ""),
+    message: String(raw.message ?? raw.Message ?? raw.detail ?? ""),
+    type: raw.type
+      ? String(raw.type)
+      : raw.notificationTypeName ?? raw.NotificationTypeName
+        ? String(raw.notificationTypeName ?? raw.NotificationTypeName)
+        : undefined,
+    notificationType: notifType,
+    notificationTypeName: raw.notificationTypeName ?? raw.NotificationTypeName ? String(raw.notificationTypeName ?? raw.NotificationTypeName) : undefined,
+    status: statusNum,
+    deepLink: raw.deepLink ?? raw.DeepLink ? String(raw.deepLink ?? raw.DeepLink) : (orderId ? `/orders/${orderId}` : undefined),
+    isRead: Boolean(raw.isRead ?? raw.IsRead ?? raw.read),
     createdAt: parsedDateIso,
     creationDate: parsedDateIso,
     data: raw.data,

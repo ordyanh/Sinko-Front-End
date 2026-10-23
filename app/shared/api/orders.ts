@@ -136,6 +136,7 @@ export type BackendOrderLineDto = {
 export type BackendOrderDto = {
   id: string;
   orderId?: string;
+  orderNum?: string;
   orderNumber?: string;
   status: BackendOrderStatus;
   statusCode?: number;
@@ -151,6 +152,8 @@ export type BackendOrderDto = {
   deliveryAddressId?: string;
   contactPerson?: string;
   contactPhone?: string;
+  lat?: number | null;
+  lon?: number | null;
   clientPhoneNumber?: string;
   clientEmail?: string;
   createdByEmployeeId?: string;
@@ -345,10 +348,109 @@ export function normalizeBackendOrder(raw: any): BackendOrderDto {
       lines.reduce((sum, l) => sum + l.totalPrice, 0),
   );
 
+  const rawDeliveryPoint =
+    raw.deliveryPoint ??
+    raw.DeliveryPoint ??
+    raw.deliveryAddressSnapshot ??
+    raw.DeliveryAddressSnapshot;
+
+  let deliveryAddress =
+    raw.deliveryAddress ??
+    raw.DeliveryAddress ??
+    rawDeliveryPoint?.deliveryAddress ??
+    rawDeliveryPoint?.DeliveryAddress ??
+    rawDeliveryPoint?.fullAddress ??
+    rawDeliveryPoint?.FullAddress ??
+    raw.address ??
+    raw.Address ??
+    raw.clientAddress ??
+    raw.ClientAddress ??
+    raw.horecaAddress ??
+    raw.HorecaAddress ??
+    "";
+
+  let contactPerson =
+    raw.contactPerson ??
+    raw.ContactPerson ??
+    rawDeliveryPoint?.contactPerson ??
+    rawDeliveryPoint?.ContactPerson ??
+    raw.createdByEmployeeName ??
+    raw.CreatedByEmployeeName ??
+    "";
+
+  let contactPhone =
+    raw.contactPhone ??
+    raw.ContactPhone ??
+    rawDeliveryPoint?.contactPhone ??
+    rawDeliveryPoint?.ContactPhone ??
+    raw.clientPhoneNumber ??
+    raw.ClientPhoneNumber ??
+    "";
+
+  let lat: number | null =
+    raw.lat !== undefined && raw.lat !== null
+      ? Number(raw.lat)
+      : raw.Lat !== undefined && raw.Lat !== null
+        ? Number(raw.Lat)
+        : raw.latitude !== undefined && raw.latitude !== null
+          ? Number(raw.latitude)
+          : raw.Latitude !== undefined && raw.Latitude !== null
+            ? Number(raw.Latitude)
+            : rawDeliveryPoint?.lat !== undefined && rawDeliveryPoint?.lat !== null
+              ? Number(rawDeliveryPoint.lat)
+              : rawDeliveryPoint?.Lat !== undefined && rawDeliveryPoint?.Lat !== null
+                ? Number(rawDeliveryPoint.Lat)
+                : null;
+
+  let lon: number | null =
+    raw.lon !== undefined && raw.lon !== null
+      ? Number(raw.lon)
+      : raw.Lon !== undefined && raw.Lon !== null
+        ? Number(raw.Lon)
+        : raw.lng !== undefined && raw.lng !== null
+          ? Number(raw.lng)
+          : raw.Lng !== undefined && raw.Lng !== null
+            ? Number(raw.Lng)
+            : raw.longitude !== undefined && raw.longitude !== null
+              ? Number(raw.longitude)
+              : raw.Longitude !== undefined && raw.Longitude !== null
+                ? Number(raw.Longitude)
+                : rawDeliveryPoint?.lon !== undefined && rawDeliveryPoint?.lon !== null
+                  ? Number(rawDeliveryPoint.lon)
+                  : rawDeliveryPoint?.Lon !== undefined && rawDeliveryPoint?.Lon !== null
+                    ? Number(rawDeliveryPoint.Lon)
+                    : null;
+
+  const rawDescription = String(raw.description ?? raw.Description ?? "");
+  const deliveryTagMatch = rawDescription.match(
+    /\[Delivery:\s*([^\]|]+)(?:\|\s*Contact:\s*([^\]|]+))?(?:\|\s*Phone:\s*([^\]|]+))?(?:\|\s*Geo:\s*([0-9.-]+),\s*([0-9.-]+))?\]/,
+  );
+  if (deliveryTagMatch) {
+    if (!deliveryAddress || deliveryAddress === "[No Address]") {
+      deliveryAddress = deliveryTagMatch[1].trim();
+    }
+    if (!contactPerson && deliveryTagMatch[2]) {
+      contactPerson = deliveryTagMatch[2].trim();
+    }
+    if (!contactPhone && deliveryTagMatch[3]) {
+      contactPhone = deliveryTagMatch[3].trim();
+    }
+    if ((lat === null || isNaN(lat)) && deliveryTagMatch[4]) {
+      lat = parseFloat(deliveryTagMatch[4]);
+    }
+    if ((lon === null || isNaN(lon)) && deliveryTagMatch[5]) {
+      lon = parseFloat(deliveryTagMatch[5]);
+    }
+  }
+
+  const rawOrderNum = raw.orderNum ?? raw.OrderNum ?? raw.orderNumber ?? raw.OrderNumber;
+  const orderNum = rawOrderNum ? String(rawOrderNum) : (id.length <= 16 && !id.includes("-") ? id : generateOrderNum(placedAt));
+
   return {
     id,
     orderId: id,
-    orderNumber: raw.orderNumber ?? raw.OrderNumber ?? id,
+    orderNum,
+    orderNumber: orderNum,
     status: statusStr as BackendOrderStatus,
     statusCode: typeof rawStatus === "number" ? rawStatus : undefined,
     horecaId: raw.horecaId ?? raw.HorecaId ?? raw.clientId ?? raw.ClientId,
@@ -378,22 +480,16 @@ export function normalizeBackendOrder(raw: any): BackendOrderDto {
       raw.SuplierName ??
       raw.supplierName ??
       raw.SupplierName,
-    deliveryAddress: raw.deliveryAddress ?? raw.DeliveryAddress,
+    deliveryAddress: deliveryAddress || undefined,
     deliveryAddressId: String(
-      raw.deliveryAddressId ?? raw.DeliveryAddressId ?? "",
+      raw.deliveryAddressId ?? raw.DeliveryAddressId ?? raw.deliveryPointId ?? raw.DeliveryPointId ?? "",
     ),
-    contactPerson:
-      raw.contactPerson ??
-      raw.ContactPerson ??
-      raw.createdByEmployeeName ??
-      raw.CreatedByEmployeeName,
-    contactPhone:
-      raw.contactPhone ??
-      raw.ContactPhone ??
-      raw.clientPhoneNumber ??
-      raw.ClientPhoneNumber,
+    contactPerson: contactPerson || undefined,
+    contactPhone: contactPhone || undefined,
+    lat: lat !== null && !isNaN(lat) ? lat : null,
+    lon: lon !== null && !isNaN(lon) ? lon : null,
     clientPhoneNumber:
-      raw.clientPhoneNumber ?? raw.ClientPhoneNumber ?? raw.contactPhone,
+      raw.clientPhoneNumber ?? raw.ClientPhoneNumber ?? contactPhone,
     clientEmail: raw.clientEmail ?? raw.ClientEmail,
     createdByEmployeeId: raw.createdByEmployeeId ?? raw.CreatedByEmployeeId,
     createdByEmployeeName: raw.createdByEmployeeName ?? raw.CreatedByEmployeeName,
@@ -493,10 +589,27 @@ export async function getHorecaOrderById(orderId: string): Promise<BackendOrderD
 }
 
 export async function getSupplierOrderById(orderId: string): Promise<BackendOrderDto> {
-  const res = await apiRequest<unknown>(`/api/Orders/supplier/${encodeURIComponent(orderId)}`, {
-    method: "GET",
-  });
-  return normalizeBackendOrder(res);
+  const cleanId = String(orderId).trim().toLowerCase();
+  try {
+    const res = await apiRequest<unknown>(`/api/Orders/supplier/${encodeURIComponent(orderId)}`, {
+      method: "GET",
+    });
+    return normalizeBackendOrder(res);
+  } catch (err) {
+    try {
+      const orders = await getSupplierOrders({ pageSize: 500 });
+      const match = orders.find(
+        (o) =>
+          String(o.id).toLowerCase() === cleanId ||
+          String(o.orderId).toLowerCase() === cleanId ||
+          String(o.orderNumber).toLowerCase() === cleanId,
+      );
+      if (match) return match;
+    } catch {
+      // ignore
+    }
+    throw err;
+  }
 }
 
 export async function createOrder(payload: CreateOrderRequest): Promise<BackendOrderDto> {
@@ -683,3 +796,18 @@ export async function repeatOrder(
     },
   );
 }
+
+export function generateOrderNum(dateInput?: Date | string): string {
+  const d = dateInput ? new Date(dateInput) : new Date();
+  const validDate = isNaN(d.getTime()) ? new Date() : d;
+  const letters = Array.from({ length: 3 }, () =>
+    String.fromCharCode(65 + Math.floor(Math.random() * 26))
+  ).join("");
+  const dd = String(validDate.getDate()).padStart(2, "0");
+  const MM = String(validDate.getMonth() + 1).padStart(2, "0");
+  const yy = String(validDate.getFullYear()).slice(-2);
+  const HH = String(validDate.getHours()).padStart(2, "0");
+  const mm = String(validDate.getMinutes()).padStart(2, "0");
+  return `${letters}-${dd}${MM}${yy}${HH}${mm}`;
+}
+

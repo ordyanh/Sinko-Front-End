@@ -14,6 +14,7 @@ import {
 
 type SupplierOrderRow = {
   id: string;
+  orderNum?: string;
   date: string;
   status: CustomerOrderStatus;
   itemCount: number;
@@ -102,7 +103,7 @@ export default function SupplierOrdersPage() {
         header: t("orders.orderId"),
         cell: (order) => (
           <div>
-            <span className="font-semibold text-slate-900">{order.id}</span>
+            <span className="font-semibold text-slate-900">{order.orderNum || order.id}</span>
             <p className="mt-0.5 text-xs text-slate-500">
               {order.date && !isNaN(new Date(order.date).getTime())
                 ? new Date(order.date).toLocaleDateString("en-US", {
@@ -155,6 +156,7 @@ export default function SupplierOrdersPage() {
       if (!isCurrent) return;
       setAllOrders(orders.map((order) => ({
         id: order.id,
+        orderNum: order.orderNum || order.orderNumber || order.id,
         date: order.placedAt,
         status: order.status,
         itemCount: order.lines.reduce((count, line) => count + line.offeredQuantity, 0),
@@ -217,7 +219,7 @@ export default function SupplierOrdersPage() {
 
   const normalizedSearchValue = searchValue.trim().toLowerCase();
   const filteredOrders = customerFilteredOrders.filter((order) => {
-    const matchesSearch = [order.id, order.customerName, order.status]
+    const matchesSearch = [order.orderNum, order.id, order.customerName, order.status]
       .join(" ")
       .toLowerCase()
       .includes(normalizedSearchValue);

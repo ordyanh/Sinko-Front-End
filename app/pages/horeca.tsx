@@ -29,6 +29,7 @@ import {
   updateCartQuantity,
   removeFromCart,
   clearCart,
+  generateOrderNum,
   ApiError,
 } from "~/shared/api";
 import {
@@ -41,6 +42,7 @@ import {
   type LoggedInUser,
   type StoredOrder,
 } from "~/shared/lib/indexed-db";
+import { broadcastOrderNotification } from "~/shared/lib/use-notification-center";
 
 const horecaNotifications: DashboardNotification[] = [];
 
@@ -254,8 +256,8 @@ export default function HorecaPage() {
       throw new Error("You need to be signed in as a HoReCa account to place an order.");
     }
     // The mock backend resolves this from the signed-in company and validates
-    // that it remains both approved and active immediately before persistence.
-    const deliveryAddressSnapshot = await getApprovedActiveDeliveryAddressForOrder(deliveryAddressId);
+    const firstSupplierId = cartLines[0]?.product.supplierId;
+    const deliveryAddressSnapshot = await getApprovedActiveDeliveryAddressForOrder(deliveryAddressId, firstSupplierId);
 
     const selectedRewards = Object.fromEntries(
       promotionRewards.map((reward) => [reward.promotion.id, reward.productId]),
@@ -278,8 +280,11 @@ export default function HorecaPage() {
         throw new Error(`We couldn't identify the supplier for ${group.supplier}.`);
       }
 
+      const orderNum = generateOrderNum(placedAt);
       return {
         id: createOrderId(),
+        orderNum,
+        orderNumber: orderNum,
         horecaAccountId: customer.id,
         horecaName: customer.companyName,
         horecaContactName: customer.displayName,
@@ -350,13 +355,17 @@ export default function HorecaPage() {
     });
 
     try {
+      const deliveryTag = deliveryAddressSnapshot.fullAddress
+        ? `[Delivery: ${deliveryAddressSnapshot.fullAddress}${deliveryAddressSnapshot.contactPerson ? ` | Contact: ${deliveryAddressSnapshot.contactPerson}` : ""}${deliveryAddressSnapshot.contactPhone ? ` | Phone: ${deliveryAddressSnapshot.contactPhone}` : ""}${deliveryAddressSnapshot.lat && deliveryAddressSnapshot.lon ? ` | Geo: ${deliveryAddressSnapshot.lat},${deliveryAddressSnapshot.lon}` : ""}] `
+        : "";
+
       if (orders.length === 1) {
         const o = orders[0];
         const res = await createBackendOrder({
           suplierId: o.supplierId,
           supplierId: o.supplierId,
           deliveryAddressId: o.deliveryAddressSnapshot?.addressId,
-          description: o.lines.map((l) => `${l.name} x${l.requestedQuantity}`).join(", "),
+          description: `${deliveryTag}${o.lines.map((l) => `${l.name} x${l.requestedQuantity}`).join(", ")}`,
           products: o.lines.map((l) => ({
             productId: parseInt(String(l.productId).replace(/\D/g, ""), 10) || 1,
             count: l.requestedQuantity,
@@ -364,14 +373,18 @@ export default function HorecaPage() {
         });
         if (res?.orderId || res?.id) {
           o.id = res.orderId || res.id;
+          if ((res as any).orderNum || (res as any).OrderNum) {
+            o.orderNum = (res as any).orderNum || (res as any).OrderNum;
+            o.orderNumber = o.orderNum;
+          }
         }
       } else if (orders.length > 1) {
         const createdOrders = await createMultiSupplierOrder({
           deliveryAddressId: deliveryAddressSnapshot.addressId,
-          description: "Multi-supplier order",
+          description: `${deliveryTag}Multi-supplier order`,
           supplierOrders: orders.map((o) => ({
             supplierId: o.supplierId,
-            description: o.lines.map((l) => `${l.name} x${l.requestedQuantity}`).join(", "),
+            description: `${deliveryTag}${o.lines.map((l) => `${l.name} x${l.requestedQuantity}`).join(", ")}`,
             products: o.lines.map((l) => ({
               productId: parseInt(String(l.productId).replace(/\D/g, ""), 10) || 1,
               count: l.requestedQuantity,
@@ -379,9 +392,13 @@ export default function HorecaPage() {
           })),
         });
         if (Array.isArray(createdOrders)) {
-          createdOrders.forEach((created, idx) => {
+          createdOrders.forEach((created: any, idx) => {
             if (orders[idx] && (created.orderId || created.id)) {
               orders[idx].id = created.orderId || created.id;
+              if (created.orderNum || created.OrderNum) {
+                orders[idx].orderNum = created.orderNum || created.OrderNum;
+                orders[idx].orderNumber = orders[idx].orderNum;
+              }
             }
           });
         }
@@ -396,6 +413,20 @@ export default function HorecaPage() {
     }
 
     await saveOrders(orders);
+
+    // Broadcast new order notification to suppliers
+    orders.forEach((o) => {
+      broadcastOrderNotification({
+        orderId: o.id,
+        orderNum: o.orderNum || o.orderNumber,
+        title: "Новый заказ от ресторана",
+        message: `${customer.companyName} оформил новый заказ #${o.orderNum || o.orderNumber || o.id.slice(0, 8)}.`,
+        status: 1,
+        targetRole: "supplier",
+        deepLink: `/supplier/orders/${o.id}`,
+      });
+    });
+
     clearCart().catch(() => {});
     setCartLines([]);
     setPromotionGiftProductIds({});

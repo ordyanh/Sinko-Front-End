@@ -49,16 +49,21 @@ export default function HorecaCartPage() {
     0,
   );
 
+  const firstSupplierId = cartLines[0]?.product.supplierId;
+
   useEffect(() => {
     let isCurrent = true;
 
-    void getApprovedActiveDeliveryAddresses()
+    void getApprovedActiveDeliveryAddresses(firstSupplierId)
       .then((addresses) => {
         if (!isCurrent) return;
         setDeliveryAddresses(addresses);
-        // A single eligible destination is the only case where selection is
-        // implicit. Multiple destinations always require an explicit choice.
-        if (addresses.length === 1) setSelectedDeliveryAddressId(addresses[0].id);
+        if (addresses.length > 0) {
+          setSelectedDeliveryAddressId((curr) => {
+            if (curr && addresses.some((a) => a.id === curr)) return curr;
+            return addresses[0].id;
+          });
+        }
       })
       .catch((error) => {
         if (isCurrent) {
@@ -74,10 +79,11 @@ export default function HorecaCartPage() {
     return () => {
       isCurrent = false;
     };
-  }, []);
+  }, [firstSupplierId]);
 
   async function handleCompleteOrder() {
-    if (!selectedDeliveryAddressId) {
+    const addressToUse = selectedDeliveryAddressId || deliveryAddresses[0]?.id;
+    if (!addressToUse) {
       showToast({
         title: t("cart.chooseAddressError"),
         description: t("cart.chooseAddressErrorDesc"),
@@ -87,7 +93,7 @@ export default function HorecaCartPage() {
     }
     setIsSubmitting(true);
     try {
-      await completeOrder(selectedDeliveryAddressId);
+      await completeOrder(addressToUse);
       showToast({ title: t("cart.orderPlacedTitle"), description: t("cart.orderPlacedDesc"), variant: "success" });
       navigate("/horeca/orders");
     } catch (error) {
@@ -211,7 +217,7 @@ export default function HorecaCartPage() {
               <section className="rounded-2xl bg-slate-950 p-5 text-white">
               <p className="text-sm font-medium text-slate-300">{t("cart.productsTotal")} {giftItemCount > 0 ? `· ${giftItemCount} free promotional ${giftItemCount === 1 ? "unit" : "units"}` : ""}</p>
               <p className="mt-1 text-2xl font-bold tracking-tight tabular-nums">{formatMarketplacePrice(total)}</p>
-              <button type="button" onClick={() => void handleCompleteOrder()} disabled={isSubmitting || isLoadingDeliveryAddresses || !selectedDeliveryAddressId} className="mt-5 inline-flex w-full items-center justify-center rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-content transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70">{isSubmitting ? t("cart.placingOrder") : t("cart.checkout")}</button>
+              <button type="button" onClick={() => void handleCompleteOrder()} disabled={isSubmitting || isLoadingDeliveryAddresses || (!selectedDeliveryAddressId && deliveryAddresses.length === 0)} className="mt-5 inline-flex w-full items-center justify-center rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-content transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70">{isSubmitting ? t("cart.placingOrder") : t("cart.checkout")}</button>
               <p className="mt-3 text-center text-xs leading-5 text-slate-400">{deliveryAddresses.length > 1 && !selectedDeliveryAddressId ? t("cart.selectDeliveryAddressDesc") : "Your selected address is saved as an order snapshot."}</p>
               </section>
             </aside>

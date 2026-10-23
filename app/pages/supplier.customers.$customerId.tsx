@@ -75,6 +75,7 @@ type SupplierCustomerProfile = {
   totalOrders: number;
   recentOrders: Array<{
     id: string;
+    orderNum?: string;
     date: string;
     status: CustomerOrderStatus;
     itemCount: number;
@@ -156,6 +157,7 @@ export default function SupplierCustomerProfilePage() {
             totalOrders: remoteProfile.totalOrders ?? customerOrders.length,
             recentOrders: customerOrders.slice(0, 5).map((order) => ({
               id: order.id,
+              orderNum: order.orderNum || order.orderNumber || order.id,
               date: order.placedAt,
               status: order.status,
               itemCount: order.lines.reduce(
@@ -176,6 +178,7 @@ export default function SupplierCustomerProfilePage() {
                   totalOrders: customerOrders.length,
                   recentOrders: customerOrders.slice(0, 5).map((order) => ({
                     id: order.id,
+                    orderNum: order.orderNum || order.orderNumber || order.id,
                     date: order.placedAt,
                     status: order.status,
                     itemCount: order.lines.reduce(
@@ -381,7 +384,7 @@ export default function SupplierCustomerProfilePage() {
                     >
                       <div>
                         <p className="text-sm font-semibold text-slate-900">
-                          {order.id}
+                          {order.orderNum || order.id}
                         </p>
                         <p className="mt-0.5 text-xs text-slate-500">
                           {formatDate(order.date)} · {order.itemCount} {t("orders.items")}

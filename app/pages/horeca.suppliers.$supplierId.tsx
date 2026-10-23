@@ -491,7 +491,9 @@ export default function HorecaSupplierDetailsPage() {
                   className="group flex flex-wrap items-center justify-between gap-3 py-4 transition hover:px-2"
                 >
                   <div className="min-w-0">
-                    <p className="font-semibold text-slate-950 tabular-nums">{order.id}</p>
+                    <p className="font-semibold text-slate-950 tabular-nums">
+                      {order.orderNumber || order.orderNum || order.id}
+                    </p>
                     <p className="mt-1 text-sm text-slate-500">
                       Placed {order.placedAt ? formatOrderDate(order.placedAt) : "Recently"} ·{" "}
                       {(order.lines || order.items || []).length} {t("orders.items")}

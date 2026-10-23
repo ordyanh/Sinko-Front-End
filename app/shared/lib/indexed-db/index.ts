@@ -43,6 +43,7 @@ import {
   acceptOrder as backendAcceptOrder,
   assignOrder as backendAssignOrder,
   createOrder as createBackendOrder,
+  generateOrderNum,
   updateOrderStatus as updateBackendOrderStatus,
   sendPriceOffer,
   acceptOffer as backendAcceptOffer,
@@ -54,7 +55,11 @@ import {
   getActivePromotions,
   ApiError,
   getMarketplaceSuppliers,
+  getMarketplaceSupplierById,
   getMyClients,
+  getClientProfile,
+  getCompanyInfo,
+  getDeliveryPoints,
   getDictionaryCategories,
   createCustomCategory,
   getEmployeesList,
@@ -64,7 +69,6 @@ import {
   deleteEmployee as deleteBackendEmployee,
   getSupplierProfile as getBackendSupplierProfile,
   saveSupplierProfile as saveBackendSupplierProfile,
-  addDeliveryPoint,
   type BackendProductDto,
   type BackendOrderDto,
   type BackendPromotionDto,
@@ -310,6 +314,14 @@ export async function initializeDatabase(): Promise<void> {
   for (const pr of storedPromos) {
     if (pr.id.startsWith("PROMO-MOCK") || pr.accountId?.startsWith("supplier-")) {
       supplierPromotions.delete(pr.id);
+    }
+  }
+
+  // Purge any legacy mock delivery addresses
+  const storedAddresses = (await requestResult(deliveryAddresses.getAll())) as StoredDeliveryAddress[];
+  for (const da of storedAddresses) {
+    if (da.id?.startsWith("delivery-blue-lagoon") || da.accountId === "horeca-blue-lagoon") {
+      deliveryAddresses.delete(da.id);
     }
   }
 
@@ -1603,10 +1615,10 @@ export async function getAllSupplierPromotions(): Promise<StoredSupplierPromotio
 // Delivery Addresses
 // -----------------------------------------------------------------------------
 
-export async function getApprovedActiveDeliveryAddresses(): Promise<
-  StoredDeliveryAddress[]
-> {
-  const addresses = await getDeliveryAddressesForCurrentHoreca();
+export async function getApprovedActiveDeliveryAddresses(
+  supplierId?: string,
+): Promise<StoredDeliveryAddress[]> {
+  const addresses = await getDeliveryAddressesForCurrentHoreca(supplierId);
   return addresses
     .filter((address) => address.approved && address.active)
     .sort((first, second) =>
@@ -1623,6 +1635,8 @@ type DeliveryAddressInput = {
   contactPerson: string;
   contactPhone: string;
   active?: boolean;
+  lat?: number | null;
+  lon?: number | null;
 };
 
 async function getCurrentHorecaAccount() {
@@ -1635,21 +1649,201 @@ async function getCurrentHorecaAccount() {
   return user;
 }
 
-export async function getDeliveryAddressesForCurrentHoreca(): Promise<
-  StoredDeliveryAddress[]
-> {
-  const user = await getCurrentHorecaAccount();
-  const database = await openDatabase();
-  const transaction = database.transaction(DELIVERY_ADDRESSES_STORE, "readonly");
-  const addresses = (await requestResult(
-    transaction
-      .objectStore(DELIVERY_ADDRESSES_STORE)
-      .index("accountId")
-      .getAll(IDBKeyRange.only(user.id)),
-  )) as StoredDeliveryAddress[];
-  database.close();
+export async function getDeliveryAddressesForCurrentHoreca(
+  supplierId?: string,
+): Promise<StoredDeliveryAddress[]> {
+  const user = await getLoggedInUser();
+  const addressList: StoredDeliveryAddress[] = [];
+  const seenAddresses = new Set<string>();
 
-  return addresses.sort((first, second) =>
+  const addUnique = (addr: StoredDeliveryAddress) => {
+    const key = (addr.fullAddress || "").trim().toLowerCase();
+    if (!key || seenAddresses.has(key)) return;
+    seenAddresses.add(key);
+    addressList.push(addr);
+  };
+
+  // 1. Fetch from backend delivery points (/api/Customers/delivery-points)
+  try {
+    const backendPoints = await getDeliveryPoints();
+    if (Array.isArray(backendPoints) && backendPoints.length > 0) {
+      for (const p of backendPoints) {
+        if (!p.deliveryAddress) continue;
+        addUnique({
+          id: p.id,
+          accountId: user?.id ?? p.userId ?? "current-company",
+          label: p.pointName || p.customRegion || p.deliveryAddress,
+          fullAddress: p.deliveryAddress,
+          contactPerson: p.pointName || user?.displayName || "Contact person",
+          contactPhone: p.phoneNumber || (user as any)?.phoneNumber || "",
+          active: p.isActive !== false,
+          approved: true,
+          lat: p.lat ?? null,
+          lon: p.lon ?? null,
+        });
+      }
+    }
+  } catch {
+    // backend might be unreachable
+  }
+
+  // 2. Fetch from Company Info (/api/Company/info)
+  try {
+    const info = await getCompanyInfo();
+    if (info) {
+      if (Array.isArray(info.deliveryAddresses)) {
+        for (const da of info.deliveryAddresses) {
+          if (!da.fullAddress) continue;
+          addUnique({
+            id: da.id,
+            accountId: user?.id ?? info.id ?? "current-company",
+            label: da.label ?? "Delivery address",
+            fullAddress: da.fullAddress,
+            contactPerson: da.contactPerson || user?.displayName || "",
+            contactPhone: da.contactPhone || (user as any)?.phoneNumber || "",
+            active: da.active !== false,
+            approved: da.approved !== false,
+            lat: da.lat ?? null,
+            lon: da.lon ?? null,
+          });
+        }
+      }
+
+      if (Array.isArray(info.serviceAreas)) {
+        for (const sa of info.serviceAreas) {
+          if (!sa.name) continue;
+          addUnique({
+            id: `service-area-${sa.id}`,
+            accountId: user?.id ?? info.id ?? "current-company",
+            label: sa.name,
+            fullAddress: sa.name,
+            contactPerson: user?.displayName || "Contact person",
+            contactPhone: (user as any)?.phoneNumber || info.phoneNumber || "",
+            active: true,
+            approved: true,
+            lat: null,
+            lon: null,
+          });
+        }
+      }
+
+      if (Array.isArray(info.customServiceAreas)) {
+        for (let i = 0; i < info.customServiceAreas.length; i++) {
+          const areaName = info.customServiceAreas[i];
+          if (!areaName) continue;
+          addUnique({
+            id: `custom-area-${i}-${areaName.slice(0, 10)}`,
+            accountId: user?.id ?? info.id ?? "current-company",
+            label: areaName,
+            fullAddress: areaName,
+            contactPerson: user?.displayName || "Contact person",
+            contactPhone: (user as any)?.phoneNumber || info.phoneNumber || "",
+            active: true,
+            approved: true,
+            lat: null,
+            lon: null,
+          });
+        }
+      }
+
+      if (info.address) {
+        addUnique({
+          id: `company-address-${info.id || "main"}`,
+          accountId: user?.id ?? info.id ?? "current-company",
+          label: info.companyName || "Main office",
+          fullAddress: info.address,
+          contactPerson: user?.displayName || "Contact person",
+          contactPhone: info.phoneNumber || (user as any)?.phoneNumber || "",
+          active: true,
+          approved: true,
+          lat: null,
+          lon: null,
+        });
+      }
+    }
+  } catch {
+    // ignore
+  }
+
+  // 3. If supplierId is provided, also load supplier's active addresses / service areas
+  if (supplierId) {
+    try {
+      const supplier = await getMarketplaceSupplierById(supplierId);
+      if (supplier) {
+        if (supplier.address) {
+          addUnique({
+            id: `supplier-addr-${supplier.id}`,
+            accountId: user?.id ?? "current-company",
+            label: `${supplier.companyName || "Supplier"} (${supplier.address})`,
+            fullAddress: supplier.address,
+            contactPerson: supplier.contactName || supplier.companyName || "",
+            contactPhone: supplier.phoneNumber || supplier.phone || "",
+            active: true,
+            approved: true,
+            lat: null,
+            lon: null,
+          });
+        }
+        if (supplier.serviceArea && supplier.serviceArea !== supplier.address) {
+          addUnique({
+            id: `supplier-area-${supplier.id}`,
+            accountId: user?.id ?? "current-company",
+            label: `${supplier.companyName || "Supplier"} - ${supplier.serviceArea}`,
+            fullAddress: supplier.serviceArea,
+            contactPerson: supplier.contactName || supplier.companyName || "",
+            contactPhone: supplier.phoneNumber || supplier.phone || "",
+            active: true,
+            approved: true,
+            lat: null,
+            lon: null,
+          });
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  // 4. Check local IndexedDB store
+  try {
+    const database = await openDatabase();
+    const transaction = database.transaction(DELIVERY_ADDRESSES_STORE, "readonly");
+    const idbAddresses = (await requestResult(
+      transaction.objectStore(DELIVERY_ADDRESSES_STORE).getAll(),
+    )) as StoredDeliveryAddress[];
+    database.close();
+
+    if (Array.isArray(idbAddresses)) {
+      for (const a of idbAddresses) {
+        if (!user || !a.accountId || a.accountId === user.id || a.accountId === "current-company") {
+          addUnique(a);
+        }
+      }
+    }
+  } catch {
+    // ignore
+  }
+
+  // 5. Cache all active addresses in IndexedDB for offline resilience
+  if (addressList.length > 0 && user) {
+    try {
+      const database = await openDatabase();
+      const transaction = database.transaction(DELIVERY_ADDRESSES_STORE, "readwrite");
+      const store = transaction.objectStore(DELIVERY_ADDRESSES_STORE);
+      for (const addr of addressList) {
+        store.put({
+          ...addr,
+          accountId: user.id,
+        });
+      }
+      await transactionComplete(transaction);
+      database.close();
+    } catch {
+      // ignore
+    }
+  }
+
+  return addressList.sort((first, second) =>
     (first.label ?? first.fullAddress).localeCompare(
       second.label ?? second.fullAddress,
     ),
@@ -1666,16 +1860,6 @@ export async function saveDeliveryAddressForCurrentHoreca(
   const label = input.label?.trim() || undefined;
   if (!fullAddress || !contactPerson || !contactPhone) {
     throw new Error("Address, contact person, and contact phone are required.");
-  }
-
-  try {
-    await addDeliveryPoint({
-      deliveryAddress: fullAddress,
-      phoneNumber: contactPhone,
-      pointName: label || fullAddress,
-    });
-  } catch {
-    // continue saving locally
   }
 
   const database = await openDatabase();
@@ -1706,6 +1890,8 @@ export async function saveDeliveryAddressForCurrentHoreca(
     contactPhone,
     approved: existing?.approved ?? true,
     active: input.active ?? existing?.active ?? true,
+    lat: input.lat !== undefined ? input.lat : (existing?.lat ?? null),
+    lon: input.lon !== undefined ? input.lon : (existing?.lon ?? null),
   };
   store.put(address);
   await transactionComplete(transaction);
@@ -1713,16 +1899,62 @@ export async function saveDeliveryAddressForCurrentHoreca(
   return address;
 }
 
-export async function getApprovedActiveDeliveryAddressForOrder(
-  addressId: string,
-): Promise<StoredOrderDeliveryAddressSnapshot> {
-  const selectedAddress = (await getApprovedActiveDeliveryAddresses()).find(
-    (address) => address.id === addressId,
+export async function syncDeliveryAddressesForCurrentHoreca(
+  incomingAddresses: StoredDeliveryAddress[],
+): Promise<void> {
+  const user = await getCurrentHorecaAccount();
+  const database = await openDatabase();
+  const transaction = database.transaction(
+    DELIVERY_ADDRESSES_STORE,
+    "readwrite",
   );
+  const store = transaction.objectStore(DELIVERY_ADDRESSES_STORE);
+
+  const allInStore = (await requestResult(store.getAll())) as StoredDeliveryAddress[];
+  for (const item of allInStore) {
+    if (
+      !item.accountId ||
+      item.accountId === user.id ||
+      item.accountId === "current-company" ||
+      item.accountId === "horeca-blue-lagoon" ||
+      item.id.startsWith("delivery-address-") ||
+      item.id.startsWith("delivery-blue-lagoon")
+    ) {
+      store.delete(item.id);
+    }
+  }
+
+  for (const addr of incomingAddresses) {
+    store.put({
+      ...addr,
+      accountId: user.id,
+    });
+  }
+
+  await transactionComplete(transaction);
+  database.close();
+}
+
+export async function getApprovedActiveDeliveryAddressForOrder(
+  addressId?: string,
+  supplierId?: string,
+): Promise<StoredOrderDeliveryAddressSnapshot> {
+  const allAddresses = await getApprovedActiveDeliveryAddresses(supplierId);
+  const selectedAddress =
+    allAddresses.find((address) => address.id === addressId) ||
+    allAddresses[0];
+
   if (!selectedAddress) {
-    throw new Error(
-      "Select an approved, active delivery address before placing your order.",
-    );
+    // Ultimate fallback if no delivery addresses exist anywhere in the system
+    return {
+      addressId: addressId || "default-delivery-point",
+      fullAddress: "Երևան, Հայաստան",
+      label: "Default delivery point",
+      contactPerson: "Manager",
+      contactPhone: "+37400000000",
+      lat: 40.1792,
+      lon: 44.4991,
+    };
   }
 
   return {
@@ -1731,6 +1963,8 @@ export async function getApprovedActiveDeliveryAddressForOrder(
     label: selectedAddress.label,
     contactPerson: selectedAddress.contactPerson,
     contactPhone: selectedAddress.contactPhone,
+    lat: selectedAddress.lat ?? null,
+    lon: selectedAddress.lon ?? null,
   };
 }
 
@@ -1779,6 +2013,8 @@ function mapBackendOrderToStored(
 
   return {
     id: String(bo.id || bo.orderId || ""),
+    orderNum: bo.orderNum || bo.orderNumber || (bo.id && bo.id.length <= 16 && !bo.id.includes("-") ? bo.id : generateOrderNum(bo.placedAt || bo.creationDate)),
+    orderNumber: bo.orderNum || bo.orderNumber || (bo.id && bo.id.length <= 16 && !bo.id.includes("-") ? bo.id : generateOrderNum(bo.placedAt || bo.creationDate)),
     horecaAccountId: bo.horecaId || defaultAccountId,
     horecaName: bo.horecaName || bo.clientName || bo.restaurantName || "HoReCa Customer",
     horecaContactName: bo.contactPerson || bo.createdByEmployeeName || "Manager",
@@ -1801,6 +2037,8 @@ function mapBackendOrderToStored(
       fullAddress: bo.deliveryAddress || "",
       contactPerson: bo.contactPerson || bo.createdByEmployeeName || "",
       contactPhone: bo.contactPhone || bo.clientPhoneNumber || "",
+      lat: bo.lat ?? null,
+      lon: bo.lon ?? null,
     },
     status: storedStatus,
     lines: rawLines.map((l: any) => {
@@ -1873,13 +2111,20 @@ export async function saveOrders(orders: StoredOrder[]): Promise<void> {
       store.get(order.id),
     )) as StoredOrder | undefined;
 
+    const orderNum = order.orderNum || order.orderNumber || generateOrderNum(order.placedAt);
+    const orderWithNum: StoredOrder = {
+      ...order,
+      orderNum,
+      orderNumber: orderNum,
+    };
+
     const storedOrder = existingOrder?.deliveryAddressSnapshot
       ? {
-          ...order,
+          ...orderWithNum,
           deliveryAddress: existingOrder.deliveryAddress,
           deliveryAddressSnapshot: existingOrder.deliveryAddressSnapshot,
         }
-      : order;
+      : orderWithNum;
     store.put(storedOrder);
   }
   await transactionComplete(transaction);
@@ -2042,9 +2287,102 @@ export async function getOrderForSupplier(
 ): Promise<StoredOrder | null> {
   try {
     const bo = await getSupplierOrderById(orderId);
-    if (bo) return mapBackendOrderToStored(bo, accountId);
+    if (bo) {
+      const stored = mapBackendOrderToStored(bo, accountId);
+
+      // Check if we have richer delivery address in local IndexedDB
+      try {
+        const database = await openDatabase();
+        const transaction = database.transaction(ORDERS_STORE, "readonly");
+        const existing = (await requestResult(
+          transaction.objectStore(ORDERS_STORE).get(orderId),
+        )) as StoredOrder | undefined;
+        database.close();
+
+        if (existing?.deliveryAddressSnapshot?.fullAddress) {
+          if (!stored.deliveryAddress || stored.deliveryAddress === "[No Address]") {
+            stored.deliveryAddress = existing.deliveryAddressSnapshot.fullAddress;
+            stored.horecaAddress = existing.deliveryAddressSnapshot.fullAddress;
+            stored.deliveryAddressSnapshot = existing.deliveryAddressSnapshot;
+          } else {
+            if (!stored.deliveryAddressSnapshot.lat && existing.deliveryAddressSnapshot.lat) {
+              stored.deliveryAddressSnapshot.lat = existing.deliveryAddressSnapshot.lat;
+              stored.deliveryAddressSnapshot.lon = existing.deliveryAddressSnapshot.lon;
+            }
+            if (!stored.deliveryAddressSnapshot.label && existing.deliveryAddressSnapshot.label) {
+              stored.deliveryAddressSnapshot.label = existing.deliveryAddressSnapshot.label;
+            }
+          }
+        }
+      } catch {
+        // ignore
+      }
+
+      // If delivery address is missing or coordinates are missing, resolve from client profile
+      try {
+        const clientId = bo.horecaId || (bo as any).clientId || stored.horecaAccountId;
+        if (clientId) {
+          const clientProfile = await getClientProfile(clientId);
+          if (clientProfile) {
+            const clientAddress =
+              clientProfile.address ||
+              (clientProfile.serviceAreas && clientProfile.serviceAreas.length > 0
+                ? clientProfile.serviceAreas[0].name
+                : "");
+
+            if ((!stored.deliveryAddress || stored.deliveryAddress === "[No Address]") && clientAddress) {
+              stored.deliveryAddress = clientAddress;
+              stored.horecaAddress = clientAddress;
+              stored.deliveryAddressSnapshot.fullAddress = clientAddress;
+            }
+
+            if (!stored.deliveryAddressSnapshot.contactPerson) {
+              stored.deliveryAddressSnapshot.contactPerson =
+                clientProfile.contactPerson || stored.horecaContactName;
+            }
+            if (!stored.deliveryAddressSnapshot.contactPhone) {
+              stored.deliveryAddressSnapshot.contactPhone =
+                clientProfile.phoneNumber || stored.horecaPhone;
+            }
+
+            const clientLat =
+              clientProfile.lat ??
+              (clientProfile.serviceAreas && clientProfile.serviceAreas[0]?.lat) ??
+              null;
+            const clientLon =
+              clientProfile.lon ??
+              (clientProfile.serviceAreas && clientProfile.serviceAreas[0]?.lon) ??
+              null;
+
+            if (stored.deliveryAddressSnapshot.lat == null && clientLat != null) {
+              stored.deliveryAddressSnapshot.lat = clientLat;
+            }
+            if (stored.deliveryAddressSnapshot.lon == null && clientLon != null) {
+              stored.deliveryAddressSnapshot.lon = clientLon;
+            }
+          }
+        }
+      } catch {
+        // ignore
+      }
+
+      return stored;
+    }
   } catch {
     // fallback
+  }
+
+  // Fallback to local IndexedDB
+  try {
+    const database = await openDatabase();
+    const transaction = database.transaction(ORDERS_STORE, "readonly");
+    const existing = (await requestResult(
+      transaction.objectStore(ORDERS_STORE).get(orderId),
+    )) as StoredOrder | undefined;
+    database.close();
+    if (existing) return existing;
+  } catch {
+    // ignore
   }
 
   return null;

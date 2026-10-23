@@ -12,6 +12,7 @@ export type CustomerOrderStatus =
 
 export type CustomerOrder = {
   id: string;
+  orderNum?: string;
   date: string;
   status: CustomerOrderStatus;
   itemCount: number;

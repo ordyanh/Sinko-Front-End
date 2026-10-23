@@ -61,6 +61,9 @@ export default defineConfig(({ mode }) => {
     server: {
       host: true,
       allowedHosts: true,
+      watch: {
+        ignored: ["**/.vs/**", "**/.git/**", "**/bin/**", "**/obj/**"],
+      },
       proxy: {
         "^/(api/([Aa]uth|[Cc]ompany|[Ee]mployee|verification-request|auth/complete-onboarding|[Ss]upplier/(register|verify|resend-code)|me)|me)": {
           target: authUrl,
@@ -83,6 +86,12 @@ export default defineConfig(({ mode }) => {
               console.error(`[Core Proxy Error]: ${err.message} -> Target: ${coreUrl}`);
             });
           },
+        },
+        "/orderhub": {
+          target: "http://localhost:5147",
+          ws: true,
+          changeOrigin: true,
+          secure: false,
         },
       },
     },
