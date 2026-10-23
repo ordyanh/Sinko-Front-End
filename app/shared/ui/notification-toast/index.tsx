@@ -9,6 +9,8 @@ import {
   Bell,
   Clock,
   ArrowRight,
+  Gift,
+  Sparkles,
 } from "lucide-react";
 import { getNotificationTheme, formatNotificationTime } from "~/shared/api/notifications";
 import type { ToastNotification } from "~/shared/lib/use-notification-center";
@@ -26,7 +28,7 @@ export function NotificationToastCard({ toast, onClose, onOpenOrder }: Notificat
   const [isPaused, setIsPaused] = useState(false);
 
   const durationMs = toast.autoCloseMs || 9000;
-  const theme = getNotificationTheme(toast);
+  const theme = getNotificationTheme(toast, t);
 
   useEffect(() => {
     if (isPaused) return;
@@ -51,6 +53,8 @@ export function NotificationToastCard({ toast, onClose, onOpenOrder }: Notificat
   // Pick suitable icon based on kind
   const renderIcon = () => {
     switch (theme.kind) {
+      case "promotion":
+        return <Gift className="h-5 w-5 text-white animate-bounce" />;
       case "confirmed":
         return <CheckCircle2 className="h-5 w-5 text-emerald-600" />;
       case "rejected":
@@ -64,7 +68,9 @@ export function NotificationToastCard({ toast, onClose, onOpenOrder }: Notificat
     }
   };
 
-  const hasOrderLink = Boolean(toast.orderId || toast.deepLink);
+  const hasOrderLink = Boolean(
+    toast.orderId || toast.deepLink || toast.relatedId || theme.kind === "promotion",
+  );
 
   return (
     <div
@@ -75,11 +81,13 @@ export function NotificationToastCard({ toast, onClose, onOpenOrder }: Notificat
       className={`pointer-events-auto relative overflow-hidden rounded-2xl border-2 bg-white/95 p-4 shadow-2xl backdrop-blur-md transition-all duration-300 hover:shadow-primary/10 ${theme.borderClass}`}
       style={{
         boxShadow:
-          theme.kind === "rejected"
-            ? "0 14px 30px -4px rgba(244, 63, 94, 0.22), 0 6px 14px -3px rgba(0, 0, 0, 0.08)"
-            : theme.kind === "confirmed"
-              ? "0 14px 30px -4px rgba(16, 185, 129, 0.22), 0 6px 14px -3px rgba(0, 0, 0, 0.08)"
-              : "0 14px 30px -4px rgba(15, 23, 42, 0.16), 0 6px 14px -3px rgba(0, 0, 0, 0.08)",
+          theme.kind === "promotion"
+            ? "0 16px 36px -4px rgba(168, 85, 247, 0.35), 0 8px 18px -3px rgba(236, 72, 153, 0.2)"
+            : theme.kind === "rejected"
+              ? "0 14px 30px -4px rgba(244, 63, 94, 0.22), 0 6px 14px -3px rgba(0, 0, 0, 0.08)"
+              : theme.kind === "confirmed"
+                ? "0 14px 30px -4px rgba(168, 85, 247, 0.22), 0 6px 14px -3px rgba(0, 0, 0, 0.08)"
+                : "0 14px 30px -4px rgba(15, 23, 42, 0.16), 0 6px 14px -3px rgba(0, 0, 0, 0.08)",
       }}
     >
       {/* Colored Left Accent Bar */}
@@ -104,7 +112,14 @@ export function NotificationToastCard({ toast, onClose, onOpenOrder }: Notificat
               <span
                 className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider ${theme.badgeClass}`}
               >
-                {theme.badgeLabel}
+                {theme.kind === "promotion" ? (
+                  <span className="flex items-center gap-1">
+                    <Sparkles className="h-3 w-3" />
+                    {theme.badgeLabel}
+                  </span>
+                ) : (
+                  theme.badgeLabel
+                )}
               </span>
 
               {toast.orderNum || toast.orderId ? (
@@ -115,7 +130,7 @@ export function NotificationToastCard({ toast, onClose, onOpenOrder }: Notificat
             </div>
 
             <span className="shrink-0 text-[11px] font-medium text-slate-400">
-              {formatNotificationTime(toast.createdAt || toast.creationDate) || "Just now"}
+              {formatNotificationTime(toast.createdAt || toast.creationDate, t) || t("notifications.justNow")}
             </span>
           </div>
 
@@ -134,10 +149,15 @@ export function NotificationToastCard({ toast, onClose, onOpenOrder }: Notificat
             {hasOrderLink ? (
               <button
                 type="button"
-                onClick={() => onOpenOrder(toast.orderId, toast.deepLink, toast.toastId)}
+                onClick={() => {
+                  const targetLink =
+                    toast.deepLink ||
+                    (toast.relatedId ? `/horeca/promotions/${toast.relatedId}` : undefined);
+                  onOpenOrder(toast.orderId, targetLink, toast.toastId);
+                }}
                 className={`inline-flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-bold shadow-sm transition active:scale-95 ${theme.actionButtonClass}`}
               >
-                <span>{t("common.open", "Open")}</span>
+                <span>{t("common.open")}</span>
                 <ArrowRight className="h-3.5 w-3.5" />
               </button>
             ) : (
@@ -149,7 +169,7 @@ export function NotificationToastCard({ toast, onClose, onOpenOrder }: Notificat
               onClick={() => onClose(toast.toastId)}
               className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-400 hover:text-slate-700 transition px-2 py-1 rounded-lg hover:bg-slate-100"
             >
-              {t("common.dismiss", "Dismiss")}
+              {t("notifications.dismiss")}
             </button>
           </div>
         </div>
@@ -159,7 +179,7 @@ export function NotificationToastCard({ toast, onClose, onOpenOrder }: Notificat
           type="button"
           onClick={() => onClose(toast.toastId)}
           className="shrink-0 rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition"
-          aria-label="Close notification"
+          aria-label={t("notifications.close")}
         >
           <X className="h-4 w-4" />
         </button>

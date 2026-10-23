@@ -213,7 +213,22 @@ export default function SupplierPromotionsPage() {
       if (!isCurrent) return;
 
       const saved = savedPromotions.map(promotionFromStored);
-      setPromotions(saved);
+      // Deduplicate by ID and normalized name
+      const uniquePromos: Promotion[] = [];
+      const seenIds = new Set<string>();
+      const seenNames = new Set<string>();
+
+      for (const p of saved) {
+        const normName = p.name?.trim().toLowerCase() || "";
+        if (seenIds.has(p.id)) continue;
+        if (normName && seenNames.has(normName)) continue;
+
+        seenIds.add(p.id);
+        if (normName) seenNames.add(normName);
+        uniquePromos.push(p);
+      }
+
+      setPromotions(uniquePromos);
     })();
 
     return () => {

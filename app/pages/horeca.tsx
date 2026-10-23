@@ -416,11 +416,15 @@ export default function HorecaPage() {
 
     // Broadcast new order notification to suppliers
     orders.forEach((o) => {
+      const displayOrderNum = o.orderNum || o.orderNumber || o.id.slice(0, 8);
       broadcastOrderNotification({
         orderId: o.id,
         orderNum: o.orderNum || o.orderNumber,
-        title: "Новый заказ от ресторана",
-        message: `${customer.companyName} оформил новый заказ #${o.orderNum || o.orderNumber || o.id.slice(0, 8)}.`,
+        title: t("notifications.newOrderFromRestaurantTitle", "Новый заказ от клиента"),
+        message: t("notifications.newOrderFromRestaurantDesc", {
+          companyName: customer.companyName,
+          orderNum: displayOrderNum,
+        }),
         status: 1,
         targetRole: "supplier",
         deepLink: `/supplier/orders/${o.id}`,

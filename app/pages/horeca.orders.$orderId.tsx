@@ -364,11 +364,12 @@ export default function HorecaOrderDetailsPage() {
       setIsEditing(false);
       await saveOrder(nextOrder).catch(() => {});
 
+      const displayOrderNum = activeOrder.orderNumber || activeOrder.orderNum || activeOrder.id.slice(0, 8);
       broadcastOrderNotification({
         orderId: activeOrder.id,
         orderNum: activeOrder.orderNumber || activeOrder.orderNum,
-        title: "Предложение принято рестораном",
-        message: `Ресторан принял предложение по заказу #${activeOrder.orderNumber || activeOrder.orderNum || activeOrder.id.slice(0, 8)}.`,
+        title: t("notifications.restaurantOfferAcceptedTitle", "Предложение принято клиентом"),
+        message: t("notifications.restaurantOfferAcceptedDesc", { orderNum: displayOrderNum }),
         status: 3,
         targetRole: "supplier",
         deepLink: `/supplier/orders/${activeOrder.id}`,
@@ -420,11 +421,12 @@ export default function HorecaOrderDetailsPage() {
       setIsEditing(false);
       await saveOrder(nextOrder).catch(() => {});
 
+      const displayOrderNum = activeOrder.orderNumber || activeOrder.orderNum || activeOrder.id.slice(0, 8);
       broadcastOrderNotification({
         orderId: activeOrder.id,
         orderNum: activeOrder.orderNumber || activeOrder.orderNum,
-        title: "Ресторан запросил изменения",
-        message: `Ресторан отклонил текущие условия и запросил изменения по заказу #${activeOrder.orderNumber || activeOrder.orderNum || activeOrder.id.slice(0, 8)}.`,
+        title: t("notifications.restaurantOfferChangesTitle", "Клиент запросил изменения"),
+        message: t("notifications.restaurantOfferChangesDesc", { orderNum: displayOrderNum }),
         status: 7,
         targetRole: "supplier",
         deepLink: `/supplier/orders/${activeOrder.id}`,
@@ -500,11 +502,12 @@ export default function HorecaOrderDetailsPage() {
       setStatus("Cancelled");
       await saveOrder(nextOrder).catch(() => {});
 
+      const displayOrderNum = activeOrder.orderNumber || activeOrder.orderNum || activeOrder.id.slice(0, 8);
       broadcastOrderNotification({
         orderId: activeOrder.id,
         orderNum: activeOrder.orderNumber || activeOrder.orderNum,
-        title: "Заказ отменен рестораном",
-        message: `Ресторан отменил заказ #${activeOrder.orderNumber || activeOrder.orderNum || activeOrder.id.slice(0, 8)}.`,
+        title: t("notifications.orderCancelledTitle", "Заказ отменен"),
+        message: t("notifications.orderCancelledDesc", { orderNum: displayOrderNum }),
         status: 7,
         targetRole: "supplier",
         deepLink: `/supplier/orders/${activeOrder.id}`,

@@ -3,7 +3,9 @@ import { apiRequest } from "./http";
 export type CustomerClientDto = {
   id: string;
   clientId?: string;
+  restaurantId?: string;
   companyName: string;
+  restaurantName?: string;
   contactPerson?: string;
   email?: string;
   phoneNumber?: string;
@@ -21,9 +23,11 @@ export type CustomerClientDto = {
   hvhh?: string;
   taxCode?: string;
   totalOrders?: number;
+  totalOrdersCount?: number;
   totalSpent?: number;
   lastOrderDate?: string;
   status?: string;
+  completedOrders?: any[];
 };
 
 export type DeliveryPointRequest = {
@@ -49,16 +53,20 @@ export type DailySummaryDto = {
 
 export async function getMyClients(): Promise<CustomerClientDto[]> {
   try {
-    const res = await apiRequest<CustomerClientDto[]>("/api/Customers/my-clients", {
+    const res = await apiRequest<any>("/api/Customers/my-clients", {
       method: "GET",
     });
-    return Array.isArray(res) ? res : [];
+    if (Array.isArray(res)) return res;
+    if (Array.isArray(res?.items)) return res.items;
+    return [];
   } catch {
     try {
-      const fallback = await apiRequest<CustomerClientDto[]>("/api/Customers", {
+      const fallback = await apiRequest<any>("/api/Customers", {
         method: "GET",
       });
-      return Array.isArray(fallback) ? fallback : [];
+      if (Array.isArray(fallback)) return fallback;
+      if (Array.isArray(fallback?.items)) return fallback.items;
+      return [];
     } catch {
       return [];
     }

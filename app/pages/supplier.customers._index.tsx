@@ -110,15 +110,18 @@ export default function SupplierCustomersPage() {
         const backendClients = await getMyClients();
         if (Array.isArray(backendClients) && backendClients.length > 0) {
           if (!isCurrent) return;
+          const clientsWithOrders = backendClients.filter(
+            (client) => (client.totalOrders ?? client.totalOrdersCount ?? 0) > 0,
+          );
           setCustomers(
-            backendClients.map((client) => ({
-              id: client.id || client.clientId || "client",
-              companyName: client.companyName || "Client Company",
-              contactName: client.contactPerson || client.companyName || "—",
+            clientsWithOrders.map((client) => ({
+              id: client.id || client.clientId || client.restaurantId || "client",
+              companyName: client.companyName || client.restaurantName || "Client Company",
+              contactName: client.contactPerson || client.companyName || client.restaurantName || "—",
               email: client.email || "—",
               activityType: "HORECA",
               address: client.address || "Yerevan",
-              totalOrders: client.totalOrders ?? 0,
+              totalOrders: client.totalOrders ?? client.totalOrdersCount ?? 0,
               status: "Active",
             })),
           );
@@ -138,6 +141,7 @@ export default function SupplierCustomersPage() {
       const orderCountByCustomerId = new Map<string, number>();
 
       for (const order of orders) {
+        if (!order.horecaAccountId) continue;
         orderCountByCustomerId.set(
           order.horecaAccountId,
           (orderCountByCustomerId.get(order.horecaAccountId) ?? 0) + 1,
@@ -146,8 +150,32 @@ export default function SupplierCustomersPage() {
 
       if (!isCurrent) return;
 
-      setCustomers(
-        horecaUsers.map((user) => ({
+      // Only clients who made at least one order with this supplier (regardless of order status)
+      const matchedHorecaUsers = horecaUsers.filter(
+        (u) => (orderCountByCustomerId.get(u.id) ?? 0) > 0,
+      );
+
+      const matchedIds = new Set(matchedHorecaUsers.map((u) => u.id));
+      const extraClients: SupplierCustomer[] = [];
+
+      for (const [clientId, count] of orderCountByCustomerId.entries()) {
+        if (count > 0 && !matchedIds.has(clientId)) {
+          const sampleOrder = orders.find((o) => o.horecaAccountId === clientId);
+          extraClients.push({
+            id: clientId,
+            companyName: sampleOrder?.horecaName || `Client ${clientId.slice(0, 8)}`,
+            contactName: sampleOrder?.horecaContactName || sampleOrder?.horecaName || "—",
+            email: sampleOrder?.horecaEmail || "—",
+            activityType: "HORECA",
+            address: sampleOrder?.horecaAddress || sampleOrder?.deliveryAddress || "Yerevan",
+            totalOrders: count,
+            status: "Active" as const,
+          });
+        }
+      }
+
+      setCustomers([
+        ...matchedHorecaUsers.map((user) => ({
           id: user.id,
           companyName: user.companyName,
           contactName: user.displayName,
@@ -155,9 +183,10 @@ export default function SupplierCustomersPage() {
           activityType: "HORECA",
           address: user.address,
           totalOrders: orderCountByCustomerId.get(user.id) ?? 0,
-          status: "Active",
+          status: "Active" as const,
         })),
-      );
+        ...extraClients,
+      ]);
     })()
       .catch(() => {
         if (isCurrent) {

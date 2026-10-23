@@ -1,5 +1,5 @@
 import { Dialog, DialogBackdrop, DialogPanel, DialogTitle } from "@headlessui/react";
-import { Bell, CheckCheck, X, ArrowRight, type LucideIcon } from "lucide-react";
+import { Bell, CheckCheck, X, ArrowRight, Gift, Sparkles, type LucideIcon } from "lucide-react";
 import { useTranslation } from "~/shared/lib/i18n";
 import {
   getNotificationTheme,
@@ -98,14 +98,17 @@ export default function NotificationDrawer({
             <div className="flex-1 overflow-y-auto p-3 sm:p-4">
               <ul className="space-y-3" aria-label="Notifications">
                 {notifications.map((notification) => {
-                  const Icon = notification.icon;
                   const theme = getNotificationTheme({
                     status: notification.status,
+                    notificationType: notification.statusKind === "promotion" ? 50 : undefined,
                     title: notification.title,
                     message: notification.detail,
-                  });
+                    relatedId: notification.deepLink?.includes("/promotions/") ? "promo-item" : undefined,
+                  }, t);
+                  const isPromo = theme.kind === "promotion";
+                  const Icon = isPromo ? Gift : notification.icon;
                   const hasOrderLink = Boolean(
-                    notification.orderId || notification.deepLink || notification.onOpen,
+                    notification.orderId || notification.deepLink || notification.onOpen || isPromo,
                   );
 
                   return (
@@ -113,7 +116,9 @@ export default function NotificationDrawer({
                       key={notification.id}
                       className={`relative flex flex-col gap-2 rounded-2xl border p-3.5 transition hover:shadow-sm ${
                         notification.unread
-                          ? `${theme.bgClass} ${theme.borderClass}`
+                          ? isPromo
+                            ? `${theme.bgClass} ${theme.borderClass} ring-1 ring-purple-400/40 shadow-md shadow-purple-100`
+                            : `${theme.bgClass} ${theme.borderClass}`
                           : "border-slate-200 bg-white hover:bg-slate-50"
                       }`}
                     >
@@ -131,15 +136,16 @@ export default function NotificationDrawer({
                             notification.unread ? theme.iconBg : notification.accentClassName
                           }`}
                         >
-                          <Icon className="h-4 w-4" aria-hidden="true" />
+                          <Icon className={`h-4 w-4 ${isPromo ? "animate-pulse" : ""}`} aria-hidden="true" />
                         </span>
 
                         <div className="min-w-0 flex-1">
                           <div className="flex items-start justify-between gap-2">
                             <div className="flex items-center gap-1.5 flex-wrap">
                               <span
-                                className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${theme.badgeClass}`}
+                                className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${theme.badgeClass}`}
                               >
+                                {isPromo ? <Sparkles className="h-2.5 w-2.5" /> : null}
                                 {theme.badgeLabel}
                               </span>
 
@@ -171,7 +177,7 @@ export default function NotificationDrawer({
                                 onClick={() => handleOpenItem(notification)}
                                 className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold shadow-sm transition active:scale-95 ${theme.actionButtonClass}`}
                               >
-                                <span>{t("common.open", "Open")}</span>
+                                <span>{t("common.open")}</span>
                                 <ArrowRight className="h-3 w-3" />
                               </button>
                             </div>

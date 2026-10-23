@@ -9,7 +9,7 @@ import {
   type NotificationItemDto,
   type NotificationStatusKind,
 } from "~/shared/api/notifications";
-import { getClientAuthToken } from "~/shared/lib/auth-token";
+import { getClientAuthToken, getDecodedAuthToken } from "~/shared/lib/auth-token";
 import type { DashboardAccountType } from "~/shared/ui/dashboard-layout";
 
 export type ToastNotification = NotificationItemDto & {
@@ -172,8 +172,10 @@ export function useNotificationCenter(accountType: DashboardAccountType = "horec
       if (deepLink) {
         let target = deepLink;
         // Adjust relative deep links to match role route if needed
-        if (target.startsWith("/orders/")) {
+        if (target.startsWith("/orders/") || target.startsWith("/promotions/")) {
           target = `/${accountType}${target}`;
+        } else if (accountType === "supplier" && target.startsWith("/horeca/promotions/")) {
+          target = target.replace("/horeca/promotions/", "/supplier/promotions");
         }
         navigate(target);
         return;
@@ -227,12 +229,32 @@ export function useNotificationCenter(accountType: DashboardAccountType = "horec
       const data = event.data;
       if (!data) return;
 
-      // Filter by target role if specified
-      if (data.targetRole && data.targetRole !== "all" && data.targetRole !== accountType) {
-        return;
+      // Filter by target role if specified (matching horeca <-> client)
+      const targetRole = String(data.targetRole || "").toLowerCase();
+      const isClientRole = accountType === "horeca" || (accountType as string) === "client";
+      const isSupplierRole = accountType === "supplier";
+
+      if (targetRole && targetRole !== "all") {
+        if (targetRole === "client" || targetRole === "horeca") {
+          if (!isClientRole) return;
+        } else if (targetRole === "supplier") {
+          if (!isSupplierRole) return;
+        } else if ((targetRole as string) !== (accountType as string)) {
+          return;
+        }
       }
 
-      const normalized = normalizeNotification(data);
+      // Filter by target user IDs if specified
+      if (Array.isArray(data.targetUserIds) && data.targetUserIds.length > 0) {
+        const decoded = getDecodedAuthToken();
+        const currentUserId = decoded?.sub || decoded?.nameid || decoded?.EmployeeId;
+        if (currentUserId && !data.targetUserIds.includes(currentUserId)) {
+          return;
+        }
+      }
+
+      const payload = data.notification || data;
+      const normalized = normalizeNotification(payload);
       setNotifications((prev) => [normalized, ...prev.filter((n) => n.id !== normalized.id)]);
       setUnreadCount((prev) => prev + 1);
       addToast(normalized);

@@ -116,9 +116,10 @@ const DELIVERY_ADDRESSES_STORE = "delivery-addresses";
 const ACTIVE_USER_KEY = "active-user";
 
 /** Emitted after the order state is updated in the current browser tab. */
-export const ORDERS_UPDATED_EVENT = "synko:orders-updated";
+export const ORDERS_UPDATED_EVENT = "synco:orders-updated";
 /** Emitted when a supplier creates or edits a promotion. */
-export const PROMOTIONS_UPDATED_EVENT = "synko:promotions-updated";
+export const PROMOTIONS_UPDATED_EVENT = "synco:promotions-updated";
+export const BROADCAST_CHANNEL_NAME = "synco_order_notifications";
 
 type SessionRecord = {
   id: typeof ACTIVE_USER_KEY;
@@ -1408,12 +1409,23 @@ export async function getSupplierPromotions(
         return base;
       });
 
-      // Retain local promotions that are not yet on backend
+      // Retain local promotions that are not yet on backend, deduplicating by ID and name
       const mappedIds = new Set(mapped.map((p) => p.id));
+      const mappedNames = new Set(
+        mapped.map((p) => p.name?.trim().toLowerCase()).filter(Boolean),
+      );
+      const staleLocalIdsToDelete: string[] = [];
+
       for (const local of localPromotions) {
-        if (!mappedIds.has(local.id)) {
-          mapped.push(local);
+        const normName = local.name?.trim().toLowerCase();
+        if (mappedIds.has(local.id) || (normName && mappedNames.has(normName))) {
+          if (local.id && !mappedIds.has(local.id)) {
+            staleLocalIdsToDelete.push(local.id);
+          }
+          continue;
         }
+        mapped.push(local);
+        if (normName) mappedNames.add(normName);
       }
 
       const database = await openDatabase();
@@ -1422,6 +1434,9 @@ export async function getSupplierPromotions(
         "readwrite",
       );
       const store = transaction.objectStore(SUPPLIER_PROMOTIONS_STORE);
+      for (const staleId of staleLocalIdsToDelete) {
+        store.delete(staleId);
+      }
       for (const pr of mapped) {
         store.put(pr);
       }
@@ -1525,7 +1540,7 @@ export async function saveSupplierPromotion(
         })
       : undefined;
 
-    await createBackendPromotion({
+    const createdBackend = await createBackendPromotion({
       name: promotion.name,
       description: promotion.description,
       type: isBuyXGetY ? "BuyXGetY" : isPercentage ? "Percentage" : "FixedPrice",
@@ -1550,6 +1565,21 @@ export async function saveSupplierPromotion(
           }
         : null,
     });
+
+    const realId = createdBackend?.id || (createdBackend as any)?.Id;
+    if (realId && String(realId) !== promotion.id) {
+      const oldTempId = promotion.id;
+      promotion.id = String(realId);
+      try {
+        const db = await openDatabase();
+        const tx = db.transaction(SUPPLIER_PROMOTIONS_STORE, "readwrite");
+        tx.objectStore(SUPPLIER_PROMOTIONS_STORE).delete(oldTempId);
+        await transactionComplete(tx);
+        db.close();
+      } catch {
+        // ignore
+      }
+    }
   } catch {
     // continue with local store
   }
@@ -1562,6 +1592,51 @@ export async function saveSupplierPromotion(
   transaction.objectStore(SUPPLIER_PROMOTIONS_STORE).put(promotion);
   await transactionComplete(transaction);
   database.close();
+
+  // Notify clients about this promotion via BroadcastChannel
+  try {
+    const isLive = promotion.status === "Active";
+    if (isLive) {
+      const activeLang = typeof window !== "undefined" ? (localStorage.getItem("synco_language") || "hy") : "hy";
+      let notifTitle = `Նոր ակցիա: ${promotion.name}`;
+      let notifMsg = `${promotion.supplierName || "Մատակարար"}-ը գործարկել է «${promotion.name}» ակցիան:`;
+      if (activeLang === "ru") {
+        notifTitle = `Новая промо-акция: ${promotion.name}`;
+        notifMsg = `${promotion.supplierName ? `Поставщик ${promotion.supplierName}` : "Поставщик"} запустил акцию «${promotion.name}».`;
+      } else if (activeLang === "en") {
+        notifTitle = `New promotion: ${promotion.name}`;
+        notifMsg = `${promotion.supplierName ? `Supplier ${promotion.supplierName}` : "Supplier"} launched "${promotion.name}" promotion.`;
+      }
+      const deepLink = `/horeca/promotions/${promotion.id}`;
+
+      if (typeof window !== "undefined" && "BroadcastChannel" in window) {
+        const channel = new BroadcastChannel(BROADCAST_CHANNEL_NAME);
+        channel.postMessage({
+          type: "NEW_NOTIFICATION",
+          targetRole: "client",
+          targetUserIds:
+            promotion.eligibility === "specific-customers" && promotion.eligibleCustomerIds?.length
+              ? promotion.eligibleCustomerIds
+              : undefined,
+          notification: {
+            id: `notif-promo-${promotion.id}-${Date.now()}`,
+            title: notifTitle,
+            message: notifMsg,
+            notificationType: 50,
+            notificationTypeName: "Promotion",
+            deepLink,
+            relatedId: promotion.id,
+            isRead: false,
+            createdAt: new Date().toISOString(),
+          },
+        });
+        channel.close();
+      }
+    }
+  } catch {
+    // ignore
+  }
+
   if (typeof window !== "undefined") {
     window.dispatchEvent(new Event(PROMOTIONS_UPDATED_EVENT));
   }

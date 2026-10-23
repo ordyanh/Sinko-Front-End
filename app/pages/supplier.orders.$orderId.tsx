@@ -612,45 +612,45 @@ export default function SupplierOrderDetailsPage() {
       const statusMeta: Record<string, { statusNum: number; title: string; desc: string }> = {
         "Waiting for restaurant confirmation": {
           statusNum: 8,
-          title: "Предложение цены по заказу",
-          desc: `Поставщик отправил новые цены по заказу #${displayOrderNum}.`,
+          title: t("notifications.priceOfferTitle", "Предложение цены по заказу"),
+          desc: t("notifications.priceOfferDesc", { orderNum: displayOrderNum }),
         },
         Confirmed: {
           statusNum: 3,
-          title: "Заказ подтвержден поставщиком",
-          desc: `Заказ #${displayOrderNum} подтвержден и передан в работу.`,
+          title: t("notifications.orderConfirmedTitle", "Заказ подтвержден поставщиком"),
+          desc: t("notifications.orderConfirmedDesc", { orderNum: displayOrderNum }),
         },
         Preparing: {
           statusNum: 4,
-          title: "Заказ собирается",
-          desc: `Поставщик начал сборку вашего заказа #${displayOrderNum}.`,
+          title: t("notifications.orderPreparingTitle", "Заказ собирается"),
+          desc: t("notifications.orderPreparingDesc", { orderNum: displayOrderNum }),
         },
         Shipped: {
           statusNum: 5,
-          title: "Заказ в пути",
-          desc: `Заказ #${displayOrderNum} передан водителю и едет к вам.`,
+          title: t("notifications.orderShippedTitle", "Заказ в пути"),
+          desc: t("notifications.orderShippedDesc", { orderNum: displayOrderNum }),
         },
         Delivered: {
           statusNum: 6,
-          title: "Заказ доставлен",
-          desc: `Заказ #${displayOrderNum} успешно доставлен.`,
+          title: t("notifications.orderDeliveredTitle", "Заказ доставлен"),
+          desc: t("notifications.orderDeliveredDesc", { orderNum: displayOrderNum }),
         },
         Rejected: {
           statusNum: 7,
-          title: "Заказ отклонен",
-          desc: `Поставщик отклонил заказ #${displayOrderNum}.`,
+          title: t("notifications.orderRejectedTitle", "Заказ отклонен"),
+          desc: t("notifications.orderRejectedDesc", { orderNum: displayOrderNum }),
         },
         Cancelled: {
           statusNum: 7,
-          title: "Заказ отменен",
-          desc: `Заказ #${displayOrderNum} отменен.`,
+          title: t("notifications.orderCancelledTitle", "Заказ отменен"),
+          desc: t("notifications.orderCancelledDesc", { orderNum: displayOrderNum }),
         },
       };
 
       const meta = statusMeta[nextStatus] || {
         statusNum: 1,
-        title: `Статус заказа обновлен: ${nextStatus}`,
-        desc: `Заказ #${displayOrderNum} перешел в статус "${nextStatus}".`,
+        title: `${t("notifications.statusUpdate", "Обновление")}: ${nextStatus}`,
+        desc: `#${displayOrderNum} → ${nextStatus}`,
       };
 
       broadcastOrderNotification({
@@ -974,7 +974,7 @@ export default function SupplierOrderDetailsPage() {
                   <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
                     <MapPin className="h-4 w-4" />
                   </div>
-                  <SectionLabel>{t("orders.deliveryLocation", "Точка доставки на карте")}</SectionLabel>
+                  <SectionLabel>{t("orders.deliveryLocation")}</SectionLabel>
                 </div>
                 <p className="mt-1 text-sm font-medium text-slate-800">
                   {displayAddress}
@@ -996,12 +996,12 @@ export default function SupplierOrderDetailsPage() {
                     {hasCopiedAddress ? (
                       <>
                         <Check className="h-3.5 w-3.5 text-emerald-600" />
-                        <span className="font-semibold text-emerald-700">{t("common.copied", "Скопировано")}</span>
+                        <span className="font-semibold text-emerald-700">{t("common.copied")}</span>
                       </>
                     ) : (
                       <>
                         <Copy className="h-3.5 w-3.5 text-slate-400" />
-                        <span>{t("common.copy", "Копировать адрес")}</span>
+                        <span>{t("orders.copyAddress")}</span>
                       </>
                     )}
                   </button>
@@ -1025,7 +1025,7 @@ export default function SupplierOrderDetailsPage() {
                       className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-content shadow-xs transition hover:brightness-95"
                     >
                       <Navigation className="h-3.5 w-3.5" />
-                      <span>Маршрут</span>
+                      <span>{t("orders.route")}</span>
                     </a>
                   </>
                 ) : null}
@@ -1034,17 +1034,17 @@ export default function SupplierOrderDetailsPage() {
                   type="button"
                   onClick={() => setIsMapExpanded((prev) => !prev)}
                   className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 shadow-xs transition hover:bg-slate-50"
-                  title={isMapExpanded ? "Свернуть" : "Увеличить"}
+                  title={isMapExpanded ? t("common.collapse") : t("common.expand")}
                 >
                   {isMapExpanded ? (
                     <>
                       <Minimize2 className="h-3.5 w-3.5 text-slate-600" />
-                      <span className="hidden sm:inline">Свернуть</span>
+                      <span className="hidden sm:inline">{t("common.collapse")}</span>
                     </>
                   ) : (
                     <>
                       <Maximize2 className="h-3.5 w-3.5 text-slate-600" />
-                      <span className="hidden sm:inline">Увеличить</span>
+                      <span className="hidden sm:inline">{t("common.expand")}</span>
                     </>
                   )}
                 </button>
@@ -1067,7 +1067,7 @@ export default function SupplierOrderDetailsPage() {
                 <div className="flex h-64 flex-col items-center justify-center p-6 text-center text-slate-400">
                   <MapPin className="mb-2 h-10 w-10 stroke-1 text-slate-300" />
                   <p className="text-sm font-medium text-slate-500">
-                    Точка доставки не указана
+                    {t("orders.deliveryPointNotSpecified")}
                   </p>
                 </div>
               )}
@@ -1078,7 +1078,7 @@ export default function SupplierOrderDetailsPage() {
               <div className="flex flex-wrap items-center gap-4">
                 <span className="flex items-center gap-1.5">
                   <Building2 className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                  <strong className="text-slate-800">{customer.companyName || "Клиент"}</strong>
+                  <strong className="text-slate-800">{customer.companyName || t("common.customer")}</strong>
                 </span>
                 {customer.contactName ? (
                   <span className="flex items-center gap-1.5">
@@ -1128,17 +1128,17 @@ export default function SupplierOrderDetailsPage() {
                   type="button"
                   onClick={() => handleCopyAddress(rawAddressText)}
                   className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2 py-1 text-xs font-medium text-slate-600 transition hover:bg-slate-50 active:scale-95"
-                  title={t("common.copy", "Копировать адрес")}
+                  title={t("orders.copyAddress")}
                 >
                   {hasCopiedAddress ? (
                     <>
                       <Check className="h-3 w-3 text-emerald-600" />
-                      <span className="font-semibold text-emerald-700">{t("common.copied", "Скопировано")}</span>
+                      <span className="font-semibold text-emerald-700">{t("common.copied")}</span>
                     </>
                   ) : (
                     <>
                       <Copy className="h-3 w-3 text-slate-400" />
-                      <span>{t("common.copy", "Копировать")}</span>
+                      <span>{t("common.copy")}</span>
                     </>
                   )}
                 </button>
@@ -1148,7 +1148,7 @@ export default function SupplierOrderDetailsPage() {
             <div className="mt-3">
               <div className="flex items-center gap-2">
                 <Building2 className="h-4 w-4 shrink-0 text-slate-400" />
-                <p className="font-semibold text-slate-900">{customer.companyName || "Клиент"}</p>
+                <p className="font-semibold text-slate-900">{customer.companyName || t("common.customer")}</p>
               </div>
               {deliveryAddress.label ? (
                 <span className="mt-1.5 inline-block rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
@@ -1191,7 +1191,7 @@ export default function SupplierOrderDetailsPage() {
                   className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-primary px-2.5 py-1.5 text-xs font-semibold text-primary-content shadow-xs transition hover:brightness-95"
                 >
                   <Navigation className="h-3.5 w-3.5" />
-                  <span>Маршрут</span>
+                  <span>{t("orders.route")}</span>
                 </a>
               </div>
             ) : null}

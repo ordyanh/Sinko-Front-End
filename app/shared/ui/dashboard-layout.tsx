@@ -19,6 +19,7 @@ import {
   type LucideIcon,
   X,
   Truck,
+  Gift,
 } from "lucide-react";
 import { useEffect, useState, useMemo, type ReactNode } from "react";
 import NotificationDrawer, {
@@ -178,7 +179,7 @@ export default function DashboardLayout({
   const displayNotifications: DashboardNotification[] = useMemo(() => {
     if (notifCenter.notifications.length > 0) {
       return notifCenter.notifications.map((n) => {
-        const theme = getNotificationTheme(n);
+        const theme = getNotificationTheme(n, t);
         const isDelivery =
           n.title.toLowerCase().includes("delivery") ||
           n.message.toLowerCase().includes("delivery") ||
@@ -189,7 +190,8 @@ export default function DashboardLayout({
           n.message.toLowerCase().includes("պատվեր");
 
         let Icon = ShoppingBag;
-        if (isDelivery) Icon = Truck;
+        if (theme.kind === "promotion") Icon = Gift;
+        else if (isDelivery) Icon = Truck;
         else if (theme.kind === "confirmed") Icon = Package;
         else if (theme.kind === "rejected") Icon = X;
         else if (isOrder) Icon = ShoppingBag;
@@ -198,7 +200,7 @@ export default function DashboardLayout({
           id: n.id,
           title: n.title,
           detail: n.message,
-          time: formatNotificationTime(n.createdAt || n.creationDate),
+          time: formatNotificationTime(n.createdAt || n.creationDate, t),
           icon: Icon,
           accentClassName: n.isRead ? "bg-slate-100 text-slate-700" : theme.iconBg,
           unread: !n.isRead,
@@ -216,17 +218,39 @@ export default function DashboardLayout({
     }
 
     return notifications;
-  }, [notifCenter, notifications]);
+  }, [notifCenter, notifications, t]);
 
-  const effectiveUnreadCount =
-    notifCenter.unreadCount > 0
+  const [hasDismissedBadge, setHasDismissedBadge] = useState(false);
+  const [prevUnreadCount, setPrevUnreadCount] = useState(0);
+
+  useEffect(() => {
+    if (isNotificationsOpen) {
+      setHasDismissedBadge(true);
+      void notifCenter.markAllRead();
+    }
+  }, [isNotificationsOpen, notifCenter]);
+
+  useEffect(() => {
+    if (notifCenter.unreadCount > prevUnreadCount) {
+      setHasDismissedBadge(false);
+    }
+    setPrevUnreadCount(notifCenter.unreadCount);
+  }, [notifCenter.unreadCount, prevUnreadCount]);
+
+  const effectiveUnreadCount = hasDismissedBadge
+    ? 0
+    : notifCenter.unreadCount > 0
       ? notifCenter.unreadCount
       : notifications.filter((notification) => notification.unread).length;
 
   const notificationButton = (
     <button
       type="button"
-      onClick={() => setIsNotificationsOpen(true)}
+      onClick={() => {
+        setIsNotificationsOpen(true);
+        setHasDismissedBadge(true);
+        void notifCenter.markAllRead();
+      }}
       className="relative inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:-translate-y-0.5 hover:border-primary/30 hover:bg-primary/5 hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
       aria-label={`Open notifications${effectiveUnreadCount > 0 ? `, ${effectiveUnreadCount} unread` : ""}`}
     >
