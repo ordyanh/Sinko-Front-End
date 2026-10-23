@@ -765,6 +765,9 @@ export const ru: TranslationResources = {
     minOrderUnits: "Минимальный заказ: {count} ед. продажи",
     promotionIdLabel: "ID акции: {id}",
     yourCompany: "Ваша компания",
+    atLeastOneProductRequiredTitle: "Необходимо выбрать товар",
+    atLeastOneProductRequiredDesc: "В каждой промо-акции должен быть выбран хотя бы один товар.",
+    noProductsInCatalogNotice: "В вашем каталоге нет товаров. Сначала добавьте товары в каталог, чтобы создать акцию.",
   },
   cart: {
     title: "Корзина заказов",

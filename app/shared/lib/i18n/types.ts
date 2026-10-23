@@ -765,6 +765,9 @@ export type TranslationResources = {
     minOrderUnits: string;
     promotionIdLabel: string;
     yourCompany: string;
+    atLeastOneProductRequiredTitle: string;
+    atLeastOneProductRequiredDesc: string;
+    noProductsInCatalogNotice: string;
   };
   cart: {
     title: string;

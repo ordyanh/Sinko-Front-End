@@ -765,6 +765,9 @@ export const en: TranslationResources = {
     minOrderUnits: "Minimum order: {count} selling units",
     promotionIdLabel: "Promotion ID: {id}",
     yourCompany: "Your company",
+    atLeastOneProductRequiredTitle: "Product selection required",
+    atLeastOneProductRequiredDesc: "Every promotion must have at least one selected product.",
+    noProductsInCatalogNotice: "There are no products in your catalog. Add products to catalog first to create a promotion.",
   },
   cart: {
     title: "Procurement Cart",

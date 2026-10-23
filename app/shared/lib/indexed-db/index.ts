@@ -1488,9 +1488,18 @@ export async function getSupplierPromotion(
 export async function saveSupplierPromotion(
   promotion: StoredSupplierPromotion,
 ): Promise<void> {
+  const isBuyXGetY = promotion.type === "BuyXGetY";
+  const isPercentage = promotion.type === "Percentage";
+
+  const totalProducts = isBuyXGetY
+    ? [promotion.triggerProductId, ...(promotion.giftChoices?.map((g) => g.productId) || [])].filter(Boolean).length
+    : (promotion.productIds?.length || 0);
+
+  if (totalProducts === 0) {
+    throw new Error("Promotion must contain at least one selected product.");
+  }
+
   try {
-    const isBuyXGetY = promotion.type === "BuyXGetY";
-    const isPercentage = promotion.type === "Percentage";
 
     // Lookup real catalog products to get real product IDs
     let validProductIds: number[] = [];

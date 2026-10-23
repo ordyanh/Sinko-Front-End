@@ -765,6 +765,9 @@ export const hy: TranslationResources = {
     minOrderUnits: "Նվազագույն պատվեր՝ {count} վաճառքի միավոր",
     promotionIdLabel: "Ակցիայի ID՝ {id}",
     yourCompany: "Ձեր ընկերությունը",
+    atLeastOneProductRequiredTitle: "Անհրաժեշտ է ընտրել ապրանք",
+    atLeastOneProductRequiredDesc: "Յուրաքանչյուր ակցիայում պետք է ընտրված լինի առնվազն մեկ ապրանք:",
+    noProductsInCatalogNotice: "Ձեր կատալոգում ապրանքներ չկան: Ակցիա ստեղծելու համար նախ ավելացրեք ապրանքներ Ձեր կատալոգում:",
   },
   cart: {
     title: "Պատվերի զամբյուղ",
