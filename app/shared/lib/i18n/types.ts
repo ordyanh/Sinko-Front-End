@@ -90,6 +90,10 @@ export type TranslationResources = {
     supplier: string;
     justNow: string;
     dismiss: string;
+    free: string;
+    amd: string;
+    selectOption: string;
+    ready: string;
   };
   notifications: {
     updates: string;
@@ -364,6 +368,29 @@ export type TranslationResources = {
     companyPricesForOptionDesc: string;
     productCategoriesDesc: string;
     positiveWholeNumberError: string;
+    productDescriptionPlaceholder: string;
+    sellingOptionsSubdesc: string;
+    wasPrice: string;
+    importStarted: string;
+    rowsDetected: string;
+    readyToImport: string;
+    needsAttention: string;
+    columnsMatched: string;
+    productManifest: string;
+    previewFirstRows: string;
+    mockPreview: string;
+    tableRow: string;
+    tableCategory: string;
+    tableCode: string;
+    productsUnavailable: string;
+    statusNotSaved: string;
+    statusNotSavedDesc: string;
+    productDeleted: string;
+    productDeleteError: string;
+    productDeleteErrorDesc: string;
+    bxgyCartNote: string;
+    appliesToProduct: string;
+    giftOffer: string;
   };
   orders: {
     title: string;
@@ -480,6 +507,34 @@ export type TranslationResources = {
     confirmingOrder: string;
     editRejectedOffer: string;
     sendRevisedOffer: string;
+    offerSentTitle: string;
+    offerSentDesc: string;
+    orderConfirmedToastTitle: string;
+    orderConfirmedToastDesc: string;
+    statusUpdatedTitle: string;
+    statusUpdatedDesc: string;
+    actionFailed: string;
+    employeeAssignedTitle: string;
+    employeeAssignedDesc: string;
+    assignmentError: string;
+    offerAcceptedTitle: string;
+    offerAcceptedDesc: string;
+    couldNotAcceptOffer: string;
+    changesSentTitle: string;
+    changesSentDesc: string;
+    couldNotSendChanges: string;
+    orderRepeatedTitle: string;
+    orderRepeatedDesc: string;
+    couldNotRepeatOrder: string;
+    actionNotPermitted: string;
+    purchasingCannotCancel: string;
+    orderCancelledToastTitle: string;
+    orderCancelledToastDesc: string;
+    couldNotCancelOrder: string;
+    purchasingCannotApprove: string;
+    orderApprovedToastTitle: string;
+    orderApprovedToastDesc: string;
+    couldNotApproveOrder: string;
   };
   employees: {
     title: string;
@@ -510,6 +565,7 @@ export type TranslationResources = {
     chooseWhenUnavailable: string;
     vacationNote: string;
     alreadyExists: string;
+    serviceAreas: string;
   };
   suppliers: {
     title: string;
@@ -541,6 +597,8 @@ export type TranslationResources = {
     deliveryArea: string;
     orderingContact: string;
     activeOffers: string;
+    unableToDisplay: string;
+    errorLoadingSupplier: string;
   };
   customers: {
     title: string;
@@ -768,6 +826,22 @@ export type TranslationResources = {
     atLeastOneProductRequiredTitle: string;
     atLeastOneProductRequiredDesc: string;
     noProductsInCatalogNotice: string;
+    offerUnavailable: string;
+    offerUnavailableDesc: string;
+    allPromotions: string;
+    freeGift: string;
+    offerDetails: string;
+    conditions: string;
+    requiredPaidQuantity: string;
+    getYFree: string;
+    chooseGiftFromItems: string;
+    pickGiftOnProductPage: string;
+    eligibleProducts: string;
+    eligible: string;
+    validity: string;
+    chooseYourGift: string;
+    viewEligibleProducts: string;
+    recheckNotice: string;
   };
   cart: {
     title: string;
@@ -815,6 +889,12 @@ export type TranslationResources = {
     quantityMustBePositive: string;
     productUnavailable: string;
     productRemovedBySupplier: string;
+    appliedEach: string;
+    paidQuantity: string;
+    bxgyReward: string;
+    freeUnits: string;
+    freeReward: string;
+    removeReward: string;
   };
   settings: {
     title: string;
@@ -922,6 +1002,16 @@ export type TranslationResources = {
     orderStatusChangesDesc: string;
     employeeActivityTitle: string;
     employeeActivityDesc: string;
+    accessRestricted: string;
+    purchasingCannotModify: string;
+    taxIdRequested: string;
+    taxIdRequestedDesc: string;
+    emailVerificationSent: string;
+    companyUpdated: string;
+    companyUpdatedDesc: string;
+    couldNotUpdateCompany: string;
+    editLimitReached: string;
+    editLimitReachedDesc: string;
   };
   landing: {
     badge: string;

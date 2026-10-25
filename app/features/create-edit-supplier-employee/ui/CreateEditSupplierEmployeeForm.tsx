@@ -14,6 +14,7 @@ import {
 } from "../model/schema";
 import Button from "~/shared/ui/button";
 import { FieldError, Input, Select } from "~/shared/ui/form";
+import { useTranslation } from "~/shared/lib/i18n";
 
 interface CreateEditSupplierEmployeeFormProps {
   onSubmit: SubmitHandler<SupplierEmployeeFormValues>;
@@ -26,6 +27,7 @@ export const CreateEditSupplierEmployeeForm = ({
   onCancel,
   employee,
 }: CreateEditSupplierEmployeeFormProps) => {
+  const { t } = useTranslation();
   const { regions, isLoading: isRegionsLoading } = useRegions();
   const form = useForm<SupplierEmployeeFormValues>({
     mode: "onBlur",
@@ -54,7 +56,7 @@ export const CreateEditSupplierEmployeeForm = ({
       <div className="grid gap-5 sm:grid-cols-2">
         <Input
           id="firstName"
-          label="First Name"
+          label={t("employees.firstName")}
           placeholder="Arman"
           errorMessage={errors.firstName?.message}
           {...register("firstName")}
@@ -63,7 +65,7 @@ export const CreateEditSupplierEmployeeForm = ({
 
         <Input
           id="lastName"
-          label="Last Name"
+          label={t("employees.lastName")}
           placeholder="Hakobyan"
           errorMessage={errors.lastName?.message}
           {...register("lastName")}
@@ -72,7 +74,7 @@ export const CreateEditSupplierEmployeeForm = ({
         <Input
           id="phoneNumber"
           type="tel"
-          label="Phone Number"
+          label={t("auth.mobile")}
           placeholder="+374 00 000000"
           errorMessage={errors.phoneNumber?.message}
           {...register("phoneNumber")}
@@ -84,7 +86,7 @@ export const CreateEditSupplierEmployeeForm = ({
             className="mb-2 block text-sm font-medium text-slate-900"
             htmlFor="role"
           >
-            Position
+            {t("employees.role")}
           </label>
           <Controller
             control={control}
@@ -120,7 +122,7 @@ export const CreateEditSupplierEmployeeForm = ({
             className="mb-2 block text-sm font-medium text-slate-900"
             htmlFor="regionIds"
           >
-            Service Areas
+            {t("employees.serviceAreas")}
           </label>
           <Controller
             control={control}
@@ -160,7 +162,7 @@ export const CreateEditSupplierEmployeeForm = ({
         <Input
           id="email"
           type="email"
-          label="Email Address"
+          label={t("common.email")}
           placeholder="employee@supplier.am"
           disabled={Boolean(employee)}
           errorMessage={errors.email?.message}
@@ -176,10 +178,10 @@ export const CreateEditSupplierEmployeeForm = ({
           className="w-full sm:w-32"
           onClick={onCancel}
         >
-          Cancel
+          {t("common.cancel")}
         </Button>
         <Button type="submit" className="w-full sm:w-48">
-          {employee ? "Save changes" : "Save"}
+          {employee ? t("common.saveChanges") : t("common.save")}
         </Button>
       </div>
     </form>

@@ -435,7 +435,7 @@ export default function SupplierProductDetailPage() {
                     id="product-description"
                     value={description}
                     onChange={(event) => setDescription(event.target.value)}
-                    placeholder="Describe what makes this product useful to buyers."
+                    placeholder={t("products.productDescriptionPlaceholder")}
                     rows={6}
                     className="block w-full resize-y rounded-xl border border-slate-200 bg-white px-4 py-3 text-base text-slate-900 placeholder:text-slate-400 transition-[border-color,box-shadow] duration-200 hover:border-slate-300 focus:border-emerald-500 focus:outline-none focus:ring-4 focus:ring-emerald-100"
                   />
@@ -448,7 +448,7 @@ export default function SupplierProductDetailPage() {
               <div className="mb-6 flex items-start justify-between gap-4">
                 <div>
                   <h2 className="text-lg font-semibold text-slate-900">{t("products.sellingOptions")}</h2>
-                  <p className="mt-1 text-sm text-slate-500">Offer the same product by piece, pack, box, or a unit your business uses.</p>
+                  <p className="mt-1 text-sm text-slate-500">{t("products.sellingOptionsSubdesc")}</p>
                 </div>
                 <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-700"><Package className="h-4 w-4" aria-hidden="true" /></span>
               </div>
@@ -479,15 +479,15 @@ export default function SupplierProductDetailPage() {
                         </Select>
                       </div>
                       <Input id={`option-${option.id}-price`} label={`${t("common.price")} (AMD)`} type="number" min="0" step="1" value={option.price} onChange={(event) => updateSellingOption(option.id, { price: event.target.value })} placeholder="0" required disabled={userRole === "SalesManager"} />
-                      <Input id={`option-${option.id}-compare-at-price`} label={t("products.compareAtPrice")} type="number" min="0" step="1" value={option.compareAtPrice} onChange={(event) => updateSellingOption(option.id, { compareAtPrice: event.target.value })} placeholder="Optional" disabled={userRole === "SalesManager"} />
+                      <Input id={`option-${option.id}-compare-at-price`} label={t("products.compareAtPrice")} type="number" min="0" step="1" value={option.compareAtPrice} onChange={(event) => updateSellingOption(option.id, { compareAtPrice: event.target.value })} placeholder={t("common.optional")} disabled={userRole === "SalesManager"} />
                       <Input id={`option-${option.id}-minimum-order`} label={t("products.minOrderQuantity")} type="number" min="1" step="1" value={option.minimumOrderQuantity} onChange={(event) => updateSellingOption(option.id, { minimumOrderQuantity: event.target.value })} placeholder="1" required />
                     </div>
                     {option.unitType === "Package" ? <Input id={`option-${option.id}-pieces-per-package`} label={t("products.piecesPerPackage")} type="number" min="1" step="1" inputMode="numeric" value={option.piecesPerPackage} onChange={(event) => updateSellingOption(option.id, { piecesPerPackage: event.target.value })} placeholder="e.g. 12" required error={Boolean(option.piecesPerPackage) && !isPositiveWholeNumber(option.piecesPerPackage)} errorMessage={Boolean(option.piecesPerPackage) && !isPositiveWholeNumber(option.piecesPerPackage) ? "Enter a positive whole number." : undefined} containerClassName="mt-3" /> : null}
                     {option.unitType === "Custom selling unit" ? <Input id={`option-${option.id}-custom-unit`} label={t("products.customUnitName")} value={option.customUnit} onChange={(event) => updateSellingOption(option.id, { customUnit: event.target.value })} placeholder="e.g. 20 L keg or service tray" containerClassName="mt-3" required /> : null}
-                    <p className="mt-3 text-xs text-slate-500">{t("products.buyersSee")}{" "}<span className="font-semibold text-slate-700">{option.quantity || "—"} {option.unitType === "Custom selling unit" ? option.customUnit || "custom unit" : option.unitType}{option.unitType === "Package" && option.piecesPerPackage ? ` (${option.piecesPerPackage} pcs)` : ""}</span>{option.price ? ` — ${formatAmd(Number(option.price))}` : ""}{option.compareAtPrice ? <><span className="mx-1.5 text-slate-400">was</span><span className="text-slate-400 line-through">{formatAmd(Number(option.compareAtPrice))}</span></> : null}<span className="ml-2">{t("products.minOrder")}: {option.minimumOrderQuantity || "—"} {t("common.units")}</span></p>
+                    <p className="mt-3 text-xs text-slate-500">{t("products.buyersSee")}{" "}<span className="font-semibold text-slate-700">{option.quantity || "—"} {option.unitType === "Custom selling unit" ? option.customUnit || "custom unit" : option.unitType}{option.unitType === "Package" && option.piecesPerPackage ? ` (${option.piecesPerPackage} pcs)` : ""}</span>{option.price ? ` — ${formatAmd(Number(option.price))}` : ""}{option.compareAtPrice ? <><span className="mx-1.5 text-slate-400">{t("products.wasPrice")}</span><span className="text-slate-400 line-through">{formatAmd(Number(option.compareAtPrice))}</span></> : null}<span className="ml-2">{t("products.minOrder")}: {option.minimumOrderQuantity || "—"} {t("common.units")}</span></p>
                     {userRole !== "SalesManager" && (
                       isLoadingHorecaCustomers ? (
-                        <p className="mt-4 text-sm text-slate-500">Loading HORECA customers...</p>
+                        <p className="mt-4 text-sm text-slate-500">{t("common.loading")}</p>
                       ) : (
                         <IndividualPricesSection
                           resourceLabel="Company"

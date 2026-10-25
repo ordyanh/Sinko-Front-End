@@ -538,8 +538,8 @@ export default function SupplierOrderDetailsPage() {
           })),
         });
         showToast({
-          title: "Offer sent",
-          description: "Your price offer has been sent to the restaurant.",
+          title: t("orders.offerSentTitle"),
+          description: t("orders.offerSentDesc"),
           variant: "success",
         });
       } else if (nextStatus === "Confirmed" && status === "New") {
@@ -549,8 +549,8 @@ export default function SupplierOrderDetailsPage() {
           await backendUpdateOrderStatus(activeOrder.id, "Confirmed");
         }
         showToast({
-          title: "Order confirmed",
-          description: "Order has been confirmed and moved to processing.",
+          title: t("orders.orderConfirmedToastTitle"),
+          description: t("orders.orderConfirmedToastDesc"),
           variant: "success",
         });
       } else {
@@ -569,8 +569,8 @@ export default function SupplierOrderDetailsPage() {
           statusMapToBackend[nextStatus] ?? nextStatus,
         );
         showToast({
-          title: "Status updated",
-          description: "Order marked as " + nextStatus + ".",
+          title: t("orders.statusUpdatedTitle"),
+          description: t("orders.statusUpdatedDesc", undefined, { status: getLocalizedOrderStatus(nextStatus, t) }),
           variant: "success",
         });
       }
@@ -668,7 +668,7 @@ export default function SupplierOrderDetailsPage() {
         error instanceof Error ? error.message : "Couldn't update order status.";
       setOfferSaveError(errorMsg);
       showToast({
-        title: "Action failed",
+        title: t("orders.actionFailed"),
         description: errorMsg,
         variant: "error",
       });
@@ -686,14 +686,14 @@ export default function SupplierOrderDetailsPage() {
       setAssignedTo(target?.name ?? employeeId);
       setAssignedEmployeeId(employeeId);
       showToast({
-        title: "Employee assigned",
-        description: "Order successfully assigned to " + (target?.name ?? "employee") + ".",
+        title: t("orders.employeeAssignedTitle"),
+        description: t("orders.employeeAssignedDesc", undefined, { name: target?.name ?? "employee" }),
         variant: "success",
       });
     } catch (error) {
       const msg = error instanceof Error ? error.message : "Failed to assign employee.";
       showToast({
-        title: "Assignment error",
+        title: t("orders.assignmentError"),
         description: msg,
         variant: "error",
       });

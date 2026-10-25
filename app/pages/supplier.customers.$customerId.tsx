@@ -435,7 +435,7 @@ export default function SupplierCustomerProfilePage() {
               />
             )}
             {isSavingPrices ? (
-              <p className="text-sm text-slate-500">Saving company prices...</p>
+              <p className="text-sm text-slate-500">{t("common.saving")}</p>
             ) : null}
             {priceSaveError ? (
               <p role="alert" className="text-sm text-red-700">{priceSaveError}</p>

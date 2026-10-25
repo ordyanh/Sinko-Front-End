@@ -529,12 +529,13 @@ export default function HorecaSupplierDetailsPage() {
 }
 
 export function ErrorBoundary({ error }: any) {
+  const { t } = useTranslation();
   return (
     <DashboardPageContent>
       <section className="rounded-3xl border border-red-200 bg-red-50/50 p-6 text-slate-900 sm:p-8">
-        <h1 className="text-xl font-bold text-red-700">Unable to display supplier details</h1>
+        <h1 className="text-xl font-bold text-red-700">{t("suppliers.unableToDisplay")}</h1>
         <p className="mt-2 text-sm text-slate-600">
-          An error occurred while loading this supplier. Please try returning to the suppliers directory.
+          {t("suppliers.errorLoadingSupplier")}
         </p>
         {error instanceof Error ? (
           <p className="mt-3 rounded-xl bg-red-100/60 p-3 font-mono text-xs text-red-800">
@@ -547,7 +548,7 @@ export function ErrorBoundary({ error }: any) {
             className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-content transition hover:brightness-95"
           >
             <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-            Back to suppliers
+            {t("suppliers.backToSuppliers")}
           </Link>
         </div>
       </section>

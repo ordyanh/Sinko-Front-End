@@ -234,7 +234,7 @@ export default function HorecaSuppliersPage() {
             {/* Quick category filter tags */}
             {allCategories.length > 1 && (
               <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                <span className="mr-1 text-xs font-semibold text-slate-500">Filter:</span>
+                <span className="mr-1 text-xs font-semibold text-slate-500">{t("common.filter")}:</span>
                 {allCategories.map((category) => {
                   const isSelected = selectedCategory === category;
                   return (

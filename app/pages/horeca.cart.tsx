@@ -148,12 +148,12 @@ export default function HorecaCartPage() {
                     <div className="min-w-0 flex-1">
                       <p className="truncate font-semibold text-slate-900">{product.title}</p>
                       <p className="mt-0.5 text-sm text-slate-500">{getMarketplaceOptionLabel(option)} · {getMarketplaceMinimumOrderLabel(option)}</p>
-                      {pricePromotion ? <p className="mt-1 text-xs font-bold text-rose-700">{promotionTypeLabels[pricePromotion.type]} applied · <span className="line-through tabular-nums">{formatMarketplacePrice(option.price)}</span> each</p> : null}
+                      {pricePromotion ? <p className="mt-1 text-xs font-bold text-rose-700">{t("cart.appliedEach", undefined, { type: promotionTypeLabels[pricePromotion.type], price: formatMarketplacePrice(option.price) })}</p> : null}
                     </div>
                     <div className="text-right">
                       <p className="text-sm font-bold text-slate-900 tabular-nums">{formatMarketplacePrice(unitPrice * quantity)}</p>
                       {pricePromotion ? <p className="mt-0.5 text-xs text-slate-400 line-through tabular-nums">{formatMarketplacePrice(option.price * quantity)}</p> : null}
-                      <p className="mt-0.5 text-sm text-slate-500 tabular-nums">{quantity} paid × {formatMarketplacePrice(unitPrice)}</p>
+                      <p className="mt-0.5 text-sm text-slate-500 tabular-nums">{t("cart.paidQuantity", undefined, { quantity, price: formatMarketplacePrice(unitPrice) })}</p>
                     </div>
                   </li>;
                       })}
@@ -167,7 +167,7 @@ export default function HorecaCartPage() {
                           <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-violet-600 ring-1 ring-violet-200">
                             <Gift className="h-6 w-6" aria-hidden="true" />
                           </div>
-                        )}<div className="min-w-0 flex-1"><div className="flex items-center gap-2"><p className="truncate font-semibold text-slate-900">{giftProduct.title}</p><span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-violet-100 px-2 py-0.5 text-xs font-bold text-violet-700"><Gift className="h-3 w-3" aria-hidden="true" />BXGY reward</span></div><p className="mt-0.5 text-sm text-slate-500">{getMarketplaceOptionLabel(giftOption)} · {reward.quantity} free {reward.quantity === 1 ? "unit" : "units"}</p><p className="mt-1 text-xs font-semibold text-violet-700">{reward.promotion.title} · Free / promotion reward</p></div><div className="flex shrink-0 flex-col items-end gap-2"><p className="text-sm font-bold text-violet-950">0 դրամ</p><button type="button" onClick={() => removePromotionGift(reward.promotion.id, reward.quantity)} className="inline-flex min-h-8 items-center gap-1 rounded-lg border border-rose-200 bg-white px-2 text-xs font-bold text-rose-700 transition hover:bg-rose-50" aria-label={`Remove ${giftProduct.title} free promotion reward`}><Trash2 className="h-3.5 w-3.5" aria-hidden="true" />Remove reward</button></div></li>;
+                        )}<div className="min-w-0 flex-1"><div className="flex items-center gap-2"><p className="truncate font-semibold text-slate-900">{giftProduct.title}</p><span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-violet-100 px-2 py-0.5 text-xs font-bold text-violet-700"><Gift className="h-3 w-3" aria-hidden="true" />{t("cart.bxgyReward")}</span></div><p className="mt-0.5 text-sm text-slate-500">{getMarketplaceOptionLabel(giftOption)} · {t("cart.freeUnits", undefined, { quantity: reward.quantity, unit: reward.quantity === 1 ? t("common.unit") : t("common.units") })}</p><p className="mt-1 text-xs font-semibold text-violet-700">{reward.promotion.title} · {t("cart.freeReward")}</p></div><div className="flex shrink-0 flex-col items-end gap-2"><p className="text-sm font-bold text-violet-950">{formatMarketplacePrice(0)}</p><button type="button" onClick={() => removePromotionGift(reward.promotion.id, reward.quantity)} className="inline-flex min-h-8 items-center gap-1 rounded-lg border border-rose-200 bg-white px-2 text-xs font-bold text-rose-700 transition hover:bg-rose-50" aria-label={`Remove ${giftProduct.title} free promotion reward`}><Trash2 className="h-3.5 w-3.5" aria-hidden="true" />{t("cart.removeReward")}</button></div></li>;
                       })}
                     </ul>
                     <div className="flex items-center justify-between bg-slate-50/70 px-4 py-3 text-sm text-slate-600"><span>{supplier} {t("common.subtotal")}</span><span className="font-bold text-slate-900 tabular-nums">{formatMarketplacePrice(supplierTotal)}</span></div>

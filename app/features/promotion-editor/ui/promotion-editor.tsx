@@ -1034,7 +1034,7 @@ export default function PromotionEditor({
               className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-content transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Save className="h-4 w-4" aria-hidden="true" />
-              {isSaving ? t("promotions.savingPromotion") : isEditing ? t("common.saveChanges") : t("promotions.createPromotion")}
+              {isSaving ? t("promotions.savingPromotion") : t("common.save")}
             </button>
           </>
         }

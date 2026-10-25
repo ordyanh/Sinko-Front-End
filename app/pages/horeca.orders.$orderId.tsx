@@ -376,13 +376,13 @@ export default function HorecaOrderDetailsPage() {
       });
 
       showToast({
-        title: "Offer accepted",
-        description: `${activeOrder.supplierName} will start preparing order ${activeOrder.orderNumber || activeOrder.orderNum || activeOrder.id}.`,
+        title: t("orders.offerAcceptedTitle"),
+        description: t("orders.offerAcceptedDesc", undefined, { supplier: activeOrder.supplierName, orderNum: activeOrder.orderNumber || activeOrder.orderNum || activeOrder.id }),
         variant: "success",
       });
     } catch (error) {
       showToast({
-        title: "Couldn't accept offer",
+        title: t("orders.couldNotAcceptOffer"),
         description: error instanceof Error ? error.message : "Please try again.",
         variant: "error",
       });
@@ -433,13 +433,13 @@ export default function HorecaOrderDetailsPage() {
       });
 
       showToast({
-        title: "Changes sent",
-        description: `${activeOrder.supplierName} will review your changes and send a revised offer.`,
+        title: t("orders.changesSentTitle"),
+        description: t("orders.changesSentDesc", undefined, { supplier: activeOrder.supplierName }),
         variant: "success",
       });
     } catch (error) {
       showToast({
-        title: "Couldn't send changes",
+        title: t("orders.couldNotSendChanges"),
         description: error instanceof Error ? error.message : "Please try again.",
         variant: "error",
       });
@@ -453,8 +453,8 @@ export default function HorecaOrderDetailsPage() {
     try {
       const res = await backendRepeatOrder(activeOrder.id);
       showToast({
-        title: "Order repeated",
-        description: res.message || "New order created successfully.",
+        title: t("orders.orderRepeatedTitle"),
+        description: res.message || t("orders.orderRepeatedDesc"),
         variant: "success",
       });
       if (res.newOrderId) {
@@ -462,7 +462,7 @@ export default function HorecaOrderDetailsPage() {
       }
     } catch (error) {
       showToast({
-        title: "Couldn't repeat order",
+        title: t("orders.couldNotRepeatOrder"),
         description: error instanceof Error ? error.message : "Please try again.",
         variant: "error",
       });
@@ -474,8 +474,8 @@ export default function HorecaOrderDetailsPage() {
   async function handleCancelOrder() {
     if (isPurchasingEmployee) {
       showToast({
-        title: "Action not permitted",
-        description: "Purchasing employees cannot cancel organization orders.",
+        title: t("orders.actionNotPermitted"),
+        description: t("orders.purchasingCannotCancel"),
         variant: "error",
       });
       return;
@@ -514,13 +514,13 @@ export default function HorecaOrderDetailsPage() {
       });
 
       showToast({
-        title: "Order cancelled",
-        description: "This order has been cancelled.",
+        title: t("orders.orderCancelledToastTitle"),
+        description: t("orders.orderCancelledToastDesc"),
         variant: "success",
       });
     } catch (error) {
       showToast({
-        title: "Couldn't cancel order",
+        title: t("orders.couldNotCancelOrder"),
         description: error instanceof Error ? error.message : "Please try again.",
         variant: "error",
       });
@@ -532,8 +532,8 @@ export default function HorecaOrderDetailsPage() {
   async function handleApproveOrder() {
     if (isPurchasingEmployee) {
       showToast({
-        title: "Action not permitted",
-        description: "Purchasing employees cannot approve organization orders.",
+        title: t("orders.actionNotPermitted"),
+        description: t("orders.purchasingCannotApprove"),
         variant: "error",
       });
       return;
@@ -559,13 +559,13 @@ export default function HorecaOrderDetailsPage() {
       setStatus("Confirmed");
       await saveOrder(nextOrder).catch(() => {});
       showToast({
-        title: "Order approved",
-        description: "This order has been approved.",
+        title: t("orders.orderApprovedToastTitle"),
+        description: t("orders.orderApprovedToastDesc"),
         variant: "success",
       });
     } catch (error) {
       showToast({
-        title: "Couldn't approve order",
+        title: t("orders.couldNotApproveOrder"),
         description: error instanceof Error ? error.message : "Please try again.",
         variant: "error",
       });

@@ -12,7 +12,6 @@ import type { Route } from "./+types/root";
 import "./app.css";
 import { ToastProvider } from "~/shared/ui/toast";
 import { initializeDatabase } from "~/shared/lib/indexed-db";
-import { BackendEnvironmentBadge } from "~/shared/ui/backend-indicator";
 import { I18nProvider } from "~/shared/lib/i18n";
 
 export const links: Route.LinksFunction = () => [
@@ -55,7 +54,6 @@ export default function App() {
     <I18nProvider>
       <ToastProvider>
         <Outlet />
-        <BackendEnvironmentBadge />
       </ToastProvider>
     </I18nProvider>
   );

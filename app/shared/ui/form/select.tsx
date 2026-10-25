@@ -153,7 +153,7 @@ const Select = React.forwardRef<HTMLButtonElement, SelectProps>(
         return <span>{option?.label ?? selectedValue}</span>;
       }
 
-      return <span className="text-base-content/45">Select an option...</span>;
+      return <span className="text-base-content/45">{t("common.selectOption")}</span>;
     };
 
     return (

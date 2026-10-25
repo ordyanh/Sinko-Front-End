@@ -257,7 +257,7 @@ export default function SupplierProductsPage() {
       } catch (err) {
         console.error("Failed to load supplier products:", err);
         if (isCurrent) {
-          setCatalogNotice({ title: "Products unavailable", description: "We couldn't load your catalog." });
+          setCatalogNotice({ title: t("products.productsUnavailable"), description: t("products.productsUnavailable") });
         }
       }
     })();
@@ -356,8 +356,8 @@ export default function SupplierProductsPage() {
       });
     } catch {
       setCatalogNotice({
-        title: "Status wasn't saved",
-        description: "Please try changing the product status again.",
+        title: t("products.statusNotSaved"),
+        description: t("products.statusNotSavedDesc"),
       });
     }
   }
@@ -375,14 +375,14 @@ export default function SupplierProductsPage() {
         currentProducts.filter((product) => product.id !== productToDelete.id),
       );
       setCatalogNotice({
-        title: "Product deleted",
+        title: t("products.productDeleted"),
         description: `${productToDelete.name} has been removed from your catalog.`,
       });
       closeDeleteModal();
     } catch {
       setCatalogNotice({
-        title: "Product wasn't deleted",
-        description: "Please try deleting the product again.",
+        title: t("products.productDeleteError"),
+        description: t("products.productDeleteErrorDesc"),
       });
     }
   }
@@ -468,7 +468,7 @@ export default function SupplierProductsPage() {
                     aria-hidden="true"
                   />
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold">Import started</p>
+                    <p className="text-sm font-semibold">{t("products.importStarted")}</p>
                     <p className="mt-0.5 text-sm text-emerald-800">
                       We&apos;ll notify you when your products are ready.
                     </p>
@@ -640,43 +640,43 @@ export default function SupplierProductsPage() {
                 </div>
               </div>
               <span className="rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-slate-600 ring-1 ring-slate-200">
-                5 rows detected
+                {t("products.rowsDetected", undefined, { count: 5 })}
               </span>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-3">
               <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3">
                 <p className="text-2xl font-semibold tracking-tight text-emerald-800">4</p>
-                <p className="mt-0.5 text-xs font-semibold text-emerald-700">Ready to import</p>
+                <p className="mt-0.5 text-xs font-semibold text-emerald-700">{t("products.readyToImport")}</p>
               </div>
               <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3">
                 <p className="text-2xl font-semibold tracking-tight text-amber-800">1</p>
-                <p className="mt-0.5 text-xs font-semibold text-amber-700">Needs attention</p>
+                <p className="mt-0.5 text-xs font-semibold text-amber-700">{t("products.needsAttention")}</p>
               </div>
               <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
                 <p className="text-2xl font-semibold tracking-tight text-slate-800">4</p>
-                <p className="mt-0.5 text-xs font-semibold text-slate-600">Columns matched</p>
+                <p className="mt-0.5 text-xs font-semibold text-slate-600">{t("products.columnsMatched")}</p>
               </div>
             </div>
 
             <div className="overflow-hidden rounded-2xl border border-slate-200">
               <div className="flex items-center justify-between gap-3 border-b border-slate-200 bg-slate-50 px-4 py-3">
                 <div>
-                  <p className="text-sm font-semibold text-slate-900">Product manifest</p>
-                  <p className="mt-0.5 text-xs text-slate-500">A preview of the first 5 rows in your file</p>
+                  <p className="text-sm font-semibold text-slate-900">{t("products.productManifest")}</p>
+                  <p className="mt-0.5 text-xs text-slate-500">{t("products.previewFirstRows")}</p>
                 </div>
-                <span className="text-xs font-medium text-slate-500">Mock preview</span>
+                <span className="text-xs font-medium text-slate-500">{t("products.mockPreview")}</span>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[42rem] text-left text-sm">
                   <thead className="border-b border-slate-200 bg-white text-xs font-bold uppercase tracking-[0.12em] text-slate-500">
                     <tr>
-                      <th className="px-4 py-3 font-inherit">Row</th>
-                      <th className="px-4 py-3 font-inherit">Product</th>
-                      <th className="px-4 py-3 font-inherit">Category</th>
-                      <th className="px-4 py-3 font-inherit">Price</th>
-                      <th className="px-4 py-3 font-inherit">Code</th>
-                      <th className="px-4 py-3 font-inherit">Status</th>
+                      <th className="px-4 py-3 font-inherit">{t("products.tableRow")}</th>
+                      <th className="px-4 py-3 font-inherit">{t("common.product")}</th>
+                      <th className="px-4 py-3 font-inherit">{t("products.tableCategory")}</th>
+                      <th className="px-4 py-3 font-inherit">{t("common.price")}</th>
+                      <th className="px-4 py-3 font-inherit">{t("products.tableCode")}</th>
+                      <th className="px-4 py-3 font-inherit">{t("common.status")}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -696,7 +696,7 @@ export default function SupplierProductsPage() {
                           ) : (
                             <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700">
                               <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
-                              Ready
+                              {t("products.ready")}
                             </span>
                           )}
                         </td>

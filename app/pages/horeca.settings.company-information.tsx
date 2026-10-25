@@ -206,8 +206,8 @@ export default function HorecaCompanyInformationPage() {
   function openEditModal() {
     if (isPurchasingEmployee) {
       showToast({
-        title: "Access Restricted",
-        description: "Purchasing employees are not authorized to modify company settings.",
+        title: t("settings.accessRestricted"),
+        description: t("settings.purchasingCannotModify"),
         variant: "error",
       });
       return;
@@ -225,8 +225,8 @@ export default function HorecaCompanyInformationPage() {
   const handleSave: SubmitHandler<CompanyInfoState> = async (values) => {
     if (isPurchasingEmployee) {
       showToast({
-        title: "Access Restricted",
-        description: "Purchasing employees are not authorized to modify company settings.",
+        title: t("settings.accessRestricted"),
+        description: t("settings.purchasingCannotModify"),
         variant: "error",
       });
       return;
@@ -255,8 +255,8 @@ export default function HorecaCompanyInformationPage() {
             reason: "Updated via company information settings",
           });
           showToast({
-            title: "Tax ID change requested",
-            description: "HVHH update requires Synko Admin approval and has been submitted.",
+            title: t("settings.taxIdRequested"),
+            description: t("settings.taxIdRequestedDesc"),
             variant: "info",
           });
         } catch (hvhhErr) {
@@ -275,7 +275,7 @@ export default function HorecaCompanyInformationPage() {
             newEmail: values.email,
           });
           showToast({
-            title: "Email verification sent",
+            title: t("settings.emailVerificationSent"),
             description: `A verification code was sent to ${values.email}. Please verify to confirm the change.`,
             variant: "info",
           });
@@ -300,8 +300,8 @@ export default function HorecaCompanyInformationPage() {
         });
       } else {
         showToast({
-          title: "Company information updated",
-          description: "Your company details have been successfully saved to the server.",
+          title: t("settings.companyUpdated"),
+          description: t("settings.companyUpdatedDesc"),
           variant: "success",
         });
       }
@@ -310,7 +310,7 @@ export default function HorecaCompanyInformationPage() {
       void loadCompanyData();
     } catch (error) {
       showToast({
-        title: "Could not update company",
+        title: t("settings.couldNotUpdateCompany"),
         description: error instanceof Error ? error.message : "Please check your inputs and try again.",
         variant: "error",
       });
@@ -470,7 +470,7 @@ export default function HorecaCompanyInformationPage() {
           <div className="flex items-center gap-2.5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
             <AlertCircle className="h-4 w-4 shrink-0 text-amber-600" />
             <span>
-              <strong>24-hour edit limit reached:</strong> Your company has made {rawCompanyData.updateCount24h} updates in the last 24 hours. Any further modifications will be submitted for Synko Admin review.
+              <strong>{t("settings.editLimitReached")}:</strong> {t("settings.editLimitReachedDesc", undefined, { count: rawCompanyData.updateCount24h })}
             </span>
           </div>
         )}
