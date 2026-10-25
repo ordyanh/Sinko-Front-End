@@ -721,12 +721,13 @@ export default function PromotionEditor({
     const fileName = file.name.toLowerCase();
     const isJpeg = file.type === "image/jpeg" || file.type === "image/jpg" || /\.jpe?g$/.test(fileName);
     const isPng = file.type === "image/png" || /\.png$/.test(fileName);
-    if (!isJpeg && !isPng) {
+    const isWebp = file.type === "image/webp" || /\.webp$/.test(fileName);
+    if (!isJpeg && !isPng && !isWebp) {
       setVisualError(t("promotions.errorJpgPng"));
       input.value = "";
       return;
     }
-    const mimeType = isPng ? "image/png" : "image/jpeg";
+    const mimeType = isPng ? "image/png" : isWebp ? "image/webp" : "image/jpeg";
     if (file.size > 10 * 1024 * 1024) {
       setVisualError(t("promotions.errorImageSize"));
       input.value = "";
@@ -1477,7 +1478,7 @@ export default function PromotionEditor({
                         <span className="mt-1 text-xs text-slate-500">{t("promotions.uploadBannerImageSpecs")}</span>
                       </label>
                     )}
-                    <input ref={visualUploadInputRef} id="promotion-visual" type="file" accept=".jpg,.jpeg,.png,image/jpeg,image/png" onChange={handleVisualUpload} className="sr-only" />
+                    <input ref={visualUploadInputRef} id="promotion-visual" type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" onChange={handleVisualUpload} className="sr-only" />
                     {visualUrl ? <label htmlFor="promotion-visual" className="mt-3 inline-flex cursor-pointer items-center gap-2 text-sm font-semibold text-primary hover:text-primary/75"><ImagePlus className="h-4 w-4" aria-hidden="true" />{t("promotions.replaceImage")}</label> : null}
                     {visualError ? <p className="mt-2 text-xs font-medium text-rose-600">{visualError}</p> : null}
                   </div>

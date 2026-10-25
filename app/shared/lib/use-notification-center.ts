@@ -106,6 +106,7 @@ export function playNotificationSound(kind: NotificationStatusKind = "info") {
 
 // Track IDs of toasts that have already been shown during this session to avoid repeats
 const shownToastIds = new Set<string>();
+const shownOrderToastTimes = new Map<string, number>();
 
 export function useNotificationCenter(accountType: DashboardAccountType = "horeca") {
   const navigate = useNavigate();
@@ -115,9 +116,39 @@ export function useNotificationCenter(accountType: DashboardAccountType = "horec
   const socketRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  const isClientRole = accountType === "horeca" || (accountType as string) === "client";
+  const isSupplierRole = accountType === "supplier";
+
+  // Check if a notification is appropriate for the current role:
+  // - Client must NOT see supplier notifications (1..8) or self-order submitted notifications (20)
+  // - Supplier must NOT see client notifications (20..26)
+  const isRelevantForRole = useCallback((item: NotificationItemDto): boolean => {
+    const typeNum = Number(item.notificationType ?? 0);
+    if (isClientRole) {
+      if (typeNum >= 1 && typeNum <= 8) return false;
+      if (typeNum === 20) return false; // Hide self-order submitted notification
+    } else if (isSupplierRole) {
+      if (typeNum >= 20 && typeNum <= 26) return false;
+    }
+    return true;
+  }, [isClientRole, isSupplierRole]);
+
   // Helper to add toast and play sound
   const addToast = useCallback((item: NotificationItemDto) => {
     if (!item.id || shownToastIds.has(item.id)) return;
+    if (!isRelevantForRole(item)) return;
+
+    // Deduplicate rapid duplicate notifications for the same order & status (e.g., WS push + polling fallback)
+    if (item.orderId) {
+      const orderKey = `${item.orderId.toLowerCase()}-${item.status ?? ""}`;
+      const lastShown = shownOrderToastTimes.get(orderKey);
+      const now = Date.now();
+      if (lastShown && now - lastShown < 15000) {
+        return;
+      }
+      shownOrderToastTimes.set(orderKey, now);
+    }
+
     shownToastIds.add(item.id);
 
     const theme = getNotificationTheme(item);
@@ -130,7 +161,7 @@ export function useNotificationCenter(accountType: DashboardAccountType = "horec
     };
 
     setActiveToasts((prev) => [toast, ...prev.slice(0, 4)]);
-  }, []);
+  }, [isRelevantForRole]);
 
   const dismissToast = useCallback((toastId: string) => {
     setActiveToasts((prev) => prev.filter((t) => t.toastId !== toastId));
@@ -141,14 +172,15 @@ export function useNotificationCenter(accountType: DashboardAccountType = "horec
     try {
       const items = await getNotifications();
       if (Array.isArray(items)) {
-        setNotifications(items);
-        const unread = items.filter((n) => !n.isRead).length;
+        const filtered = items.filter(isRelevantForRole);
+        setNotifications(filtered);
+        const unread = filtered.filter((n) => !n.isRead).length;
         setUnreadCount(unread);
 
         // Check if any fresh unread notification arrived recently (within last 3 minutes)
         // and hasn't been shown as toast yet
         const now = Date.now();
-        items.forEach((item) => {
+        filtered.forEach((item) => {
           if (!item.isRead) {
             const itemTime = new Date(item.createdAt || item.creationDate || "").getTime();
             if (!isNaN(itemTime) && now - itemTime < 180000) {
@@ -160,7 +192,7 @@ export function useNotificationCenter(accountType: DashboardAccountType = "horec
     } catch {
       // Backend might be warming up or offline
     }
-  }, [addToast]);
+  }, [addToast, isRelevantForRole]);
 
   // Navigate directly to the order page
   const openOrder = useCallback(
@@ -317,8 +349,23 @@ export function useNotificationCenter(accountType: DashboardAccountType = "horec
             }
 
             const normalized = normalizeNotification(raw);
-            setNotifications((prev) => [normalized, ...prev.filter((n) => n.id !== normalized.id)]);
-            setUnreadCount((prev) => prev + 1);
+            if (!isRelevantForRole(normalized)) {
+              return;
+            }
+
+            let isNewItem = false;
+            setNotifications((prev) => {
+              const alreadyHas = prev.some(
+                (n) => n.id === normalized.id || (n.orderId && normalized.orderId && n.orderId.toLowerCase() === normalized.orderId.toLowerCase() && n.status === normalized.status)
+              );
+              if (alreadyHas) return prev;
+              isNewItem = true;
+              return [normalized, ...prev];
+            });
+
+            if (isNewItem) {
+              setUnreadCount((prev) => prev + 1);
+            }
             addToast(normalized);
 
             // If notification is order-related, trigger order tables update

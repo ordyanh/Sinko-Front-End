@@ -51,6 +51,7 @@ import {
   cancelOrder as backendCancelOrder,
   getSupplierPromotions as getBackendSupplierPromotions,
   createPromotion as createBackendPromotion,
+  updatePromotion as updateBackendPromotion,
   getMarketplacePromotions,
   getActivePromotions,
   ApiError,
@@ -1343,8 +1344,13 @@ function mapBackendPromotionToStored(
         : "all-customers",
     eligibleCustomerIds: bp.targetCustomerIds || bp.TargetCustomerIds || [],
     applyOnIndividualPricing: Boolean(bp.applyOnIndividualPricing ?? bp.ApplyOnIndividualPricing),
-    isBannerEnabled: true,
-    display: "both",
+    isBannerEnabled: bp.bannerEnabled ?? bp.BannerEnabled ?? true,
+    display:
+      (bp.discoveryLocation || bp.DiscoveryLocation) === "Home"
+        ? "home-banner"
+        : (bp.discoveryLocation || bp.DiscoveryLocation) === "Promotions"
+          ? "promotion-list"
+          : "both",
     bannerImage: bannerImgUrl
       ? {
           dataUrl: bannerImgUrl,
@@ -1403,7 +1409,7 @@ export async function getSupplierPromotions(
             targetOptionId: existing.targetOptionId ?? base.targetOptionId,
             giftChoices:
               existing.giftChoices?.length ? existing.giftChoices : base.giftChoices,
-            bannerImage: existing.bannerImage ?? base.bannerImage,
+            bannerImage: base.bannerImage ?? existing.bannerImage,
           };
         }
         return base;
@@ -1549,14 +1555,21 @@ export async function saveSupplierPromotion(
         })
       : undefined;
 
-    const createdBackend = await createBackendPromotion({
+    const promoPayload = {
       name: promotion.name,
       description: promotion.description,
-      type: isBuyXGetY ? "BuyXGetY" : isPercentage ? "Percentage" : "FixedPrice",
+      type: (isBuyXGetY ? "BuyXGetY" : isPercentage ? "Percentage" : "FixedPrice") as "BuyXGetY" | "Percentage" | "FixedPrice",
       startDate,
       endDate,
-      status: promotion.status === "Active" ? "Active" : "Draft",
-      bannerEnabled: promotion.isBannerEnabled,
+      status: (promotion.status === "Active" ? "Active" : "Draft") as "Active" | "Draft",
+      bannerEnabled: Boolean(promotion.isBannerEnabled),
+      bannerImageUrl: promotion.bannerImage?.dataUrl || null,
+      discoveryLocation:
+        promotion.display === "home-banner"
+          ? "Home"
+          : promotion.display === "promotion-list"
+            ? "Promotions"
+            : "Home + Promotions",
       brandColorFallback: promotion.brandColorFallback,
       visibilityType: promotion.eligibility === "specific-customers" ? 2 : 1,
       targetCustomerIds:
@@ -1573,9 +1586,22 @@ export async function saveSupplierPromotion(
             getDiscountPercent: 100,
           }
         : null,
-    });
+    };
 
-    const realId = createdBackend?.id || (createdBackend as any)?.Id;
+    const isExistingBackendPromo = Boolean(promotion.id && !promotion.id.startsWith("PROMO-") && !promotion.id.startsWith("temp-"));
+    let createdBackend: any = null;
+
+    if (isExistingBackendPromo) {
+      try {
+        await updateBackendPromotion(promotion.id, promoPayload);
+      } catch {
+        createdBackend = await createBackendPromotion(promoPayload);
+      }
+    } else {
+      createdBackend = await createBackendPromotion(promoPayload);
+    }
+
+    const realId = createdBackend?.id || (createdBackend as any)?.Id || (createdBackend as any)?.PromotionId || (createdBackend as any)?.promotionId;
     if (realId && String(realId) !== promotion.id) {
       const oldTempId = promotion.id;
       promotion.id = String(realId);

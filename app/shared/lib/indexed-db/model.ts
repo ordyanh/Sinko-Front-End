@@ -109,7 +109,7 @@ export type StoredSupplierPromotion = {
   bannerImage?: {
     dataUrl: string;
     fileName: string;
-    mimeType: "image/jpeg" | "image/png";
+    mimeType: "image/jpeg" | "image/png" | "image/webp";
   };
   brandColorFallback: string;
   createdAt: string;
