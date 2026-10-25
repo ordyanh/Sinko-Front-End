@@ -347,8 +347,11 @@ export function normalizeNotification(raw: any): NotificationItemDto {
   const cleanTitle = sanitizeOrderText(title, orderNum, orderId);
   const cleanMsg = sanitizeOrderText(msg, orderNum, orderId);
 
+  const rawId = raw.id ?? raw.Id ?? raw.notificationId ?? raw.NotificationId;
+  const resolvedId = String(rawId || promoId || orderId || `notif-${Date.now()}`);
+
   return {
-    id: String(raw.id ?? raw.Id ?? (orderId ? `${orderId}-${parsedDateIso}` : promoId ? `${promoId}-${parsedDateIso}` : `notif-${Date.now()}`)),
+    id: resolvedId,
     userId: raw.userId ?? raw.UserId ? String(raw.userId ?? raw.UserId) : undefined,
     orderId,
     orderNum,
@@ -427,9 +430,24 @@ export async function getUnreadNotificationsCount(): Promise<number> {
 }
 
 export async function markNotificationRead(id: string): Promise<void> {
-  return apiRequest<void>(`/api/Notifications/${id}/read`, {
-    method: "POST",
-  });
+  if (!id) return;
+  // If this is a purely local client-side notification that was never stored on the server
+  if (id.startsWith("notif-client-") || id.startsWith("client-")) {
+    return;
+  }
+
+  // Extract clean GUID if composite ID or timestamp suffix was passed
+  const guidMatch = id.match(/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/);
+  const targetId = guidMatch ? guidMatch[0] : id.trim();
+
+  try {
+    await apiRequest<void>(`/api/Notifications/${encodeURIComponent(targetId)}/read`, {
+      method: "POST",
+    });
+  } catch (err) {
+    // Gracefully handle 404/network errors so user navigation or UI dismissal never fails
+    console.debug(`[markNotificationRead] Notification ${targetId} could not be marked on server:`, err);
+  }
 }
 
 export async function markAllNotificationsRead(): Promise<void> {
