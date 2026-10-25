@@ -10,6 +10,10 @@ export type SeedUser = {
   address: string;
   displayName: string;
   phoneNumber?: string;
+  userRole?: string;
+  permissions?: string[];
+  accessibleModules?: string[];
+  assignedServiceAreas?: string[];
 };
 
 export type LoggedInUser = Omit<SeedUser, "password">;

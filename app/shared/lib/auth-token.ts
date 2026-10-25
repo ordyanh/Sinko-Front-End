@@ -118,14 +118,91 @@ export function getDecodedAuthToken(): JwtPayload | null {
   }
 }
 
+const EMPLOYEE_ROLE_MAP: Record<string, string> = {
+  "1": "Admin",
+  "2": "SuperAdmin",
+  "3": "PurchasingManager",
+  "4": "SalesManager",
+  "5": "PurchasingEmployee",
+  "6": "WarehouseManager",
+  "7": "DeliveryManager",
+  "8": "Accountant",
+  "9": "FinanceManager",
+  "10": "CustomerSupport",
+};
+
+export function normalizeEmployeeRole(rawRole: unknown): string | null {
+  if (rawRole == null) return null;
+  const str = String(rawRole).trim();
+  if (EMPLOYEE_ROLE_MAP[str]) return EMPLOYEE_ROLE_MAP[str];
+  return str;
+}
+
 export function getCurrentUserEmployeeRole(): string | null {
   const payload = getDecodedAuthToken();
   if (!payload) return null;
-  return (
-    (payload.EmployeeRole as string) ??
-    (payload.employeeRole as string) ??
-    null
-  );
+  const rawRole =
+    payload.EmployeeRole ??
+    payload.employeeRole ??
+    payload["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"] ??
+    null;
+  return normalizeEmployeeRole(rawRole);
+}
+
+export function isSupplierAdmin(role?: string | null): boolean {
+  const r = role ?? getCurrentUserEmployeeRole();
+  return r === "Admin" || r === "SuperAdmin";
+}
+
+export function isSalesManager(role?: string | null): boolean {
+  const r = role ?? getCurrentUserEmployeeRole();
+  return r === "SalesManager";
+}
+
+export function isWarehouseManager(role?: string | null): boolean {
+  const r = role ?? getCurrentUserEmployeeRole();
+  return r === "WarehouseManager";
+}
+
+export function getAccessibleSupplierModules(role?: string | null): string[] {
+  const r = role ?? getCurrentUserEmployeeRole();
+  if (!r || isSupplierAdmin(r)) {
+    return [
+      "dashboard",
+      "orders",
+      "products",
+      "customers",
+      "employees",
+      "promotions",
+      "settings",
+      "analytics",
+      "reports",
+      "notifications",
+      "subscription",
+      "company"
+    ];
+  }
+  if (r === "SalesManager") {
+    return ["orders", "products", "customers", "notifications"];
+  }
+  if (r === "WarehouseManager") {
+    return ["orders", "notifications"];
+  }
+  if (r === "DeliveryManager") {
+    return ["orders", "notifications"];
+  }
+  if (r === "Accountant" || r === "FinanceManager") {
+    return ["orders", "customers", "subscription", "analytics", "reports", "notifications"];
+  }
+  if (r === "CustomerSupport") {
+    return ["orders", "products", "customers", "promotions", "notifications"];
+  }
+  return ["orders"];
+}
+
+export function canAccessModule(moduleName: string, role?: string | null): boolean {
+  const modules = getAccessibleSupplierModules(role);
+  return modules.includes(moduleName.toLowerCase());
 }
 
 export function getCurrentUserRole(): "Client" | "Supplier" | null {

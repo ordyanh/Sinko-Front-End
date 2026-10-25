@@ -196,6 +196,7 @@ export default function SupplierProductsPage() {
   const [importMessageVisible, setImportMessageVisible] = useState(false);
   const [catalogNotice, setCatalogNotice] = useState<CatalogNotice | null>(null);
   const [productToDelete, setProductToDelete] = useState<SupplierProduct | null>(null);
+  const [userRole, setUserRole] = useState<string | null>(null);
 
   const supplierProductSearchFilters: SearchFilterDefinition[] = [
     {
@@ -225,6 +226,7 @@ export default function SupplierProductsPage() {
       const currentAccountId = user?.id || "supplier";
       if (!isCurrent) return;
       setAccountId(currentAccountId);
+      setUserRole(user?.userRole ?? null);
 
       try {
         const [storedProducts, categories] = await Promise.all([
@@ -414,17 +416,19 @@ export default function SupplierProductsPage() {
           </button>
         }
         secondaryActions={
-          <button
-            type="button"
-            onClick={() => {
-              setImportStep("upload");
-              setIsImportModalOpen(true);
-            }}
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-          >
-            <Upload className="h-4 w-4" aria-hidden="true" />
-            Import from CSV
-          </button>
+          userRole !== "SalesManager" ? (
+            <button
+              type="button"
+              onClick={() => {
+                setImportStep("upload");
+                setIsImportModalOpen(true);
+              }}
+              className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+            >
+              <Upload className="h-4 w-4" aria-hidden="true" />
+              Import from CSV
+            </button>
+          ) : undefined
         }
         additionalContent={
           importMessageVisible || catalogNotice ? (
@@ -502,12 +506,16 @@ export default function SupplierProductsPage() {
             icon: <Power aria-hidden="true" />,
             onClick: handleToggleProductStatus,
           },
-          {
-            label: t("common.delete"),
-            icon: <Trash2 aria-hidden="true" />,
-            variant: "danger",
-            onClick: setProductToDelete,
-          },
+          ...(userRole !== "SalesManager"
+            ? [
+                {
+                  label: t("common.delete"),
+                  icon: <Trash2 aria-hidden="true" />,
+                  variant: "danger" as const,
+                  onClick: setProductToDelete,
+                },
+              ]
+            : []),
         ]}
         page={page}
         onPageChange={setPage}

@@ -189,6 +189,10 @@ export default function PromotionEditor({
   const navigate = useNavigate();
   const { showToast } = useToast();
   const { t } = useTranslation();
+  const showToastRef = useRef(showToast);
+  showToastRef.current = showToast;
+  const tRef = useRef(t);
+  tRef.current = t;
 
   const bannerPlacementOptions: Array<{
     value: PromotionDisplay;
@@ -484,9 +488,9 @@ export default function PromotionEditor({
     })().catch(() => {
       if (!isCurrent) return;
       setIsLoadingPromotion(false);
-      showToast({
-        title: t("promotions.detailsUnavailableTitle"),
-        description: t("promotions.detailsUnavailableDesc"),
+      showToastRef.current({
+        title: tRef.current("promotions.detailsUnavailableTitle"),
+        description: tRef.current("promotions.detailsUnavailableDesc"),
         variant: "error",
       });
     });
@@ -494,7 +498,7 @@ export default function PromotionEditor({
     return () => {
       isCurrent = false;
     };
-  }, [isEditing, promotionId, showToast, t]);
+  }, [isEditing, promotionId]);
 
   async function handleStatusChange(nextIsActive: boolean) {
     if (nextIsActive && (!startDate || !startDate.trim())) {
@@ -714,8 +718,9 @@ export default function PromotionEditor({
   }
 
   function handleVisualUpload(event: React.ChangeEvent<HTMLInputElement>) {
+    event.stopPropagation();
     const input = event.currentTarget;
-    const file = input.files?.[0];
+    const file = input?.files?.[0];
     if (!file) return;
 
     const fileName = file.name.toLowerCase();
@@ -724,82 +729,87 @@ export default function PromotionEditor({
     const isWebp = file.type === "image/webp" || /\.webp$/.test(fileName);
     if (!isJpeg && !isPng && !isWebp) {
       setVisualError(t("promotions.errorJpgPng"));
-      input.value = "";
+      if (input) input.value = "";
       return;
     }
-    const mimeType = isPng ? "image/png" : isWebp ? "image/webp" : "image/jpeg";
+    const outputMime: "image/jpeg" | "image/png" | "image/webp" = isPng ? "image/png" : isWebp ? "image/webp" : "image/jpeg";
     if (file.size > 10 * 1024 * 1024) {
       setVisualError(t("promotions.errorImageSize"));
-      input.value = "";
+      if (input) input.value = "";
       return;
     }
     setVisualError("");
 
     const reader = new FileReader();
     reader.onload = () => {
-      const rawDataUrl = typeof reader.result === "string" ? reader.result : "";
-      if (!rawDataUrl) {
-        setVisualError(t("promotions.errorImageUnreadable"));
-        input.value = "";
-        return;
-      }
+      try {
+        const rawDataUrl = typeof reader.result === "string" ? reader.result : "";
+        if (!rawDataUrl) {
+          setVisualError(t("promotions.errorImageUnreadable"));
+          if (input) input.value = "";
+          return;
+        }
 
-      // Resize and compress via canvas to avoid browser memory bloat and tab crashes
-      const img = new Image();
-      img.onload = () => {
-        try {
-          const maxWidth = 1200;
-          const maxHeight = 600;
-          let width = img.width;
-          let height = img.height;
+        // Resize and compress via canvas to avoid browser memory bloat and tab crashes
+        const img = new Image();
+        img.onload = () => {
+          try {
+            const maxWidth = 960;
+            const maxHeight = 480;
+            let width = img.width;
+            let height = img.height;
 
-          if (width > maxWidth || height > maxHeight) {
-            const ratio = Math.min(maxWidth / width, maxHeight / height);
-            width = Math.round(width * ratio);
-            height = Math.round(height * ratio);
-          }
+            if (width > maxWidth || height > maxHeight) {
+              const ratio = Math.min(maxWidth / width, maxHeight / height);
+              width = Math.round(width * ratio);
+              height = Math.round(height * ratio);
+            }
 
-          const canvas = document.createElement("canvas");
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext("2d");
-          if (ctx) {
-            ctx.drawImage(img, 0, 0, width, height);
-            const compressed = canvas.toDataURL(mimeType, 0.85);
-            setVisualUrl(compressed);
-            setBannerImage({
-              dataUrl: compressed,
-              fileName: file.name,
-              mimeType,
-            });
-          } else {
+            const canvas = document.createElement("canvas");
+            canvas.width = Math.max(1, width);
+            canvas.height = Math.max(1, height);
+            const ctx = canvas.getContext("2d");
+            if (ctx) {
+              ctx.drawImage(img, 0, 0, width, height);
+              const compressed = canvas.toDataURL(outputMime, 0.85);
+              setVisualUrl(compressed);
+              setBannerImage({
+                dataUrl: compressed,
+                fileName: file.name,
+                mimeType: outputMime,
+              });
+            } else {
+              setVisualUrl(rawDataUrl);
+              setBannerImage({
+                dataUrl: rawDataUrl,
+                fileName: file.name,
+                mimeType: outputMime,
+              });
+            }
+          } catch {
             setVisualUrl(rawDataUrl);
             setBannerImage({
               dataUrl: rawDataUrl,
               fileName: file.name,
-              mimeType,
+              mimeType: outputMime,
             });
+          } finally {
+            if (input) input.value = "";
           }
-        } catch {
-          setVisualUrl(rawDataUrl);
-          setBannerImage({
-            dataUrl: rawDataUrl,
-            fileName: file.name,
-            mimeType,
-          });
-        } finally {
-          input.value = "";
-        }
-      };
-      img.onerror = () => {
-        setVisualError(t("promotions.errorImageRender"));
-        input.value = "";
-      };
-      img.src = rawDataUrl;
+        };
+        img.onerror = () => {
+          setVisualError(t("promotions.errorImageRender"));
+          if (input) input.value = "";
+        };
+        img.src = rawDataUrl;
+      } catch {
+        setVisualError(t("promotions.errorImageUnreadable"));
+        if (input) input.value = "";
+      }
     };
     reader.onerror = () => {
       setVisualError(t("promotions.errorImageUnreadable"));
-      input.value = "";
+      if (input) input.value = "";
     };
     reader.readAsDataURL(file);
   }
@@ -1461,26 +1471,86 @@ export default function PromotionEditor({
                   </div>
 
                   <div className="border-t border-slate-100 pt-5">
-                    <p className="text-sm font-medium text-slate-900">{t("promotions.bannerVisual")} <span className="font-normal text-slate-500">({t("common.optional")})</span></p>
-                    <p className="mt-1 text-xs leading-5 text-slate-500">{t("promotions.bannerVisualDesc")}</p>
+                    <p className="text-sm font-semibold text-slate-900">
+                      {t("promotions.bannerVisual")}{" "}
+                      <span className="font-normal text-slate-500">({t("common.optional")})</span>
+                    </p>
+                    <p className="mt-1 text-xs leading-5 text-slate-500">
+                      {t("promotions.bannerVisualDesc")}
+                    </p>
+
                     {visualUrl ? (
-                      <div className="group relative mt-3 aspect-[16/7] overflow-hidden rounded-2xl bg-slate-100">
-                        <img src={visualUrl} alt={t("promotions.bannerPreview")} className="h-full w-full object-cover" />
-                        <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-3 bg-gradient-to-t from-slate-950/80 to-transparent px-3 pb-3 pt-10">
-                          <span className="text-xs font-semibold text-white">{bannerImage?.fileName ?? t("promotions.bannerPreview")}</span>
-                          <button type="button" onClick={clearBannerVisual} className="inline-flex items-center gap-1 rounded-lg bg-white/90 px-2 py-1 text-xs font-bold text-slate-700 transition hover:bg-white"><X className="h-3.5 w-3.5" aria-hidden="true" />{t("common.remove")}</button>
+                      <div className="mt-3 flex flex-col sm:flex-row items-start sm:items-center gap-4 rounded-2xl border border-slate-200 bg-slate-50/80 p-3.5">
+                        <div className="relative h-20 w-36 sm:h-24 sm:w-44 shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                          <img
+                            src={visualUrl}
+                            alt={bannerImage?.fileName ?? t("promotions.bannerPreview")}
+                            className="h-full w-full object-cover"
+                          />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-semibold text-slate-900" title={bannerImage?.fileName}>
+                            {bannerImage?.fileName ?? t("promotions.bannerPreview")}
+                          </p>
+                          <p className="mt-0.5 text-xs text-slate-500">
+                            {t("promotions.customImageUploaded")}
+                          </p>
+                          <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => visualUploadInputRef.current?.click()}
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 hover:border-slate-400 active:bg-slate-100"
+                            >
+                              <ImagePlus className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
+                              {t("promotions.replaceImage")}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={clearBannerVisual}
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-700 transition hover:bg-rose-100 active:bg-rose-200"
+                            >
+                              <X className="h-3.5 w-3.5" aria-hidden="true" />
+                              {t("common.delete")}
+                            </button>
+                          </div>
                         </div>
                       </div>
                     ) : (
-                      <label htmlFor="promotion-visual" className="mt-3 flex cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-7 text-center transition hover:border-primary/50 hover:bg-primary/5">
-                        <span className="grid h-10 w-10 place-items-center rounded-xl bg-white text-primary shadow-sm"><ImagePlus className="h-5 w-5" aria-hidden="true" /></span>
-                        <span className="mt-2 text-sm font-semibold text-slate-800">{t("promotions.uploadBannerImage")}</span>
-                        <span className="mt-1 text-xs text-slate-500">{t("promotions.uploadBannerImageSpecs")}</span>
-                      </label>
+                      <div
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => visualUploadInputRef.current?.click()}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            visualUploadInputRef.current?.click();
+                          }
+                        }}
+                        className="mt-3 flex cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-center transition hover:border-primary/50 hover:bg-primary/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                      >
+                        <span className="grid h-10 w-10 place-items-center rounded-xl bg-white text-primary shadow-sm">
+                          <ImagePlus className="h-5 w-5" aria-hidden="true" />
+                        </span>
+                        <span className="mt-2 text-sm font-semibold text-slate-800">
+                          {t("promotions.uploadBannerImage")}
+                        </span>
+                        <span className="mt-1 text-xs text-slate-500">
+                          {t("promotions.uploadBannerImageSpecs")}
+                        </span>
+                      </div>
                     )}
-                    <input ref={visualUploadInputRef} id="promotion-visual" type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" onChange={handleVisualUpload} className="sr-only" />
-                    {visualUrl ? <label htmlFor="promotion-visual" className="mt-3 inline-flex cursor-pointer items-center gap-2 text-sm font-semibold text-primary hover:text-primary/75"><ImagePlus className="h-4 w-4" aria-hidden="true" />{t("promotions.replaceImage")}</label> : null}
-                    {visualError ? <p className="mt-2 text-xs font-medium text-rose-600">{visualError}</p> : null}
+                    <input
+                      ref={visualUploadInputRef}
+                      id="promotion-visual"
+                      type="file"
+                      accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+                      onChange={handleVisualUpload}
+                      onClick={(e) => e.stopPropagation()}
+                      className="sr-only"
+                    />
+                    {visualError ? (
+                      <p className="mt-2 text-xs font-medium text-rose-600">{visualError}</p>
+                    ) : null}
                   </div>
 
                   <div className="border-t border-slate-100 pt-5">

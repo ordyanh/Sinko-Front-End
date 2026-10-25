@@ -107,6 +107,7 @@ export default function SupplierProductDetailPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [horecaCustomers, setHorecaCustomers] = useState<LoggedInUser[]>([]);
   const [isLoadingHorecaCustomers, setIsLoadingHorecaCustomers] = useState(true);
+  const [userRole, setUserRole] = useState<string | null>(null);
 
   useEffect(() => {
     let isCurrent = true;
@@ -116,6 +117,7 @@ export default function SupplierProductDetailPage() {
       const currentAccountId = user?.id || "supplier";
       if (!isCurrent) return;
       setAccountId(currentAccountId);
+      setUserRole(user?.userRole ?? null);
 
       try {
         const [categories, profile, product] = await Promise.all([
@@ -476,36 +478,38 @@ export default function SupplierProductDetailPage() {
                           ))}
                         </Select>
                       </div>
-                      <Input id={`option-${option.id}-price`} label={`${t("common.price")} (AMD)`} type="number" min="0" step="1" value={option.price} onChange={(event) => updateSellingOption(option.id, { price: event.target.value })} placeholder="0" required />
-                      <Input id={`option-${option.id}-compare-at-price`} label={t("products.compareAtPrice")} type="number" min="0" step="1" value={option.compareAtPrice} onChange={(event) => updateSellingOption(option.id, { compareAtPrice: event.target.value })} placeholder="Optional" />
+                      <Input id={`option-${option.id}-price`} label={`${t("common.price")} (AMD)`} type="number" min="0" step="1" value={option.price} onChange={(event) => updateSellingOption(option.id, { price: event.target.value })} placeholder="0" required disabled={userRole === "SalesManager"} />
+                      <Input id={`option-${option.id}-compare-at-price`} label={t("products.compareAtPrice")} type="number" min="0" step="1" value={option.compareAtPrice} onChange={(event) => updateSellingOption(option.id, { compareAtPrice: event.target.value })} placeholder="Optional" disabled={userRole === "SalesManager"} />
                       <Input id={`option-${option.id}-minimum-order`} label={t("products.minOrderQuantity")} type="number" min="1" step="1" value={option.minimumOrderQuantity} onChange={(event) => updateSellingOption(option.id, { minimumOrderQuantity: event.target.value })} placeholder="1" required />
                     </div>
                     {option.unitType === "Package" ? <Input id={`option-${option.id}-pieces-per-package`} label={t("products.piecesPerPackage")} type="number" min="1" step="1" inputMode="numeric" value={option.piecesPerPackage} onChange={(event) => updateSellingOption(option.id, { piecesPerPackage: event.target.value })} placeholder="e.g. 12" required error={Boolean(option.piecesPerPackage) && !isPositiveWholeNumber(option.piecesPerPackage)} errorMessage={Boolean(option.piecesPerPackage) && !isPositiveWholeNumber(option.piecesPerPackage) ? "Enter a positive whole number." : undefined} containerClassName="mt-3" /> : null}
                     {option.unitType === "Custom selling unit" ? <Input id={`option-${option.id}-custom-unit`} label={t("products.customUnitName")} value={option.customUnit} onChange={(event) => updateSellingOption(option.id, { customUnit: event.target.value })} placeholder="e.g. 20 L keg or service tray" containerClassName="mt-3" required /> : null}
                     <p className="mt-3 text-xs text-slate-500">{t("products.buyersSee")}{" "}<span className="font-semibold text-slate-700">{option.quantity || "—"} {option.unitType === "Custom selling unit" ? option.customUnit || "custom unit" : option.unitType}{option.unitType === "Package" && option.piecesPerPackage ? ` (${option.piecesPerPackage} pcs)` : ""}</span>{option.price ? ` — ${formatAmd(Number(option.price))}` : ""}{option.compareAtPrice ? <><span className="mx-1.5 text-slate-400">was</span><span className="text-slate-400 line-through">{formatAmd(Number(option.compareAtPrice))}</span></> : null}<span className="ml-2">{t("products.minOrder")}: {option.minimumOrderQuantity || "—"} {t("common.units")}</span></p>
-                    {isLoadingHorecaCustomers ? (
-                      <p className="mt-4 text-sm text-slate-500">Loading HORECA customers...</p>
-                    ) : (
-                      <IndividualPricesSection
-                        resourceLabel="Company"
-                        resourceLabelPlural="companies"
-                        title={t("products.companyPricesForOption")}
-                        description={t("products.companyPricesForOptionDesc")}
-                        variant="embedded"
-                        idPrefix={`selling-option-${option.id}-company-price`}
-                        resources={horecaCustomers.map((customer) => ({
-                          id: customer.id,
-                          label: customer.companyName,
-                          description: "HORECA",
-                          originalPrice: Number(option.price) || 0,
-                          imageUrl: "",
-                        }))}
-                        initialPrices={option.companyPrices}
-                        resetKey={`${productId ?? ""}-${option.id}-${isNewProduct}`}
-                        formatPrice={formatAmd}
-                        showOriginalPriceInResourceSelection={false}
-                        onPricesChange={(companyPrices) => updateOptionCompanyPrices(option.id, companyPrices)}
-                      />
+                    {userRole !== "SalesManager" && (
+                      isLoadingHorecaCustomers ? (
+                        <p className="mt-4 text-sm text-slate-500">Loading HORECA customers...</p>
+                      ) : (
+                        <IndividualPricesSection
+                          resourceLabel="Company"
+                          resourceLabelPlural="companies"
+                          title={t("products.companyPricesForOption")}
+                          description={t("products.companyPricesForOptionDesc")}
+                          variant="embedded"
+                          idPrefix={`selling-option-${option.id}-company-price`}
+                          resources={horecaCustomers.map((customer) => ({
+                            id: customer.id,
+                            label: customer.companyName,
+                            description: "HORECA",
+                            originalPrice: Number(option.price) || 0,
+                            imageUrl: "",
+                          }))}
+                          initialPrices={option.companyPrices}
+                          resetKey={`${productId ?? ""}-${option.id}-${isNewProduct}`}
+                          formatPrice={formatAmd}
+                          showOriginalPriceInResourceSelection={false}
+                          onPricesChange={(companyPrices) => updateOptionCompanyPrices(option.id, companyPrices)}
+                        />
+                      )
                     )}
                   </div>
                 ))}

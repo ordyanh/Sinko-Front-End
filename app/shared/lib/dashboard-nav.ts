@@ -32,6 +32,38 @@ export const supplierDashboardMenuLinks: DashboardMenuLink[] = [
   },
 ];
 
+export function getFilteredSupplierMenuLinks(role?: string | null): DashboardMenuLink[] {
+  if (!role || role === "Admin" || role === "SuperAdmin") {
+    return supplierDashboardMenuLinks;
+  }
+  if (role === "SalesManager") {
+    return supplierDashboardMenuLinks.filter((link) =>
+      ["Orders", "Products", "Customers"].includes(link.label)
+    );
+  }
+  if (role === "WarehouseManager") {
+    return supplierDashboardMenuLinks.filter((link) =>
+      ["Orders"].includes(link.label)
+    );
+  }
+  if (role === "DeliveryManager") {
+    return supplierDashboardMenuLinks.filter((link) =>
+      ["Orders"].includes(link.label)
+    );
+  }
+  if (role === "Accountant" || role === "FinanceManager") {
+    return supplierDashboardMenuLinks.filter((link) =>
+      ["Dashboard", "Orders", "Customers"].includes(link.label)
+    );
+  }
+  if (role === "CustomerSupport") {
+    return supplierDashboardMenuLinks.filter((link) =>
+      ["Orders", "Products", "Customers", "Promotions"].includes(link.label)
+    );
+  }
+  return supplierDashboardMenuLinks.filter((link) => link.label === "Orders");
+}
+
 export const horecaDashboardMenuLinks: DashboardMenuLink[] = [
   { label: "Dashboard", href: "/horeca", end: true },
   { label: "Products", href: "/horeca/products" },

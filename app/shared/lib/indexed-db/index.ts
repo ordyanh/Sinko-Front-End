@@ -81,6 +81,9 @@ import {
   getClientAuthToken,
   serializeAuthTokenCookie,
   setClientAuthToken,
+  normalizeEmployeeRole,
+  getCurrentUserEmployeeRole,
+  getAccessibleSupplierModules,
 } from "~/shared/lib/auth-token";
 
 export type {
@@ -2662,6 +2665,25 @@ export async function signInWithSeedUser(
     const email = authRes.email || authRes.Email || existingUser?.email || identifier;
     const username = authRes.username || authRes.Username || existingUser?.username || identifier;
 
+    const rawRole =
+      authRes.role ??
+      authRes.Role ??
+      authRes.employeeRole ??
+      authRes.EmployeeRole;
+    const userRole = normalizeEmployeeRole(rawRole) ?? undefined;
+    const permissions =
+      authRes.permissions ??
+      authRes.Permissions ??
+      [];
+    const accessibleModules =
+      authRes.accessibleModules ??
+      authRes.AccessibleModules ??
+      (userRole ? getAccessibleSupplierModules(userRole) : undefined);
+    const assignedServiceAreas =
+      authRes.assignedServiceAreas ??
+      authRes.AssignedServiceAreas ??
+      [];
+
     const authenticatedUser: SeedUser = {
       id: userId,
       role,
@@ -2671,6 +2693,10 @@ export async function signInWithSeedUser(
       companyName,
       address: existingUser?.address || "",
       displayName,
+      userRole,
+      permissions,
+      accessibleModules,
+      assignedServiceAreas,
     };
 
     users.put(authenticatedUser);
@@ -2731,7 +2757,20 @@ export async function getLoggedInUser(): Promise<LoggedInUser | null> {
   if (!activeSession) return null;
 
   const user = await getUserById(activeSession.userId);
-  return user ? withoutPassword(user) : null;
+  if (!user) return null;
+  const safeUser = withoutPassword(user);
+
+  if (!safeUser.userRole) {
+    const roleFromJwt = getCurrentUserEmployeeRole();
+    if (roleFromJwt) {
+      safeUser.userRole = roleFromJwt;
+      if (!safeUser.accessibleModules) {
+        safeUser.accessibleModules = getAccessibleSupplierModules(roleFromJwt);
+      }
+    }
+  }
+
+  return safeUser;
 }
 
 export async function getHorecaUsers(): Promise<LoggedInUser[]> {
