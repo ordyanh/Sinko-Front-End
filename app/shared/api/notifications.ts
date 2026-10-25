@@ -217,6 +217,32 @@ export type NotificationSettingsDto = {
   promotions?: boolean;
 };
 
+export function isGuid(val?: string | null): boolean {
+  if (!val || typeof val !== "string") return false;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val.trim());
+}
+
+export function sanitizeOrderText(text: string, orderNum?: string | null, orderId?: string | null): string {
+  if (!text) return "";
+  let result = text;
+  const guidRegex = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
+
+  if (orderNum) {
+    if (orderId && isGuid(orderId)) {
+      result = result.split(orderId).join(orderNum);
+    }
+    result = result.replace(guidRegex, orderNum);
+  } else {
+    // If orderNum is not available, remove raw GUIDs so raw hashes are never shown
+    result = result.replace(/#([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/gi, "");
+    result = result.replace(guidRegex, "");
+  }
+
+  // Clean up any double spaces or dangling "#." or "# "
+  result = result.replace(/#\s+/g, "#").replace(/#\./g, ".").replace(/\s{2,}/g, " ").trim();
+  return result;
+}
+
 export function normalizeNotification(raw: any): NotificationItemDto {
   if (!raw || typeof raw !== "object") {
     const nowIso = new Date().toISOString();
@@ -290,11 +316,11 @@ export function normalizeNotification(raw: any): NotificationItemDto {
 
   let orderNum = rawOrderNum ? String(rawOrderNum).trim() : undefined;
   if (!orderNum) {
-    const friendlyMatch = msg.match(/#([A-Za-z]{3}-\d{10})/) || title.match(/#([A-Za-z]{3}-\d{10})/);
+    const friendlyMatch = msg.match(/#?([A-Za-z]{3}-\d{10})/i) || title.match(/#?([A-Za-z]{3}-\d{10})/i);
     if (friendlyMatch) {
-      orderNum = friendlyMatch[1];
-    } else if (orderId && /^[A-Za-z]{3}-\d{10}$/.test(orderId)) {
-      orderNum = orderId;
+      orderNum = friendlyMatch[1].toUpperCase();
+    } else if (orderId && /^[A-Za-z]{3}-\d{10}$/i.test(orderId)) {
+      orderNum = orderId.toUpperCase();
     }
   }
 
@@ -318,6 +344,9 @@ export function normalizeNotification(raw: any): NotificationItemDto {
     }
   }
 
+  const cleanTitle = sanitizeOrderText(title, orderNum, orderId);
+  const cleanMsg = sanitizeOrderText(msg, orderNum, orderId);
+
   return {
     id: String(raw.id ?? raw.Id ?? (orderId ? `${orderId}-${parsedDateIso}` : promoId ? `${promoId}-${parsedDateIso}` : `notif-${Date.now()}`)),
     userId: raw.userId ?? raw.UserId ? String(raw.userId ?? raw.UserId) : undefined,
@@ -325,22 +354,26 @@ export function normalizeNotification(raw: any): NotificationItemDto {
     orderNum,
     relatedId: rawRelatedId ? String(rawRelatedId) : undefined,
     promotionId: promoId,
-    title,
-    message: msg,
-      type: raw.type
-        ? String(raw.type)
-        : raw.notificationTypeName ?? raw.NotificationTypeName
-          ? String(raw.notificationTypeName ?? raw.NotificationTypeName)
-          : undefined,
-      notificationType: notifType,
-      notificationTypeName: raw.notificationTypeName ?? raw.NotificationTypeName ? String(raw.notificationTypeName ?? raw.NotificationTypeName) : undefined,
-      status: statusNum,
-      deepLink,
-      isRead: Boolean(raw.isRead ?? raw.IsRead ?? raw.read),
-      createdAt: parsedDateIso,
-      creationDate: parsedDateIso,
-      data: raw.data,
-    };
+    title: cleanTitle,
+    message: cleanMsg,
+    type: raw.type
+      ? String(raw.type)
+      : raw.notificationTypeName ?? raw.NotificationTypeName
+        ? String(raw.notificationTypeName ?? raw.NotificationTypeName)
+        : undefined,
+    notificationType: notifType,
+    notificationTypeName: raw.notificationTypeName ?? raw.NotificationTypeName ? String(raw.notificationTypeName ?? raw.NotificationTypeName) : undefined,
+    status: statusNum,
+    deepLink,
+    isRead: Boolean(raw.isRead ?? raw.IsRead ?? raw.read),
+    createdAt: parsedDateIso,
+    creationDate: parsedDateIso,
+    data: {
+      ...raw.data,
+      orderId,
+      orderNum,
+    },
+  };
   }
 
 export function formatNotificationTime(

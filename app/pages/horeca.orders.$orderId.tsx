@@ -53,7 +53,7 @@ import {
   getDeliveryAddressesForCurrentHoreca,
   type StoredOrder,
 } from "~/shared/lib/indexed-db";
-import { getMarketplaceSupplierById, getMarketplaceSuppliers } from "~/shared/api";
+import { getMarketplaceSupplierById, getMarketplaceSuppliers, isGuid } from "~/shared/api";
 import { DashboardPageContent, DashboardPageHeader } from "~/shared/ui";
 import { Input } from "~/shared/ui/form";
 import { useToast } from "~/shared/ui/toast";
@@ -364,10 +364,10 @@ export default function HorecaOrderDetailsPage() {
       setIsEditing(false);
       await saveOrder(nextOrder).catch(() => {});
 
-      const displayOrderNum = activeOrder.orderNumber || activeOrder.orderNum || activeOrder.id.slice(0, 8);
+      const displayOrderNum = activeOrder.orderNumber || activeOrder.orderNum || (!isGuid(activeOrder.id) ? activeOrder.id : "");
       broadcastOrderNotification({
         orderId: activeOrder.id,
-        orderNum: activeOrder.orderNumber || activeOrder.orderNum,
+        orderNum: displayOrderNum || undefined,
         title: t("notifications.restaurantOfferAcceptedTitle", "Предложение принято клиентом"),
         message: t("notifications.restaurantOfferAcceptedDesc", { orderNum: displayOrderNum }),
         status: 3,
@@ -421,10 +421,10 @@ export default function HorecaOrderDetailsPage() {
       setIsEditing(false);
       await saveOrder(nextOrder).catch(() => {});
 
-      const displayOrderNum = activeOrder.orderNumber || activeOrder.orderNum || activeOrder.id.slice(0, 8);
+      const displayOrderNum = activeOrder.orderNumber || activeOrder.orderNum || (!isGuid(activeOrder.id) ? activeOrder.id : "");
       broadcastOrderNotification({
         orderId: activeOrder.id,
-        orderNum: activeOrder.orderNumber || activeOrder.orderNum,
+        orderNum: displayOrderNum || undefined,
         title: t("notifications.restaurantOfferChangesTitle", "Клиент запросил изменения"),
         message: t("notifications.restaurantOfferChangesDesc", { orderNum: displayOrderNum }),
         status: 7,
@@ -502,10 +502,10 @@ export default function HorecaOrderDetailsPage() {
       setStatus("Cancelled");
       await saveOrder(nextOrder).catch(() => {});
 
-      const displayOrderNum = activeOrder.orderNumber || activeOrder.orderNum || activeOrder.id.slice(0, 8);
+      const displayOrderNum = activeOrder.orderNumber || activeOrder.orderNum || (!isGuid(activeOrder.id) ? activeOrder.id : "");
       broadcastOrderNotification({
         orderId: activeOrder.id,
-        orderNum: activeOrder.orderNumber || activeOrder.orderNum,
+        orderNum: displayOrderNum || undefined,
         title: t("notifications.orderCancelledTitle", "Заказ отменен"),
         message: t("notifications.orderCancelledDesc", { orderNum: displayOrderNum }),
         status: 7,

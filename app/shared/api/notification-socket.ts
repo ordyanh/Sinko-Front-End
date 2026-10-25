@@ -1,6 +1,7 @@
 import { getClientAuthToken } from "../lib/auth-token";
 import {
   normalizeNotification,
+  sanitizeOrderText,
   type NotificationItemDto,
 } from "./notifications";
 
@@ -265,17 +266,20 @@ class NotificationSocketManager {
       raw.DeepLink ??
       (orderId ? `/orders/${orderId}` : undefined);
 
-    const title =
+    const rawTitle =
       raw.title ??
       raw.Title ??
       (raw.type === "NEW_ORDER" ? "Новый заказ" : "Уведомление");
 
-    const message =
+    const rawMessage =
       raw.message ??
       raw.Message ??
       raw.detail ??
       raw.Detail ??
       (orderNum ? `Заказ #${orderNum}` : "У вас новое обновление в системе");
+
+    const cleanTitle = sanitizeOrderText(rawTitle, orderNum, orderId);
+    const cleanMessage = sanitizeOrderText(rawMessage, orderNum, orderId);
 
     const id = String(
       raw.id ??
@@ -286,8 +290,10 @@ class NotificationSocketManager {
 
     return {
       id,
-      title,
-      message,
+      orderId: orderId || undefined,
+      orderNum: orderNum || undefined,
+      title: cleanTitle,
+      message: cleanMessage,
       type: raw.type ? String(raw.type) : (raw.notificationType ? String(raw.notificationType) : undefined),
       isRead: false,
       createdAt: parsedDateIso,

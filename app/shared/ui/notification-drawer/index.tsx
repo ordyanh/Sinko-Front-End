@@ -3,6 +3,8 @@ import { Bell, CheckCheck, X, ArrowRight, Gift, Sparkles, type LucideIcon } from
 import { useTranslation } from "~/shared/lib/i18n";
 import {
   getNotificationTheme,
+  isGuid,
+  sanitizeOrderText,
   type NotificationStatusKind,
 } from "~/shared/api/notifications";
 
@@ -157,9 +159,9 @@ export default function NotificationDrawer({
                                 {theme.badgeLabel}
                               </span>
 
-                              {notification.orderNum || notification.orderId ? (
+                              {notification.orderNum || (notification.orderId && !isGuid(notification.orderId)) ? (
                                 <span className="inline-flex items-center rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700">
-                                  #{notification.orderNum || notification.orderId!.slice(0, 8)}
+                                  #{notification.orderNum || notification.orderId}
                                 </span>
                               ) : null}
                             </div>
@@ -172,10 +174,10 @@ export default function NotificationDrawer({
                           </div>
 
                           <p className="mt-1 text-sm font-semibold leading-5 text-slate-900">
-                            {notification.title}
+                            {sanitizeOrderText(notification.title, notification.orderNum, notification.orderId)}
                           </p>
                           <p className="mt-0.5 text-xs leading-5 text-slate-600">
-                            {notification.detail}
+                            {sanitizeOrderText(notification.detail, notification.orderNum, notification.orderId)}
                           </p>
 
                           {hasOrderLink ? (

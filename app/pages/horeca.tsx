@@ -30,6 +30,7 @@ import {
   removeFromCart,
   clearCart,
   generateOrderNum,
+  isGuid,
   ApiError,
 } from "~/shared/api";
 import {
@@ -397,10 +398,13 @@ export default function HorecaPage() {
 
     // Broadcast new order notification to suppliers
     orders.forEach((o) => {
-      const displayOrderNum = o.orderNum || o.orderNumber || o.id.slice(0, 8);
+      const displayOrderNum = o.orderNum || o.orderNumber || (!isGuid(o.id) ? o.id : generateOrderNum());
+      o.orderNum = o.orderNum || displayOrderNum;
+      o.orderNumber = o.orderNumber || displayOrderNum;
+
       broadcastOrderNotification({
         orderId: o.id,
-        orderNum: o.orderNum || o.orderNumber,
+        orderNum: displayOrderNum,
         title: t("notifications.newOrderFromRestaurantTitle", "Новый заказ от клиента"),
         message: t("notifications.newOrderFromRestaurantDesc", {
           companyName: customer.companyName,

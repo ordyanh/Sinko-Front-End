@@ -12,7 +12,12 @@ import {
   Gift,
   Sparkles,
 } from "lucide-react";
-import { getNotificationTheme, formatNotificationTime } from "~/shared/api/notifications";
+import {
+  getNotificationTheme,
+  formatNotificationTime,
+  isGuid,
+  sanitizeOrderText,
+} from "~/shared/api/notifications";
 import type { ToastNotification } from "~/shared/lib/use-notification-center";
 import { useTranslation } from "~/shared/lib/i18n";
 
@@ -122,9 +127,9 @@ export function NotificationToastCard({ toast, onClose, onOpenOrder }: Notificat
                 )}
               </span>
 
-              {toast.orderNum || toast.orderId ? (
+              {toast.orderNum || (toast.orderId && !isGuid(toast.orderId)) ? (
                 <span className="inline-flex items-center rounded-md bg-slate-100 px-1.5 py-0.5 text-[11px] font-semibold text-slate-700">
-                  #{toast.orderNum || toast.orderId!.slice(0, 8)}
+                  #{toast.orderNum || toast.orderId}
                 </span>
               ) : null}
             </div>
@@ -136,12 +141,12 @@ export function NotificationToastCard({ toast, onClose, onOpenOrder }: Notificat
 
           {/* Title */}
           <h4 className="mt-1 text-sm font-bold text-slate-900 leading-snug">
-            {toast.title}
+            {sanitizeOrderText(toast.title, toast.orderNum, toast.orderId)}
           </h4>
 
           {/* Message Description */}
           <p className="mt-0.5 text-xs text-slate-600 leading-relaxed line-clamp-3">
-            {toast.message}
+            {sanitizeOrderText(toast.message, toast.orderNum, toast.orderId)}
           </p>
 
           {/* Action Row */}

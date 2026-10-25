@@ -47,6 +47,7 @@ import { getEmployeesList, type EmployeeListItem } from "~/shared/api/employee";
 import { getClientProfile } from "~/shared/api/customers";
 import type { StoredEmployee } from "~/shared/lib/indexed-db";
 import { getCurrentUserEmployeeRole } from "~/shared/lib/auth-token";
+import { isGuid } from "~/shared/api/notifications";
 import { useTranslation } from "~/shared/lib/i18n";
 
 type OrderStatus =
@@ -608,7 +609,7 @@ export default function SupplierOrderDetailsPage() {
       }
 
       // Broadcast real-time notification to client
-      const displayOrderNum = activeOrder.orderNumber || activeOrder.orderNum || activeOrder.id.slice(0, 8);
+      const displayOrderNum = activeOrder.orderNumber || activeOrder.orderNum || (!isGuid(activeOrder.id) ? activeOrder.id : "");
       const statusMeta: Record<string, { statusNum: number; title: string; desc: string }> = {
         "Waiting for restaurant confirmation": {
           statusNum: 8,
@@ -650,12 +651,12 @@ export default function SupplierOrderDetailsPage() {
       const meta = statusMeta[nextStatus] || {
         statusNum: 1,
         title: `${t("notifications.statusUpdate", "Обновление")}: ${nextStatus}`,
-        desc: `#${displayOrderNum} → ${nextStatus}`,
+        desc: displayOrderNum ? `#${displayOrderNum} → ${nextStatus}` : nextStatus,
       };
 
       broadcastOrderNotification({
         orderId: activeOrder.id,
-        orderNum: activeOrder.orderNumber || activeOrder.orderNum,
+        orderNum: displayOrderNum || undefined,
         title: meta.title,
         message: meta.desc,
         status: meta.statusNum,

@@ -71,6 +71,10 @@ function mapDtoToDashboardNotification(n: NotificationItemDto): DashboardNotific
     icon: Icon,
     accentClassName,
     unread: !n.isRead,
+    orderId: n.orderId,
+    orderNum: n.orderNum,
+    status: n.status,
+    deepLink: n.deepLink,
   };
 }
 
