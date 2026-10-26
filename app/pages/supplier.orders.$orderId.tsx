@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router";
-import { DashboardPageContent, DashboardPageHeader } from "~/shared/ui";
+import { DashboardPageContent, DashboardPageHeader, ArmeniaMapPicker } from "~/shared/ui";
 import { Input, Select } from "~/shared/ui/form";
 import {
   getLoggedInUser,
@@ -1052,17 +1052,18 @@ export default function SupplierOrderDetailsPage() {
               </div>
             </div>
 
-            {/* Big Map iframe */}
+            {/* Interactive Google Map with zoom, scroll, and satellite */}
             <div className="relative bg-slate-100">
-              {mapQuery ? (
-                <iframe
-                  title="Google Maps Delivery Location"
-                  src={googleMapsEmbedUrl}
-                  className={`w-full border-0 transition-all duration-300 ${
-                    isMapExpanded ? "h-[700px]" : "h-[520px]"
-                  }`}
-                  loading="lazy"
-                  referrerPolicy="no-referrer-when-downgrade"
+              {mapQuery || hasCoordinates ? (
+                <ArmeniaMapPicker
+                  value={{
+                    lat: hasCoordinates ? Number(lat) : null,
+                    lon: hasCoordinates ? Number(lon) : null,
+                  }}
+                  initialAddressQuery={rawAddressText}
+                  readOnly={true}
+                  height={isMapExpanded ? "700px" : "520px"}
+                  className="rounded-none border-0 shadow-none"
                 />
               ) : (
                 <div className="flex h-64 flex-col items-center justify-center p-6 text-center text-slate-400">

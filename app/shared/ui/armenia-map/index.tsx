@@ -36,6 +36,7 @@ export type ArmeniaMapPickerProps = {
   initialAddressQuery?: string;
   className?: string;
   height?: string | number;
+  readOnly?: boolean;
 };
 
 // Default center: Yerevan Republic Square / Center
@@ -52,6 +53,7 @@ export default function ArmeniaMapPicker({
   initialAddressQuery = "",
   className = "",
   height = "430px", // 20%+ larger than previous 340-360px
+  readOnly = false,
 }: ArmeniaMapPickerProps) {
   const { t, language } = useTranslation();
   const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -221,6 +223,49 @@ export default function ArmeniaMapPicker({
     }
   }, [value?.lat, value?.lon, createOrUpdateMarker, coords.lat, coords.lon]);
 
+  // If coordinates are missing but initialAddressQuery is given, resolve coordinates once
+  useEffect(() => {
+    if (!coords.lat && !coords.lon && initialAddressQuery && initialAddressQuery.trim()) {
+      let isMounted = true;
+      void (async () => {
+        try {
+          const langParam = `${language},hy,ru,en`;
+          const trimmed = initialAddressQuery.trim();
+          const hasArmenia =
+            trimmed.toLowerCase().includes("armenia") ||
+            trimmed.toLowerCase().includes("ереван") ||
+            trimmed.toLowerCase().includes("yerevan") ||
+            trimmed.toLowerCase().includes("հայաստան");
+          const queryParam = hasArmenia ? trimmed : `${trimmed}, Armenia`;
+          const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(
+            queryParam,
+          )}&format=json&limit=1&countrycodes=am&accept-language=${encodeURIComponent(langParam)}`;
+          const res = await fetch(url);
+          if (res.ok && isMounted) {
+            const data = await res.json();
+            if (Array.isArray(data) && data.length > 0) {
+              const item = data[0];
+              const fLat = parseFloat(item.lat);
+              const fLon = parseFloat(item.lon);
+              if (!isNaN(fLat) && !isNaN(fLon) && isMounted) {
+                setCoords({ lat: fLat, lon: fLon });
+                if (mapInstanceRef.current) {
+                  mapInstanceRef.current.flyTo([fLat, fLon], 16, { duration: 0.8 });
+                }
+                void createOrUpdateMarker(fLat, fLon);
+              }
+            }
+          }
+        } catch {
+          // ignore error
+        }
+      })();
+      return () => {
+        isMounted = false;
+      };
+    }
+  }, [initialAddressQuery, language, coords.lat, coords.lon, createOrUpdateMarker]);
+
   // Initialize Map
   useEffect(() => {
     if (!isClient || !mapContainerRef.current) return;
@@ -279,6 +324,7 @@ export default function ArmeniaMapPicker({
 
       // Click to pick point
       map.on("click", (e) => {
+        if (readOnly) return;
         const { lat, lng } = e.latlng;
         void createOrUpdateMarker(lat, lng);
         updateLocation(lat, lng, true);
@@ -629,7 +675,7 @@ export default function ArmeniaMapPicker({
       <div
         ref={mapContainerRef}
         style={{ height }}
-        className="w-full z-0 bg-slate-100 cursor-crosshair"
+        className={`w-full z-0 bg-slate-100 ${readOnly ? "cursor-grab active:cursor-grabbing" : "cursor-crosshair"}`}
       />
 
       {/* Footer Info & Coordinate Status Bar */}
@@ -659,7 +705,7 @@ export default function ArmeniaMapPicker({
           )}
         </div>
 
-        {coords.lat && coords.lon && (
+        {!readOnly && coords.lat && coords.lon && (
           <button
             type="button"
             onClick={handleClearMarker}

@@ -8,7 +8,7 @@ import Button from "~/shared/ui/button";
 import { Input } from "~/shared/ui/form";
 import Modal from "~/shared/ui/modal";
 import { useToast } from "~/shared/ui/toast";
-import { DashboardPageContent } from "~/shared/ui";
+import { DashboardPageContent, ArmeniaMapPicker, AddressAutocomplete, type Coordinates } from "~/shared/ui";
 import { getCompanyInfo, updateCompany } from "~/shared/api";
 import { useTranslation } from "~/shared/lib/i18n";
 
@@ -46,6 +46,7 @@ export default function SupplierCompanyInformationPage() {
   const { showToast } = useToast();
   const [companyInfo, setCompanyInfo] = useState(initialCompanyInfo);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [mapCoords, setMapCoords] = useState<Coordinates>({ lat: null, lon: null });
   const form = useForm<CompanyInfoState>({
     resolver: zodResolver(companyInfoSchema),
     defaultValues: initialCompanyInfo,
@@ -167,6 +168,7 @@ export default function SupplierCompanyInformationPage() {
 
       <Modal
         isOpen={isEditModalOpen}
+        size="xl"
         title={t("settings.editCompanyInfo")}
         description={t("settings.companyInfoSubtitle")}
         onClose={closeEditModal}
@@ -193,14 +195,39 @@ export default function SupplierCompanyInformationPage() {
               errorMessage={errors.phoneNumber?.message}
               {...register("phoneNumber")}
             />
-            <Input
-              id="companyAddress"
-              label={t("auth.address")}
-              autoComplete="street-address"
-              className="sm:col-span-2"
-              errorMessage={errors.companyAddress?.message}
-              {...register("companyAddress")}
-            />
+
+            <div className="sm:col-span-2 space-y-2">
+              <AddressAutocomplete
+                id="companyAddress"
+                label={t("auth.address")}
+                placeholder={t("auth.addressPlaceholder") || "г. Ереван, ул. ..."}
+                value={form.watch("companyAddress")}
+                onChange={(val) => {
+                  form.setValue("companyAddress", val, { shouldValidate: true });
+                }}
+                onSelectAddress={(resolvedAddress, coords) => {
+                  form.setValue("companyAddress", resolvedAddress, { shouldValidate: true });
+                  setMapCoords(coords);
+                }}
+                errorMessage={errors.companyAddress?.message}
+              />
+
+              <div className="pt-1">
+                <ArmeniaMapPicker
+                  value={mapCoords}
+                  onChange={(c) => {
+                    setMapCoords(c);
+                  }}
+                  onAddressResolved={(addr) => {
+                    if (addr) {
+                      form.setValue("companyAddress", addr, { shouldValidate: true });
+                    }
+                  }}
+                  initialAddressQuery={form.getValues("companyAddress")}
+                  height="350px"
+                />
+              </div>
+            </div>
             <Input
               id="taxId"
               label={t("auth.taxCode")}
