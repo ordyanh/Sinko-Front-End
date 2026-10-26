@@ -4,6 +4,7 @@ import Modal from "~/shared/ui/modal";
 import type { SupplierEmployeeRole } from "~/entities/supplier/model/supplier";
 import type { SubmitHandler } from "react-hook-form";
 import type { SupplierEmployeeFormValues } from "../model/schema";
+import { useTranslation } from "~/shared/lib/i18n";
 import { CreateEditSupplierEmployeeForm } from "./CreateEditSupplierEmployeeForm";
 
 interface CreateEditSupplierEmployeeModalProps {
@@ -19,10 +20,11 @@ export const CreateEditSupplierEmployeeModal = ({
   onSubmit,
   onClose,
 }: CreateEditSupplierEmployeeModalProps) => {
+  const { t } = useTranslation();
   const isEditMode = !!employee;
   const modalTitle = isEditMode
-    ? "Edit Supplier Employee"
-    : "Create Supplier Employee";
+    ? t("employees.editSupplierEmployee")
+    : t("employees.createSupplierEmployee");
 
   return (
     <Modal isOpen={isOpen} title={modalTitle} onClose={onClose}>
