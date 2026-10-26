@@ -1025,6 +1025,8 @@ export const ru: TranslationResources = {
     centerCapital: "Центр Еревана",
     toggleSatellite: "Включить спутник Google",
     toggleRoadmap: "Включить схему Google",
+    zoomIn: "Приблизить",
+    zoomOut: "Отдалить",
     coordinatesLabel: "Координаты:",
     resolvingAddress: "определяем адрес...",
     clickMapOrSearchPrompt: "Кликните по карте или введите адрес для выбора точки",

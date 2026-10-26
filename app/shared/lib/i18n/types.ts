@@ -1025,6 +1025,8 @@ export type TranslationResources = {
     centerCapital: string;
     toggleSatellite: string;
     toggleRoadmap: string;
+    zoomIn: string;
+    zoomOut: string;
     coordinatesLabel: string;
     resolvingAddress: string;
     clickMapOrSearchPrompt: string;

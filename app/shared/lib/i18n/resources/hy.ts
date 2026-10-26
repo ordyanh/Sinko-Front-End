@@ -1025,6 +1025,8 @@ export const hy: TranslationResources = {
     centerCapital: "Երևանի կենտրոն",
     toggleSatellite: "Միացնել Google արբանյակը",
     toggleRoadmap: "Միացնել Google սխեման",
+    zoomIn: "Մոտեցնել",
+    zoomOut: "Հեռացնել",
     coordinatesLabel: "Կոորդինատներ:",
     resolvingAddress: "որոշվում է հասցեն...",
     clickMapOrSearchPrompt: "Սեղմեք քարտեզի վրա կամ մուտքագրեք հասցեն՝ կետն ընտրելու համար",

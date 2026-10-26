@@ -8,6 +8,8 @@ import {
   Loader2,
   CheckCircle2,
   Navigation,
+  Plus,
+  Minus,
 } from "lucide-react";
 import type { Map as LeafletMap, Marker as LeafletMarker, TileLayer as LeafletTileLayer } from "leaflet";
 import { useTranslation } from "~/shared/lib/i18n";
@@ -247,7 +249,18 @@ export default function ArmeniaMapPicker({
         maxBounds: ARMENIA_BOUNDS,
         maxBoundsViscosity: 0.8,
         zoomControl: false,
+        scrollWheelZoom: true,
+        doubleClickZoom: true,
+        touchZoom: true,
+        boxZoom: true,
+        keyboard: true,
       });
+
+      // Explicitly enable scroll wheel zoom and prevent page/modal scrolling while zooming
+      map.scrollWheelZoom.enable();
+      if (mapContainerRef.current) {
+        L.DomEvent.disableScrollPropagation(mapContainerRef.current);
+      }
 
       // Google Maps Tile Layer
       const getTileUrl = (type: "google-roadmap" | "google-satellite") => {
@@ -360,6 +373,19 @@ export default function ArmeniaMapPicker({
   const handleCenterYerevan = useCallback(() => {
     if (mapInstanceRef.current) {
       mapInstanceRef.current.flyTo(YEREVAN_CENTER, 14, { duration: 1 });
+    }
+  }, []);
+
+  // Zoom In / Zoom Out Controls
+  const handleZoomIn = useCallback(() => {
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.zoomIn();
+    }
+  }, []);
+
+  const handleZoomOut = useCallback(() => {
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.zoomOut();
     }
   }, []);
 
@@ -573,6 +599,29 @@ export default function ArmeniaMapPicker({
           className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200/90 bg-white/95 text-slate-700 shadow-md backdrop-blur-md transition hover:bg-slate-50 hover:text-primary active:scale-95"
         >
           <Layers className="h-4 w-4" />
+        </button>
+      </div>
+
+      {/* Floating Zoom Controls (+ / -) in Bottom Right */}
+      <div className="absolute right-3 bottom-14 z-[1000] flex flex-col rounded-xl border border-slate-200/90 bg-white/95 shadow-md backdrop-blur-md overflow-hidden pointer-events-auto">
+        <button
+          type="button"
+          onClick={handleZoomIn}
+          title={t("settings.zoomIn")}
+          aria-label={t("settings.zoomIn")}
+          className="flex h-9 w-9 items-center justify-center text-slate-700 transition hover:bg-slate-50 hover:text-primary active:scale-90 active:bg-slate-100"
+        >
+          <Plus className="h-4 w-4" />
+        </button>
+        <div className="h-px w-full bg-slate-200/80" />
+        <button
+          type="button"
+          onClick={handleZoomOut}
+          title={t("settings.zoomOut")}
+          aria-label={t("settings.zoomOut")}
+          className="flex h-9 w-9 items-center justify-center text-slate-700 transition hover:bg-slate-50 hover:text-primary active:scale-90 active:bg-slate-100"
+        >
+          <Minus className="h-4 w-4" />
         </button>
       </div>
 

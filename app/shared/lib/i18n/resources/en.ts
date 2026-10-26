@@ -1025,6 +1025,8 @@ export const en: TranslationResources = {
     centerCapital: "Center of Yerevan",
     toggleSatellite: "Enable Google Satellite",
     toggleRoadmap: "Enable Google Roadmap",
+    zoomIn: "Zoom in",
+    zoomOut: "Zoom out",
     coordinatesLabel: "Coordinates:",
     resolvingAddress: "resolving address...",
     clickMapOrSearchPrompt: "Click on the map or type an address to choose a point",
