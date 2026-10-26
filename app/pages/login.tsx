@@ -10,7 +10,7 @@ import {
   signInWithSeedUser,
 } from "~/shared/lib/indexed-db";
 import { useToast } from "~/shared/ui/toast";
-import { LanguageSwitcher } from "~/shared/ui";
+import { LanguageSwitcher, ThemeToggle } from "~/shared/ui";
 import { useTranslation } from "~/shared/lib/i18n";
 
 export default function LoginPage() {
@@ -106,7 +106,10 @@ export default function LoginPage() {
             <span>{t("common.backToHome")}</span>
           </a>
 
-          <LanguageSwitcher />
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <LanguageSwitcher />
+          </div>
         </div>
 
         <div className="w-full rounded-4xl border border-slate-200/80 bg-white p-8 shadow-2xl shadow-slate-900/10 sm:p-10">

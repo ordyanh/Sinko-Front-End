@@ -149,6 +149,12 @@ function OrderHeaderActions({
     Shipped: "Delivered",
   };
 
+  const [selectedStatus, setSelectedStatus] = useState<OrderStatus>(() => nextStatus[status] || status);
+
+  useEffect(() => {
+    setSelectedStatus(nextStatus[status] || status);
+  }, [status]);
+
   if (status === "New" && !isEditingOffer) {
     if (isWarehouseManager) {
       return (
@@ -225,10 +231,14 @@ function OrderHeaderActions({
     );
   }
 
-  const next = nextStatus[status];
-  if (next) {
+  const isFulfillment = status === "Confirmed" || status === "Preparing" || status === "Shipped";
+  if (isFulfillment) {
+    const availableStatuses: OrderStatus[] = isWarehouseManager
+      ? ["Preparing", "Shipped", "Delivered"]
+      : ["Confirmed", "Preparing", "Shipped", "Delivered", "Cancelled"];
+
     return (
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         {!isWarehouseManager ? (
           <button
             type="button"
@@ -240,14 +250,32 @@ function OrderHeaderActions({
             {t("orders.cancelOrder")}
           </button>
         ) : null}
-        <button
-          type="button"
-          disabled={isSubmitting}
-          onClick={() => onStatusChange(next)}
-          className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-content transition hover:brightness-95 disabled:opacity-50"
-        >
-          {isSubmitting ? t("orders.advancingOrder") : t("orders.advanceTo", undefined, { status: getLocalizedOrderStatus(next, t) })}
-        </button>
+        <div className="flex items-center gap-2">
+          <select
+            id="supplier-order-status-select"
+            aria-label={t("orders.selectStatus")}
+            value={selectedStatus}
+            disabled={isSubmitting}
+            onChange={(e) => setSelectedStatus(e.target.value as OrderStatus)}
+            className="rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-800 shadow-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:bg-slate-100 disabled:opacity-50 cursor-pointer transition"
+          >
+            {availableStatuses.map((st) => (
+              <option key={st} value={st}>
+                {getLocalizedOrderStatus(st, t)}
+              </option>
+            ))}
+          </select>
+          <button
+            id="supplier-order-confirm-status-button"
+            type="button"
+            disabled={isSubmitting || selectedStatus === status}
+            onClick={() => onStatusChange(selectedStatus)}
+            className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-content transition hover:brightness-95 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+          >
+            <Check className="h-4 w-4" aria-hidden="true" />
+            {isSubmitting ? t("orders.advancingOrder") : t("orders.confirmStatusChange")}
+          </button>
+        </div>
       </div>
     );
   }

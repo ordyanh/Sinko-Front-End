@@ -29,6 +29,7 @@ import NotificationToastContainer from "./notification-toast";
 import { useNotificationCenter } from "~/shared/lib/use-notification-center";
 import { getNotificationTheme, formatNotificationTime } from "~/shared/api/notifications";
 import LanguageSwitcher from "./language-switcher";
+import ThemeToggle from "./theme-toggle";
 import { useTranslation } from "~/shared/lib/i18n";
 import {
   DashboardHeaderActionsContext,
@@ -425,6 +426,7 @@ export default function DashboardLayout({
               </a>
 
               <div className="ml-auto flex shrink-0 items-center gap-2">
+                <ThemeToggle />
                 <LanguageSwitcher />
                 {notificationButton}
                 {mobileHeaderAction ?? (
@@ -455,6 +457,7 @@ export default function DashboardLayout({
               <div className="min-w-0 flex-1">{pageHeaderActions?.back}</div>
               <div className="ml-auto flex shrink-0 items-center gap-3">
                 {pageHeaderActions?.actions ?? desktopHeaderAction}
+                <ThemeToggle />
                 <LanguageSwitcher />
                 {notificationButton}
               </div>

@@ -11,7 +11,7 @@ import {
 import Button from "~/shared/ui/button";
 import { FieldError, Input, Select } from "~/shared/ui/form";
 import RegistrationCompleteCard from "~/shared/ui/registration-complete-card";
-import { LanguageSwitcher } from "~/shared/ui";
+import { LanguageSwitcher, ThemeToggle } from "~/shared/ui";
 import { useTranslation } from "~/shared/lib/i18n";
 import { useFetcher, useNavigate } from "react-router";
 
@@ -169,7 +169,10 @@ export default function RegisterHorecaForm() {
             <span>{t("common.backToHome")}</span>
           </a>
 
-          <LanguageSwitcher />
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <LanguageSwitcher />
+          </div>
         </div>
 
         {!verificationStep ? (

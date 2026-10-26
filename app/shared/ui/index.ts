@@ -26,3 +26,4 @@ export { default as AddressAutocomplete } from "./armenia-map/address-autocomple
 export { default as NotificationToastContainer } from "./notification-toast";
 export { NotificationToastCard } from "./notification-toast";
 export type { NotificationToastContainerProps } from "./notification-toast";
+export { default as ThemeToggle } from "./theme-toggle";

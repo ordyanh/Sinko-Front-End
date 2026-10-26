@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { useNavigate } from "react-router";
 import type { Route } from "./+types/_index";
 import { dashboardPathFor, getLoggedInUser } from "~/shared/lib/indexed-db";
-import { LanguageSwitcher } from "~/shared/ui";
+import { LanguageSwitcher, ThemeToggle } from "~/shared/ui";
 import { useTranslation } from "~/shared/lib/i18n";
 
 export function meta({}: Route.MetaArgs) {
@@ -53,6 +53,7 @@ export default function Home() {
           </div>
 
           <div className="flex items-center gap-3">
+            <ThemeToggle />
             <LanguageSwitcher />
             <a
               href="/login"

@@ -1,5 +1,5 @@
 import { ArrowLeft, Building2, Store, CheckCircle2, ArrowRight } from "lucide-react";
-import { LanguageSwitcher } from "~/shared/ui";
+import { LanguageSwitcher, ThemeToggle } from "~/shared/ui";
 import { useTranslation } from "~/shared/lib/i18n";
 
 export default function RegisterChoicePage() {
@@ -20,7 +20,10 @@ export default function RegisterChoicePage() {
             <span>{t("common.backToHome")}</span>
           </a>
 
-          <LanguageSwitcher />
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <LanguageSwitcher />
+          </div>
         </div>
 
         <div className="text-center">

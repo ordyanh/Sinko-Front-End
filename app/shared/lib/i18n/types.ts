@@ -48,6 +48,11 @@ export type TranslationResources = {
     and: string;
     collapse: string;
     expand: string;
+    theme: string;
+    themeLight: string;
+    themeDark: string;
+    themeSystem: string;
+    toggleTheme: string;
     showing: string;
     of: string;
     perPage: string;
@@ -534,6 +539,8 @@ export type TranslationResources = {
     discardChanges: string;
     advanceTo: string;
     advancingOrder: string;
+    selectStatus: string;
+    confirmStatusChange: string;
     warehouseManagerNotice: string;
     actionRequiredCounterOffer: string;
     actionRequiredCounterOfferDesc: string;
