@@ -959,8 +959,6 @@ export const ru: TranslationResources = {
     paidQuantity: "{quantity} опл. × {price}",
     bxgyReward: "Подарок по акции",
     freeUnits: "{quantity} беспл. {unit}",
-    freeReward: "Бесплатно / Подарок по акции",
-    removeReward: "Удалить подарок",
   },
   settings: {
     title: "Настройки",

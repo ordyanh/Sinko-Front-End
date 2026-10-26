@@ -46,6 +46,8 @@ export type LoginResponse = {
   OrganizationId?: string;
   userRole?: string;
   UserRole?: string;
+  employeeRole?: string;
+  EmployeeRole?: string;
   permissions?: string[];
   Permissions?: string[];
   accessibleModules?: string[];

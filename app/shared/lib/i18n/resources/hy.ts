@@ -959,8 +959,6 @@ export const hy: TranslationResources = {
     paidQuantity: "{quantity} վճարված × {price}",
     bxgyReward: "Ակցիայի նվեր",
     freeUnits: "{quantity} անվճար {unit}",
-    freeReward: "Անվճար / ակցիայի նվեր",
-    removeReward: "Հեռացնել նվերը",
   },
   settings: {
     title: "Կարգավորումներ",

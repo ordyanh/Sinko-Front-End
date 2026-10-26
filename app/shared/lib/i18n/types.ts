@@ -959,8 +959,6 @@ export type TranslationResources = {
     paidQuantity: string;
     bxgyReward: string;
     freeUnits: string;
-    freeReward: string;
-    removeReward: string;
   };
   settings: {
     title: string;

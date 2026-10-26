@@ -959,8 +959,6 @@ export const en: TranslationResources = {
     paidQuantity: "{quantity} paid × {price}",
     bxgyReward: "BXGY reward",
     freeUnits: "{quantity} free {unit}",
-    freeReward: "Free / promotion reward",
-    removeReward: "Remove reward",
   },
   settings: {
     title: "Settings",
