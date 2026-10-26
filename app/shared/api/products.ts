@@ -92,6 +92,31 @@ export type SetIndividualPriceRequest = {
   price: number;
 };
 
+export type ExcelColumnInfoDto = {
+  index: number;
+  letter: string;
+  name: string;
+  sampleValue?: string | null;
+};
+
+export type ExcelColumnMappingDto = {
+  headerRowNumber?: number;
+  nameColumn?: number | null;
+  priceColumn?: number | null;
+  codeColumn?: number | null;
+  categoryColumn?: number | null;
+  packagingColumn?: number | null;
+  unitColumn?: number | null;
+};
+
+export type ExcelAnalysisResultDto = {
+  headerRowNumber: number;
+  totalDataRows: number;
+  availableColumns: ExcelColumnInfoDto[];
+  suggestedMapping: ExcelColumnMappingDto;
+  initialPreview: ProductImportPreviewDto[];
+};
+
 export type ProductImportPreviewDto = {
   rowNumber: number;
   name: string;
@@ -322,8 +347,27 @@ export async function setIndividualPrice(
   });
 }
 
+export async function analyzeProductsExcel(
+  fileOrFormData: File | FormData,
+): Promise<ExcelAnalysisResultDto> {
+  const formData =
+    fileOrFormData instanceof FormData
+      ? fileOrFormData
+      : (() => {
+          const fd = new FormData();
+          fd.append("file", fileOrFormData);
+          return fd;
+        })();
+
+  return apiRequest<ExcelAnalysisResultDto>("/api/Products/import-excel/analyze", {
+    method: "POST",
+    body: formData,
+  });
+}
+
 export async function importProductsExcel(
   fileOrFormData: File | FormData,
+  mapping?: ExcelColumnMappingDto | null,
 ): Promise<ProductImportPreviewDto[]> {
   const formData =
     fileOrFormData instanceof FormData
@@ -333,6 +377,16 @@ export async function importProductsExcel(
           fd.append("file", fileOrFormData);
           return fd;
         })();
+
+  if (mapping) {
+    if (mapping.nameColumn != null) formData.append("nameColumn", String(mapping.nameColumn));
+    if (mapping.priceColumn != null) formData.append("priceColumn", String(mapping.priceColumn));
+    if (mapping.codeColumn != null) formData.append("codeColumn", String(mapping.codeColumn));
+    if (mapping.categoryColumn != null) formData.append("categoryColumn", String(mapping.categoryColumn));
+    if (mapping.packagingColumn != null) formData.append("packagingColumn", String(mapping.packagingColumn));
+    if (mapping.unitColumn != null) formData.append("unitColumn", String(mapping.unitColumn));
+    if (mapping.headerRowNumber != null) formData.append("headerRowNumber", String(mapping.headerRowNumber));
+  }
 
   const res = await apiRequest<ProductImportPreviewDto[]>("/api/Products/import-excel", {
     method: "POST",

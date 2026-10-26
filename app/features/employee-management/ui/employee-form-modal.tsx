@@ -160,7 +160,7 @@ export default function EmployeeFormModal({
                 render={({ field }) => (
                   <Select
                     creatable
-                    createLabel={(region) => `Add region \"${region}\"`}
+                    createLabel={(region) => t("employees.addRegion", `Add region "${region}"`, { region })}
                     error={Boolean(errors.location)}
                     id="location"
                     name={field.name}

@@ -1,9 +1,11 @@
 import {
   ArrowLeft,
+  ArrowRight,
   AlertTriangle,
   CheckCircle2,
   Download,
   FileSpreadsheet,
+  Loader2,
   Package,
   Plus,
   Power,
@@ -31,6 +33,14 @@ import {
   type StoredSupplierProduct,
   type SupplierProductStatus,
 } from "~/shared/lib/indexed-db";
+import {
+  analyzeProductsExcel,
+  importProductsExcel,
+  confirmProductsImport,
+  type ProductImportPreviewDto,
+  type ExcelColumnInfoDto,
+  type ExcelColumnMappingDto,
+} from "~/shared/api/products";
 
 type SupplierProduct = {
   id: string;
@@ -192,7 +202,13 @@ export default function SupplierProductsPage() {
   const [pageSize, setPageSize] = useState(10);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [importStep, setImportStep] = useState<"upload" | "preview">("upload");
+  const [importStep, setImportStep] = useState<"upload" | "mapping" | "preview">("upload");
+  const [availableColumns, setAvailableColumns] = useState<ExcelColumnInfoDto[]>([]);
+  const [columnMapping, setColumnMapping] = useState<ExcelColumnMappingDto>({});
+  const [totalFileRows, setTotalFileRows] = useState(0);
+  const [importPreviewData, setImportPreviewData] = useState<ProductImportPreviewDto[]>([]);
+  const [isImportLoading, setIsImportLoading] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
   const [importMessageVisible, setImportMessageVisible] = useState(false);
   const [catalogNotice, setCatalogNotice] = useState<CatalogNotice | null>(null);
   const [productToDelete, setProductToDelete] = useState<SupplierProduct | null>(null);
@@ -315,18 +331,101 @@ export default function SupplierProductsPage() {
   function closeImportModal() {
     setIsImportModalOpen(false);
     setSelectedFile(null);
+    setAvailableColumns([]);
+    setColumnMapping({});
+    setTotalFileRows(0);
+    setImportPreviewData([]);
+    setImportError(null);
     setImportStep("upload");
   }
 
-  function handleOpenPreview() {
+  async function handleAnalyzeFile() {
     if (!selectedFile) return;
-
-    setImportStep("preview");
+    setIsImportLoading(true);
+    setImportError(null);
+    try {
+      const analysis = await analyzeProductsExcel(selectedFile);
+      if (!analysis.availableColumns || analysis.availableColumns.length === 0) {
+        setImportError(t("products.importNoDataError"));
+        return;
+      }
+      setAvailableColumns(analysis.availableColumns);
+      setColumnMapping(analysis.suggestedMapping || {});
+      setTotalFileRows(analysis.totalDataRows || 0);
+      setImportPreviewData(analysis.initialPreview || []);
+      setImportStep("mapping");
+    } catch (err: any) {
+      console.error("Import analyze error:", err);
+      setImportError(err.message || t("products.importFileFormatError"));
+    } finally {
+      setIsImportLoading(false);
+    }
   }
 
-  function handleStartImport() {
-    setImportMessageVisible(true);
-    closeImportModal();
+  async function handleApplyMapping() {
+    if (!selectedFile) return;
+    if (!columnMapping.nameColumn || !columnMapping.priceColumn) {
+      setImportError(t("products.importRequiredFieldsError"));
+      return;
+    }
+    setIsImportLoading(true);
+    setImportError(null);
+    try {
+      const preview = await importProductsExcel(selectedFile, columnMapping);
+      if (!preview || preview.length === 0) {
+        setImportError(t("products.importMappingFailedError"));
+        return;
+      }
+      setImportPreviewData(preview);
+      setImportStep("preview");
+    } catch (err: any) {
+      console.error("Import mapping preview error:", err);
+      setImportError(err.message || t("products.importProcessError"));
+    } finally {
+      setIsImportLoading(false);
+    }
+  }
+
+  async function handleStartImport() {
+    const validItems = importPreviewData.filter((p) => p.isValid);
+    if (validItems.length === 0) return;
+    setIsImportLoading(true);
+    setImportError(null);
+    try {
+      await confirmProductsImport(validItems);
+      if (accountId) {
+        const [storedProducts, categories] = await Promise.all([
+          getSupplierProducts(accountId),
+          getSupplierCategories(accountId),
+        ]);
+        const categoriesById = new Map(categories.map((c) => [c.id, c.name]));
+        setProducts(
+          storedProducts.map((product) => ({
+            id: product.id,
+            name: product.name,
+            category: (product.categoryIds || []).map((id) => categoriesById.get(id)).filter(Boolean).join(", ") || "Uncategorized",
+            createdAt: product.createdAt || "",
+            price: (product.sellingOptions && product.sellingOptions[0]?.price) ?? 0,
+            sellingOptions: (product.sellingOptions || []).map((option) => ({
+              label: `${option.quantity} ${option.unitType}${option.unitType === "Package" && option.piecesPerPackage ? ` (${option.piecesPerPackage} pcs)` : ""}`,
+              price: option.price,
+              minimumOrderQuantity: option.minimumOrderQuantity,
+            })),
+            code: product.code,
+            image: product.imageUrl ?? "",
+            status: product.status,
+            storedProduct: product,
+          })),
+        );
+      }
+      setImportMessageVisible(true);
+      closeImportModal();
+    } catch (err: any) {
+      console.error("Confirm import error:", err);
+      setImportError(err.message || t("products.importConfirmError"));
+    } finally {
+      setIsImportLoading(false);
+    }
   }
 
   async function handleToggleProductStatus(product: SupplierProduct) {
@@ -494,7 +593,7 @@ export default function SupplierProductsPage() {
         onSelectedSearchFiltersChange={handleSelectedFiltersChange}
         dateFilterValue={createdDate}
         onDateFilterChange={handleCreatedDateChange}
-        dateFilterLabel="Created date"
+        dateFilterLabel={t("products.createdDate")}
         columns={columns}
         rows={visibleProducts}
         getRowKey={(product) => product.id}
@@ -502,7 +601,7 @@ export default function SupplierProductsPage() {
         rowActions={[
           {
             label: (product) =>
-              product.status === "Active" ? "Unlist" : "List product",
+              product.status === "Active" ? t("products.unlist") : t("products.listProduct"),
             icon: <Power aria-hidden="true" />,
             onClick: handleToggleProductStatus,
           },
@@ -530,53 +629,72 @@ export default function SupplierProductsPage() {
         isOpen={isImportModalOpen}
         title={
           importStep === "upload"
-            ? "Import products from CSV"
-            : "Review your import"
+            ? t("products.importExcelTitle")
+            : importStep === "mapping"
+            ? t("products.importMappingTitle")
+            : t("products.importPreviewTitle")
         }
         description={
           importStep === "upload"
-            ? "Upload a CSV file, then review the products before adding them to your catalog."
-            : "Check the rows below. Valid products will be added when you confirm the import."
+            ? t("products.importUploadDesc")
+            : importStep === "mapping"
+            ? t("products.importMappingDesc")
+            : t("products.importPreviewDesc")
         }
         onClose={closeImportModal}
-        size={importStep === "upload" ? "sm" : "lg"}
+        size={importStep === "upload" ? "sm" : "xl"}
       >
         {importStep === "upload" ? (
           <div className="flex flex-col gap-5">
-            <div className="flex items-center gap-3" aria-label="Import progress">
-              <span className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-primary">
-                <span className="grid h-6 w-6 place-items-center rounded-full bg-primary text-[11px] text-primary-content">
+            <div className="flex items-center gap-2" aria-label="Import progress">
+              <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-primary">
+                <span className="grid h-6 w-6 place-items-center rounded-full bg-primary text-[11px] text-primary-content font-bold">
                   1
                 </span>
-                File
+                {t("products.stepFile")}
               </span>
-              <span className="h-px flex-1 bg-slate-200" aria-hidden="true" />
-              <span className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-slate-400">
-                <span className="grid h-6 w-6 place-items-center rounded-full border border-slate-200 text-[11px]">
+              <span className="h-0.5 flex-1 bg-slate-200" aria-hidden="true" />
+              <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-400">
+                <span className="grid h-6 w-6 place-items-center rounded-full border border-slate-200 text-[11px] font-bold">
                   2
                 </span>
-                Review
+                {t("products.stepColumns")}
+              </span>
+              <span className="h-0.5 flex-1 bg-slate-200" aria-hidden="true" />
+              <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-400">
+                <span className="grid h-6 w-6 place-items-center rounded-full border border-slate-200 text-[11px] font-bold">
+                  3
+                </span>
+                {t("products.stepPreview")}
               </span>
             </div>
 
             <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 px-5 py-8 text-center transition hover:border-primary/50 hover:bg-primary/5 focus-within:border-primary focus-within:ring-4 focus-within:ring-primary/10">
               <Upload className="h-7 w-7 text-primary" aria-hidden="true" />
               <span className="text-sm font-semibold text-slate-900">
-                {selectedFile ? selectedFile.name : "Choose a CSV file"}
+                {selectedFile ? selectedFile.name : t("products.selectExcelFile")}
               </span>
               <span className="text-xs text-slate-500">
-                CSV files only, up to 10 MB
+                {t("products.excelFileLimit")}
               </span>
               <input
                 type="file"
-                accept=".csv,text/csv"
+                accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 className="sr-only"
                 onChange={(event) => {
                   setSelectedFile(event.target.files?.[0] ?? null);
+                  setImportError(null);
                   setImportStep("upload");
                 }}
               />
             </label>
+
+            {importError && (
+              <div className="flex items-start gap-2.5 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800">
+                <AlertTriangle className="h-4 w-4 shrink-0 text-rose-600 mt-0.5" />
+                <span>{importError}</span>
+              </div>
+            )}
 
             <div className="flex items-center justify-center gap-2 text-sm text-slate-500">
               <Download className="h-4 w-4" aria-hidden="true" />
@@ -585,7 +703,7 @@ export default function SupplierProductsPage() {
                 onClick={handleDownloadSample}
                 className="font-semibold text-primary underline decoration-primary/35 underline-offset-4 transition hover:text-primary/80 hover:decoration-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               >
-                Download sample file
+                {t("products.downloadSample")}
               </button>
             </div>
 
@@ -593,38 +711,49 @@ export default function SupplierProductsPage() {
               <button
                 type="button"
                 onClick={closeImportModal}
-                className="rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                disabled={isImportLoading}
+                className="rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
               >
-                Cancel
+                {t("common.cancel")}
               </button>
               <button
                 type="button"
-                onClick={handleOpenPreview}
-                disabled={!selectedFile}
-                className="rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-content transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-50"
+                onClick={handleAnalyzeFile}
+                disabled={!selectedFile || isImportLoading}
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-content transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Review import
+                {isImportLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+                {t("products.verifyFile")}
               </button>
             </div>
           </div>
-        ) : (
+        ) : importStep === "mapping" ? (
           <div className="flex flex-col gap-5">
-            <div className="flex items-center gap-3" aria-label="Import progress">
-              <span className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-emerald-700">
-                <span className="grid h-6 w-6 place-items-center rounded-full bg-emerald-500 text-primary-content">
-                  <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
+            {/* Stepper */}
+            <div className="flex items-center gap-2" aria-label="Import progress">
+              <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-emerald-700">
+                <span className="grid h-6 w-6 place-items-center rounded-full bg-emerald-500 text-white text-[11px] font-bold">
+                  <CheckCircle2 className="h-3.5 w-3.5" />
                 </span>
-                File
+                {t("products.stepFile")}
               </span>
-              <span className="h-px flex-1 bg-primary/30" aria-hidden="true" />
-              <span className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-primary">
-                <span className="grid h-6 w-6 place-items-center rounded-full bg-primary text-[11px] text-primary-content">
+              <span className="h-0.5 flex-1 bg-emerald-300" aria-hidden="true" />
+              <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-primary">
+                <span className="grid h-6 w-6 place-items-center rounded-full bg-primary text-[11px] text-primary-content font-bold">
                   2
                 </span>
-                Review
+                {t("products.stepColumns")}
+              </span>
+              <span className="h-0.5 flex-1 bg-slate-200" aria-hidden="true" />
+              <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-400">
+                <span className="grid h-6 w-6 place-items-center rounded-full border border-slate-200 text-[11px] font-bold">
+                  3
+                </span>
+                {t("products.stepPreview")}
               </span>
             </div>
 
+            {/* File Info Banner */}
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
               <div className="flex min-w-0 items-center gap-3">
                 <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
@@ -635,63 +764,347 @@ export default function SupplierProductsPage() {
                     {selectedFile?.name}
                   </p>
                   <p className="mt-0.5 text-xs text-slate-500">
-                    Columns found: Name, Category, Price, Product code
+                    {t("products.columnsAndRowsDetected", { columns: availableColumns.length, rows: totalFileRows })}
                   </p>
                 </div>
               </div>
               <span className="rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-slate-600 ring-1 ring-slate-200">
-                {t("products.rowsDetected", undefined, { count: 5 })}
+                {t("products.headerRow", { row: columnMapping.headerRowNumber ?? 1 })}
               </span>
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-3">
-              <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3">
-                <p className="text-2xl font-semibold tracking-tight text-emerald-800">4</p>
-                <p className="mt-0.5 text-xs font-semibold text-emerald-700">{t("products.readyToImport")}</p>
+            {/* Info notice */}
+            <div className="rounded-xl border border-blue-100 bg-blue-50/70 p-3 text-xs text-blue-800">
+              <p className="font-semibold text-blue-900">{t("products.mappingNoticeTitle")}</p>
+              <p className="mt-0.5 text-blue-700">
+                {t("products.mappingNoticeDesc")}
+              </p>
+            </div>
+
+            {/* Column mapping selectors grid */}
+            <div className="grid gap-3 sm:grid-cols-2">
+              {/* 1. Name (Required) */}
+              <div className="flex flex-col gap-1 rounded-xl border border-slate-200 bg-white p-3 shadow-xs">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                    {t("products.productNameField")} <span className="text-rose-500">*</span>
+                  </label>
+                  <span className="rounded bg-rose-50 px-1.5 py-0.5 text-[10px] font-semibold text-rose-700">
+                    {t("common.required")}
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500">{t("products.productNameFieldDesc")}</p>
+                <select
+                  value={columnMapping.nameColumn ?? ""}
+                  onChange={(e) => {
+                    const val = e.target.value ? Number(e.target.value) : null;
+                    setColumnMapping((prev) => ({ ...prev, nameColumn: val }));
+                  }}
+                  className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-900 shadow-xs focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                >
+                  <option value="">{t("products.selectColumnPlaceholder")}</option>
+                  {availableColumns.map((col) => (
+                    <option key={col.index} value={col.index}>
+                      [{col.letter}] {col.name} {col.sampleValue ? `(${col.sampleValue})` : ""}
+                    </option>
+                  ))}
+                </select>
               </div>
-              <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3">
-                <p className="text-2xl font-semibold tracking-tight text-amber-800">1</p>
-                <p className="mt-0.5 text-xs font-semibold text-amber-700">{t("products.needsAttention")}</p>
+
+              {/* 2. Price (Required) */}
+              <div className="flex flex-col gap-1 rounded-xl border border-slate-200 bg-white p-3 shadow-xs">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                    {t("products.unitPriceAmd")} <span className="text-rose-500">*</span>
+                  </label>
+                  <span className="rounded bg-rose-50 px-1.5 py-0.5 text-[10px] font-semibold text-rose-700">
+                    {t("common.required")}
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500">{t("products.unitPriceDesc")}</p>
+                <select
+                  value={columnMapping.priceColumn ?? ""}
+                  onChange={(e) => {
+                    const val = e.target.value ? Number(e.target.value) : null;
+                    setColumnMapping((prev) => ({ ...prev, priceColumn: val }));
+                  }}
+                  className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-900 shadow-xs focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                >
+                  <option value="">{t("products.selectColumnPlaceholder")}</option>
+                  {availableColumns.map((col) => (
+                    <option key={col.index} value={col.index}>
+                      [{col.letter}] {col.name} {col.sampleValue ? `(${col.sampleValue})` : ""}
+                    </option>
+                  ))}
+                </select>
               </div>
-              <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-                <p className="text-2xl font-semibold tracking-tight text-slate-800">4</p>
-                <p className="mt-0.5 text-xs font-semibold text-slate-600">{t("products.columnsMatched")}</p>
+
+              {/* 3. Code (Optional) */}
+              <div className="flex flex-col gap-1 rounded-xl border border-slate-200 bg-white p-3 shadow-xs">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                    {t("products.skuCodeField")}
+                  </label>
+                  <span className="text-[10px] text-slate-400">{t("common.optional")}</span>
+                </div>
+                <p className="text-[11px] text-slate-500">{t("products.skuCodeDesc")}</p>
+                <select
+                  value={columnMapping.codeColumn ?? ""}
+                  onChange={(e) => {
+                    const val = e.target.value ? Number(e.target.value) : null;
+                    setColumnMapping((prev) => ({ ...prev, codeColumn: val }));
+                  }}
+                  className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-900 shadow-xs focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                >
+                  <option value="">{t("products.dontSelectAutoCode")}</option>
+                  {availableColumns.map((col) => (
+                    <option key={col.index} value={col.index}>
+                      [{col.letter}] {col.name} {col.sampleValue ? `(${col.sampleValue})` : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* 4. Category (Optional) */}
+              <div className="flex flex-col gap-1 rounded-xl border border-slate-200 bg-white p-3 shadow-xs">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                    {t("products.category")}
+                  </label>
+                  <span className="text-[10px] text-slate-400">{t("common.optional")}</span>
+                </div>
+                <p className="text-[11px] text-slate-500">{t("products.categoryFieldDesc")}</p>
+                <select
+                  value={columnMapping.categoryColumn ?? ""}
+                  onChange={(e) => {
+                    const val = e.target.value ? Number(e.target.value) : null;
+                    setColumnMapping((prev) => ({ ...prev, categoryColumn: val }));
+                  }}
+                  className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-900 shadow-xs focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                >
+                  <option value="">{t("products.defaultNoCategory")}</option>
+                  {availableColumns.map((col) => (
+                    <option key={col.index} value={col.index}>
+                      [{col.letter}] {col.name} {col.sampleValue ? `(${col.sampleValue})` : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* 5. Packaging (Optional) */}
+              <div className="flex flex-col gap-1 rounded-xl border border-slate-200 bg-white p-3 shadow-xs">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                    {t("products.packagingField")}
+                  </label>
+                  <span className="text-[10px] text-slate-400">{t("common.optional")}</span>
+                </div>
+                <p className="text-[11px] text-slate-500">{t("products.packagingFieldDesc")}</p>
+                <select
+                  value={columnMapping.packagingColumn ?? ""}
+                  onChange={(e) => {
+                    const val = e.target.value ? Number(e.target.value) : null;
+                    setColumnMapping((prev) => ({ ...prev, packagingColumn: val }));
+                  }}
+                  className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-900 shadow-xs focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                >
+                  <option value="">{t("products.dontSelect")}</option>
+                  {availableColumns.map((col) => (
+                    <option key={col.index} value={col.index}>
+                      [{col.letter}] {col.name} {col.sampleValue ? `(${col.sampleValue})` : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* 6. Unit (Optional) */}
+              <div className="flex flex-col gap-1 rounded-xl border border-slate-200 bg-white p-3 shadow-xs">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                    {t("products.unitField")}
+                  </label>
+                  <span className="text-[10px] text-slate-400">{t("common.optional")}</span>
+                </div>
+                <p className="text-[11px] text-slate-500">{t("products.unitFieldDesc")}</p>
+                <select
+                  value={columnMapping.unitColumn ?? ""}
+                  onChange={(e) => {
+                    const val = e.target.value ? Number(e.target.value) : null;
+                    setColumnMapping((prev) => ({ ...prev, unitColumn: val }));
+                  }}
+                  className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-900 shadow-xs focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                >
+                  <option value="">{t("products.defaultUnitPiece")}</option>
+                  {availableColumns.map((col) => (
+                    <option key={col.index} value={col.index}>
+                      [{col.letter}] {col.name} {col.sampleValue ? `(${col.sampleValue})` : ""}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
 
-            <div className="overflow-hidden rounded-2xl border border-slate-200">
-              <div className="flex items-center justify-between gap-3 border-b border-slate-200 bg-slate-50 px-4 py-3">
-                <div>
-                  <p className="text-sm font-semibold text-slate-900">{t("products.productManifest")}</p>
-                  <p className="mt-0.5 text-xs text-slate-500">{t("products.previewFirstRows")}</p>
+            {/* Quick Sample Preview */}
+            {importPreviewData.length > 0 && (
+              <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-600">
+                    {t("products.quickSampleTitle")}
+                  </span>
+                  <span className="text-xs text-slate-500">
+                    {t("products.totalProductsCount", { count: importPreviewData.length })}
+                  </span>
                 </div>
-                <span className="text-xs font-medium text-slate-500">{t("products.mockPreview")}</span>
+                <div className="space-y-1.5">
+                  {importPreviewData.slice(0, 3).map((item, idx) => (
+                    <div key={idx} className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-white px-3 py-2 text-xs border border-slate-100 shadow-xs">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-slate-400">#{item.rowNumber}</span>
+                        <span className="font-semibold text-slate-900">{item.name || t("products.noName")}</span>
+                        {item.code && <span className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-600 font-mono text-[10px]">{item.code}</span>}
+                        {item.categoryName && <span className="rounded bg-blue-50 px-1.5 py-0.5 text-blue-700 text-[10px]">{item.categoryName}</span>}
+                        {item.packaging && <span className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-600 text-[10px]">{item.packaging}</span>}
+                      </div>
+                      <div className="font-bold text-emerald-700">
+                        {formatAmd(item.price)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[42rem] text-left text-sm">
-                  <thead className="border-b border-slate-200 bg-white text-xs font-bold uppercase tracking-[0.12em] text-slate-500">
-                    <tr>
-                      <th className="px-4 py-3 font-inherit">{t("products.tableRow")}</th>
-                      <th className="px-4 py-3 font-inherit">{t("common.product")}</th>
-                      <th className="px-4 py-3 font-inherit">{t("products.tableCategory")}</th>
-                      <th className="px-4 py-3 font-inherit">{t("common.price")}</th>
-                      <th className="px-4 py-3 font-inherit">{t("products.tableCode")}</th>
-                      <th className="px-4 py-3 font-inherit">{t("common.status")}</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {importPreviewProducts.map((product) => (
-                      <tr key={product.row} className={product.issue ? "bg-amber-50/50" : "bg-white"}>
-                        <td className="px-4 py-3 font-mono text-xs text-slate-500">{product.row}</td>
-                        <td className="px-4 py-3 font-semibold text-slate-900">{product.name}</td>
-                        <td className="px-4 py-3 text-slate-600">{product.category}</td>
-                        <td className="px-4 py-3 tabular-nums text-slate-700">{product.price}</td>
-                        <td className="px-4 py-3 font-mono text-xs text-slate-600">{product.code}</td>
+            )}
+
+            {importError && (
+              <div className="flex items-start gap-2.5 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800">
+                <AlertTriangle className="h-4 w-4 shrink-0 text-rose-600 mt-0.5" />
+                <span>{importError}</span>
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="flex flex-col-reverse gap-2 border-t border-slate-200 pt-5 sm:flex-row sm:justify-between">
+              <button
+                type="button"
+                onClick={() => setImportStep("upload")}
+                disabled={isImportLoading}
+                className="inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 disabled:opacity-50"
+              >
+                <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+                {t("products.chooseAnotherFile")}
+              </button>
+              <button
+                type="button"
+                onClick={handleApplyMapping}
+                disabled={isImportLoading || !columnMapping.nameColumn || !columnMapping.priceColumn}
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-content transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isImportLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+                {t("products.showPreview")}
+                <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-5">
+            {/* Stepper */}
+            <div className="flex items-center gap-2" aria-label="Import progress">
+              <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-emerald-700">
+                <span className="grid h-6 w-6 place-items-center rounded-full bg-emerald-500 text-white text-[11px] font-bold">
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                </span>
+                {t("products.stepFile")}
+              </span>
+              <span className="h-0.5 flex-1 bg-emerald-300" aria-hidden="true" />
+              <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-emerald-700">
+                <span className="grid h-6 w-6 place-items-center rounded-full bg-emerald-500 text-white text-[11px] font-bold">
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                </span>
+                {t("products.stepColumns")}
+              </span>
+              <span className="h-0.5 flex-1 bg-primary/30" aria-hidden="true" />
+              <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-primary">
+                <span className="grid h-6 w-6 place-items-center rounded-full bg-primary text-[11px] text-primary-content font-bold">
+                  3
+                </span>
+                {t("products.stepPreview")}
+              </span>
+            </div>
+
+            {/* File info banner with change columns button */}
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
+                  <FileSpreadsheet className="h-5 w-5" aria-hidden="true" />
+                </span>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-slate-900">
+                    {selectedFile?.name}
+                  </p>
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    [{availableColumns.find((c) => c.index === columnMapping.nameColumn)?.letter}] {availableColumns.find((c) => c.index === columnMapping.nameColumn)?.name || "—"} • 
+                    [{availableColumns.find((c) => c.index === columnMapping.priceColumn)?.letter}] {availableColumns.find((c) => c.index === columnMapping.priceColumn)?.name || "—"}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setImportStep("mapping")}
+                className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+              >
+                {t("products.changeColumns")}
+              </button>
+            </div>
+
+            {/* Stats */}
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3">
+                <p className="text-2xl font-semibold tracking-tight text-emerald-800">
+                  {importPreviewData.filter((x) => x.isValid).length}
+                </p>
+                <p className="mt-0.5 text-xs font-semibold text-emerald-700">{t("products.readyToImport")}</p>
+              </div>
+              <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3">
+                <p className="text-2xl font-semibold tracking-tight text-amber-800">
+                  {importPreviewData.filter((x) => !x.isValid).length}
+                </p>
+                <p className="mt-0.5 text-xs font-semibold text-amber-700">{t("products.needsAttention")}</p>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                <p className="text-2xl font-semibold tracking-tight text-slate-800">
+                  {importPreviewData.length}
+                </p>
+                <p className="mt-0.5 text-xs font-semibold text-slate-600">{t("products.totalDetected")}</p>
+              </div>
+            </div>
+
+            {/* Table */}
+            <div className="max-h-80 overflow-y-auto overflow-x-auto rounded-2xl border border-slate-200">
+              <table className="w-full min-w-[42rem] text-left text-sm">
+                <thead className="sticky top-0 border-b border-slate-200 bg-slate-50 text-xs font-bold uppercase tracking-[0.12em] text-slate-500">
+                  <tr>
+                    <th className="px-4 py-3 font-inherit">{t("products.tableRow")}</th>
+                    <th className="px-4 py-3 font-inherit">{t("common.product")}</th>
+                    <th className="px-4 py-3 font-inherit">{t("products.tableCategory")}</th>
+                    <th className="px-4 py-3 font-inherit">{t("common.price")}</th>
+                    <th className="px-4 py-3 font-inherit">{t("products.tableCode")}</th>
+                    <th className="px-4 py-3 font-inherit">{t("common.status")}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {importPreviewData.map((product) => {
+                    const hasIssues = !product.isValid;
+                    return (
+                      <tr key={product.rowNumber} className={hasIssues ? "bg-amber-50/50" : "bg-white"}>
+                        <td className="px-4 py-3 font-mono text-xs text-slate-500">{product.rowNumber}</td>
+                        <td className="px-4 py-3 font-semibold text-slate-900">{product.name || "—"}</td>
+                        <td className="px-4 py-3 text-slate-600">{product.categoryName || t("products.noCategory")}</td>
+                        <td className="px-4 py-3 tabular-nums text-slate-700">{formatAmd(product.price)}</td>
+                        <td className="px-4 py-3 font-mono text-xs text-slate-600">{product.code || "—"}</td>
                         <td className="px-4 py-3">
-                          {product.issue ? (
+                          {hasIssues ? (
                             <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-800">
                               <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
-                              {product.issue}
+                              {product.validationErrors?.join(", ") || t("common.error")}
                             </span>
                           ) : (
                             <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700">
@@ -701,31 +1114,43 @@ export default function SupplierProductsPage() {
                           )}
                         </td>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
 
-            <p className="rounded-xl bg-amber-50 px-4 py-3 text-sm leading-5 text-amber-900">
-              One row is missing a price and will be skipped. Update the CSV and go back if you want to include it.
-            </p>
+            {importError && (
+              <div className="flex items-start gap-2.5 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800">
+                <AlertTriangle className="h-4 w-4 shrink-0 text-rose-600 mt-0.5" />
+                <span>{importError}</span>
+              </div>
+            )}
+
+            {importPreviewData.some((x) => !x.isValid) && (
+              <p className="rounded-xl bg-amber-50 px-4 py-3 text-sm leading-5 text-amber-900">
+                {t("products.errorRowsNotice", { count: importPreviewData.filter((x) => x.isValid).length })}
+              </p>
+            )}
 
             <div className="flex flex-col-reverse gap-2 border-t border-slate-200 pt-5 sm:flex-row sm:justify-between">
               <button
                 type="button"
-                onClick={() => setImportStep("upload")}
-                className="inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+                onClick={() => setImportStep("mapping")}
+                disabled={isImportLoading}
+                className="inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 disabled:opacity-50"
               >
                 <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-                Change file
+                {t("products.backToColumns")}
               </button>
               <button
                 type="button"
                 onClick={handleStartImport}
-                className="rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-content transition hover:brightness-95"
+                disabled={isImportLoading || importPreviewData.filter((x) => x.isValid).length === 0}
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-content transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Import 4 products
+                {isImportLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+                {t("products.importCountProducts", { count: importPreviewData.filter((x) => x.isValid).length })}
               </button>
             </div>
           </div>
@@ -734,8 +1159,8 @@ export default function SupplierProductsPage() {
 
       <Modal
         isOpen={productToDelete !== null}
-        title="Delete product?"
-        description="This will permanently remove the product from your catalog. This action cannot be undone."
+        title={t("products.deleteProductModalTitle")}
+        description={t("products.deleteProductModalDesc")}
         onClose={closeDeleteModal}
         size="sm"
       >
@@ -769,7 +1194,7 @@ export default function SupplierProductsPage() {
                 aria-hidden="true"
               />
               <p className="text-sm leading-6 text-rose-900">
-                You will no longer be able to manage this product from the catalog.
+                {t("products.deleteProductModalWarning")}
               </p>
             </div>
 
@@ -779,14 +1204,14 @@ export default function SupplierProductsPage() {
                 onClick={closeDeleteModal}
                 className="rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
               >
-                Cancel
+                {t("common.cancel")}
               </button>
               <button
                 type="button"
                 onClick={handleDeleteProduct}
                 className="rounded-lg bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-rose-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-600"
               >
-                Delete product
+                {t("products.deleteConfirm")}
               </button>
             </div>
           </div>

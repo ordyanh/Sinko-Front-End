@@ -354,7 +354,7 @@ export default function SupplierProductDetailPage() {
             {isNewProduct ? t("dashboard.addProduct") : title || t("dashboard.addProduct")}
           </h1>
           <p className="mt-2 text-sm text-slate-600">
-            Keep the details clear so buyers can find and order the right item.
+            {t("products.productEditorSubtitle")}
           </p>
           {productError ? <p role="alert" className="mt-3 text-sm text-red-700">{productError}</p> : null}
         </div>
@@ -383,7 +383,7 @@ export default function SupplierProductDetailPage() {
                     id="product-category"
                     multiple
                     creatable
-                    createLabel={(value) => `Add “${value}”`}
+                    createLabel={(value) => `${t("common.add")} “${value}”`}
                     value={categoryIds}
                     onValueChange={handleCategoryChange}
                     disabled={isLoadingCategories}
@@ -398,7 +398,7 @@ export default function SupplierProductDetailPage() {
                     <p className="mt-2 text-sm text-red-700">{categoriesError}</p>
                   ) : isLoadingCategories ? (
                     <p className="mt-2 text-sm text-slate-500">
-                      Loading your supplier categories...
+                      {t("products.loadingCategories")}
                     </p>
                   ) : (
                     <p className="mt-2 text-sm text-slate-500">
@@ -412,7 +412,7 @@ export default function SupplierProductDetailPage() {
                   label={t("products.productTitle")}
                   value={title}
                   onChange={(event) => setTitle(event.target.value)}
-                  placeholder="e.g. Organic Citrus Mix"
+                  placeholder={t("products.productTitlePlaceholder")}
                   required
                 />
 
@@ -421,7 +421,7 @@ export default function SupplierProductDetailPage() {
                   label={t("products.skuCode")}
                   value={code}
                   onChange={(event) => setCode(event.target.value)}
-                  placeholder="e.g. OCM-204"
+                  placeholder={t("products.skuCodePlaceholder")}
                 />
 
                 <div>
@@ -527,7 +527,7 @@ export default function SupplierProductDetailPage() {
                     {t("products.productMedia")}
                   </h2>
                   <p className="mt-1 text-sm text-slate-500">
-                    Add one clear product image for buyers.
+                    {t("products.productMediaDesc")}
                   </p>
                 </div>
                 <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-sky-700">
@@ -580,7 +580,7 @@ export default function SupplierProductDetailPage() {
                     {t("common.status")}
                   </h2>
                   <p className="mt-1 text-sm text-slate-500">
-                    Control whether buyers can see this product.
+                    {t("products.productStatusDesc")}
                   </p>
                 </div>
                 <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
