@@ -243,6 +243,295 @@ export function sanitizeOrderText(text: string, orderNum?: string | null, orderI
   return result;
 }
 
+export function localizeNotification(
+  rawTitle: string | undefined | null,
+  rawMessage: string | undefined | null,
+  orderNum?: string | null,
+  orderId?: string | null,
+  t?: (key: string, fallback?: any) => string,
+): { title: string; message: string } {
+  let title = sanitizeOrderText(rawTitle || "", orderNum, orderId);
+  let message = sanitizeOrderText(rawMessage || "", orderNum, orderId);
+
+  if (!t) return { title, message };
+
+  const tr = (key: string, fallback: string): string => {
+    try {
+      const res = t(key, fallback);
+      return typeof res === "string" && res.trim().length > 0 ? res : fallback;
+    } catch {
+      return fallback;
+    }
+  };
+
+  const effectiveOrderNum = orderNum || (orderId && !isGuid(orderId) ? orderId : "");
+
+  // 1. Promotions
+  // Title: "Новая промо-акция: {name}" or "New promotion: {name}" or "Նոր ակցիա. {name}"
+  const promoTitleMatch = title.match(/^(?:Новая промо-акция|New promotion|Նոր ակցիա)[:\.\s]+(.+)$/i);
+  if (promoTitleMatch) {
+    const promoName = promoTitleMatch[1].trim();
+    title = tr("notifications.newPromotionNotificationTitle", "New promotion: {name}").replace("{name}", promoName);
+  } else if (/^(?:Новая промо-акция|New promotion|Նոր ակցիա)$/i.test(title.trim())) {
+    title = tr("notifications.newPromotionTitle", "New promotion");
+  }
+
+  // Message: "Поставщик «{supplier}» запустил акцию «{name}». Откройте, чтобы посмотреть подробности!"
+  const promoMsgMatch1 = message.match(
+    /^(?:Поставщик\s+)?[«"]?([^«»"“”]+?)[»"]?\s+запустил акцию\s+[«"]?([^«»"“”]+?)[»"]?\.?\s*(?:Откройте[^\.!]*[\.!])?/i,
+  );
+  const promoMsgMatch2 = message.match(
+    /^(?:Supplier\s+)?[«"]?([^«»"“”]+?)[»"]?\s+launched\s+(?:«|")?([^«»"“”]+?)(?:»|")?\s+promotion\.?\s*(?:Open[^\.!]*[\.!])?/i,
+  );
+  const promoMsgMatch3 = message.match(
+    /^[«"]?([^«»"“”]+?)[»"]?\s+մատակարարը գործարկել է\s+[«"]?([^«»"“”]+?)[»"]?\s+ակցիան\.?\s*(?:Բացեք[^\.!]*[\.!])?/i,
+  );
+
+  const promoMatch = promoMsgMatch1 || promoMsgMatch2 || promoMsgMatch3;
+  if (promoMatch) {
+    const supplier = promoMatch[1].trim();
+    const name = promoMatch[2].trim();
+    message = tr(
+      "notifications.newPromotionNotificationDesc",
+      'Supplier "{supplier}" launched "{name}" promotion. Open to see details!',
+    )
+      .replace("{supplier}", supplier)
+      .replace("{name}", name);
+  }
+
+  // 2. Order Accepted
+  // Title: "Order Accepted" / "Заказ принят" / "Պատվերն ընդունված է"
+  if (/^(?:Order Accepted|Заказ принят|Պատվերն ընդունված է)$/i.test(title.trim())) {
+    title = tr("notifications.orderAcceptedTitle", "Order Accepted");
+  }
+
+  // Message: "Supplier {supplier} has accepted your order #{orderNum}."
+  // or "Поставщик «{supplier}» принял ваш заказ #{orderNum}."
+  // or "{supplier} մատակարարն ընդունել է Ձեր #{orderNum} պատվերը:"
+  const orderAcceptedMatch =
+    message.match(/^Supplier\s+(.+?)\s+has accepted your order\s*#?([A-Za-z0-9-]+)?\.?$/i) ||
+    message.match(/^Поставщик\s+[«"]?(.+?)[»"]?\s+принял ваш заказ\s*#?([A-Za-z0-9-]+)?\.?$/i) ||
+    message.match(/^«?(.+?)»?\s+մատակարարն ընդունել է Ձեր\s*#?([A-Za-z0-9-]+)?\s*պատվերը[:\.]?$/i);
+  if (orderAcceptedMatch) {
+    const supplier = orderAcceptedMatch[1].trim();
+    const num = orderAcceptedMatch[2] || effectiveOrderNum;
+    message = tr("notifications.orderAcceptedDesc", "Supplier {supplier} has accepted your order #{orderNum}.")
+      .replace("{supplier}", supplier)
+      .replace("{orderNum}", num);
+  }
+
+  // 3. Order Cancelled
+  if (/^(?:Order Cancelled|Заказ отменен|Պատվերը չեղարկվել է)$/i.test(title.trim())) {
+    title = tr("notifications.orderCancelledTitle", "Order Cancelled");
+  }
+
+  const orderCancelledByMatch =
+    message.match(/^Order\s+#?([A-Za-z0-9-]+)?\s+(?:was|has been)\s+cancelled\s+by\s+(.+?)\.?$/i) ||
+    message.match(/^Заказ\s+#?([A-Za-z0-9-]+)?\s+(?:был\s+)?отменен\s+(?:клиентом|поставщиком)\s+(.+?)\.?$/i) ||
+    message.match(/^#?([A-Za-z0-9-]+)?\s+պատվերը չեղարկվել է\s+(.+?)-ի կողմից[:\.]?$/i);
+  if (orderCancelledByMatch) {
+    const num = orderCancelledByMatch[1] || effectiveOrderNum;
+    const by = orderCancelledByMatch[2].trim();
+    message = tr("notifications.orderCancelledByDesc", "Order #{orderNum} was cancelled by {client}.")
+      .replace("{orderNum}", num)
+      .replace("{client}", by);
+  } else if (
+    /^Order\s+#?([A-Za-z0-9-]+)?\s+(?:was|has been|is)\s+cancelled\.?$/i.test(message) ||
+    /^Заказ\s+#?([A-Za-z0-9-]+)?\s+(?:был\s+)?отменен\.?$/i.test(message)
+  ) {
+    const match = message.match(/^Order\s+#?([A-Za-z0-9-]+)?/i) || message.match(/^Заказ\s+#?([A-Za-z0-9-]+)?/i);
+    const num = match?.[1] || effectiveOrderNum;
+    message = tr("notifications.orderCancelledDesc", "Order #{orderNum} is cancelled.").replace("{orderNum}", num);
+  }
+
+  // 4. Order Approved
+  if (/^(?:Order Approved|Заказ одобрен|Պատվերը հաստատված է)$/i.test(title.trim())) {
+    title = tr("notifications.orderApprovedTitle", "Order Approved");
+  }
+  const orderApprovedMatch =
+    message.match(/^Order\s+#?([A-Za-z0-9-]+)?\s+(?:was|has been)\s+approved\s+by\s+(.+?)\.?$/i) ||
+    message.match(/^Заказ\s+#?([A-Za-z0-9-]+)?\s+(?:был\s+)?одобрен\s+(?:клиентом\s+)?(.+?)\.?$/i) ||
+    message.match(/^#?([A-Za-z0-9-]+)?\s+պատվերը հաստատվել է\s+(.+?)-ի կողմից[:\.]?$/i);
+  if (orderApprovedMatch) {
+    const num = orderApprovedMatch[1] || effectiveOrderNum;
+    const by = orderApprovedMatch[2].trim();
+    message = tr("notifications.orderApprovedDesc", "Order #{orderNum} was approved by {client}.")
+      .replace("{orderNum}", num)
+      .replace("{client}", by);
+  }
+
+  // 5. Order Claimed
+  if (/^(?:Order Claimed|Заказ принят сотрудником|Պատվերը վերցված է աշխատանքի)$/i.test(title.trim())) {
+    title = tr("notifications.orderClaimedTitle", "Order Claimed");
+  }
+  const orderClaimedMatch =
+    message.match(/^Order\s+#?([A-Za-z0-9-]+)?\s+has been claimed by\s+(.+?)\.?$/i) ||
+    message.match(/^Заказ\s+#?([A-Za-z0-9-]+)?\s+(?:был\s+)?взят в\s+(?:обработку|работу)\s+сотрудником\s+(.+?)\.?$/i) ||
+    message.match(/^#?([A-Za-z0-9-]+)?\s+պատվերը վերցվել է աշխատանքի\s+(.+?)-ի կողմից[:\.]?$/i);
+  if (orderClaimedMatch) {
+    const num = orderClaimedMatch[1] || effectiveOrderNum;
+    const by = orderClaimedMatch[2].trim();
+    message = tr("notifications.orderClaimedDesc", "Order #{orderNum} has been claimed by {employee}.")
+      .replace("{orderNum}", num)
+      .replace("{employee}", by);
+  }
+
+  // 6. Price Offers & Adjustments
+  if (/^(?:New Price Offer Received|Получено новое ценовое предложение|Ստացվել է նոր գնային առաջարկ)$/i.test(title.trim())) {
+    title = tr("notifications.newPriceOfferTitle", "New Price Offer Received");
+  } else if (/^(?:Price Offer Received|Получено ценовое предложение|Ստացվել է գնային առաջարկ)$/i.test(title.trim())) {
+    title = tr("notifications.priceOfferReceivedTitle", "Price Offer Received");
+  } else if (/^(?:Price and Quantity Offer Updated|Обновлено предложение по цене и количеству|Գնի և քանակի առաջարկը թարմացվել է)$/i.test(title.trim())) {
+    title = tr("notifications.priceAndQuantityOfferTitle", "Price and Quantity Offer Updated");
+  } else if (/^(?:Quantity Adjustment Offer|Предложение по изменению количества|Ապրանքների քանակի փոփոխության առաջարկ)$/i.test(title.trim())) {
+    title = tr("notifications.quantityAdjustmentOfferTitle", "Quantity Adjustment Offer");
+  } else if (/^(?:New Price Request|Новый ценовой запрос|Նոր գնային հարցում)$/i.test(title.trim())) {
+    title = tr("notifications.newPriceRequestTitle", "New Price Request");
+  } else if (/^(?:Price Offer|Предложение цены по заказу|Գնային առաջարկ պատվերի համար)$/i.test(title.trim())) {
+    title = tr("notifications.priceOfferTitle", "Price offer for order");
+  }
+
+  const priceOfferMatch = message.match(/^Supplier\s+(.+?)\s+sent (?:you a price offer|new prices) for order\s*#?([A-Za-z0-9-]+)?\.?$/i);
+  if (priceOfferMatch) {
+    const num = priceOfferMatch[2] || effectiveOrderNum;
+    message = tr("notifications.priceOfferDesc", "Supplier sent new prices for order #{orderNum}.").replace("{orderNum}", num);
+  }
+
+  const priceQtyMatch = message.match(/^Supplier\s+(.+?)\s+updated prices and quantities for order\s*#?([A-Za-z0-9-]+)?\.?$/i);
+  if (priceQtyMatch) {
+    const supplier = priceQtyMatch[1].trim();
+    const num = priceQtyMatch[2] || effectiveOrderNum;
+    message = tr("notifications.priceAndQuantityOfferDesc", "Supplier {supplier} updated prices and quantities for order #{orderNum}.")
+      .replace("{supplier}", supplier)
+      .replace("{orderNum}", num);
+  }
+
+  const qtyAdjMatch = message.match(/^Supplier\s+(.+?)\s+adjusted item quantities for order\s*#?([A-Za-z0-9-]+)?\.?$/i);
+  if (qtyAdjMatch) {
+    const supplier = qtyAdjMatch[1].trim();
+    const num = qtyAdjMatch[2] || effectiveOrderNum;
+    message = tr("notifications.quantityAdjustmentOfferDesc", "Supplier {supplier} adjusted item quantities for order #{orderNum}.")
+      .replace("{supplier}", supplier)
+      .replace("{orderNum}", num);
+  }
+
+  const newPriceReqMatch = message.match(/^New price offer request from\s+(.+?)\s+for order\s*#?([A-Za-z0-9-]+)?\.?$/i);
+  if (newPriceReqMatch) {
+    const rest = newPriceReqMatch[1].trim();
+    const num = newPriceReqMatch[2] || effectiveOrderNum;
+    message = tr("notifications.newPriceRequestDesc", "New price offer request from {restaurant} for order #{orderNum}.")
+      .replace("{restaurant}", rest)
+      .replace("{orderNum}", num);
+  }
+
+  // 7. Offer Accepted / Rejected
+  if (/^(?:Offer Accepted|Предложение принято|Առաջարկն ընդունվել է)$/i.test(title.trim())) {
+    title = tr("notifications.offerAcceptedTitle", "Offer Accepted");
+  } else if (/^(?:Offer Rejected|Предложение отклонено|Առաջարկը մերժվել է)$/i.test(title.trim())) {
+    title = tr("notifications.offerRejectedTitle", "Offer Rejected");
+  }
+
+  const offerAccMatch = message.match(/^(?:Restaurant|Client\s+(.+?))\s+accepted\s+(?:the|your price)\s+offer for order\s*#?([A-Za-z0-9-]+)?\.?$/i);
+  if (offerAccMatch) {
+    const client = offerAccMatch[1]?.trim() || tr("common.customer", "Client");
+    const num = offerAccMatch[2] || effectiveOrderNum;
+    message = tr("notifications.offerAcceptedDesc", "Client {client} accepted the offer for order #{orderNum}.")
+      .replace("{client}", client)
+      .replace("{orderNum}", num);
+  }
+
+  const offerRejMatch = message.match(/^(?:Restaurant|Client\s+(.+?))\s+rejected\s+(?:the|your price)\s+offer for order\s*#?([A-Za-z0-9-]+)?\.?$/i);
+  if (offerRejMatch) {
+    const client = offerRejMatch[1]?.trim() || tr("common.customer", "Client");
+    const num = offerRejMatch[2] || effectiveOrderNum;
+    message = tr("notifications.offerRejectedDesc", "Client {client} rejected the offer for order #{orderNum}.")
+      .replace("{client}", client)
+      .replace("{orderNum}", num);
+  }
+
+  // 8. New Order from Client / Restaurant
+  const newOrderTitleMatch = title.match(/^New order received from\s+(.+?)\.?$/i);
+  if (newOrderTitleMatch) {
+    title = tr("notifications.newOrderFromRestaurantTitle", "New order from client");
+  } else if (/^New order received$/i.test(title.trim())) {
+    title = tr("notifications.statusNewOrder", "New order");
+  }
+
+  const newOrderMsgMatch = message.match(/^New order\s*#?([A-Za-z0-9-]+)?\s+received from\s+(.+?)\.?$/i);
+  if (newOrderMsgMatch) {
+    const num = newOrderMsgMatch[1] || effectiveOrderNum;
+    const client = newOrderMsgMatch[2].trim();
+    message = tr("notifications.newOrderFromRestaurantDesc", "{companyName} placed a new order #{orderNum}.")
+      .replace("{companyName}", client)
+      .replace("{orderNum}", num);
+  }
+
+  const orderAssignedMatch = message.match(/^Order\s*#?([A-Za-z0-9-]+)?\s+has been assigned to you\.?$/i);
+  if (orderAssignedMatch) {
+    const num = orderAssignedMatch[1] || effectiveOrderNum;
+    message = tr("notifications.orderAssignedDesc", "Order #{orderNum} has been assigned to you.").replace("{orderNum}", num);
+  }
+
+  const orderAvailMatch = message.match(/^New order received from\s+(.+?)\.\s*Order\s*#?([A-Za-z0-9-]+)?\s+is available for acceptance\.?$/i);
+  if (orderAvailMatch) {
+    const client = orderAvailMatch[1].trim();
+    const num = orderAvailMatch[2] || effectiveOrderNum;
+    message = tr("notifications.orderAvailableDesc", "New order received from {client}. Order #{orderNum} is available for acceptance.")
+      .replace("{client}", client)
+      .replace("{orderNum}", num);
+  }
+
+  // 9. Order Status Update
+  const statusUpdateTitleMatch = title.match(/^Order\s+#?([A-Za-z0-9-]+)?\s+Status Update$/i);
+  if (statusUpdateTitleMatch) {
+    const num = statusUpdateTitleMatch[1] || effectiveOrderNum;
+    title = tr("notifications.orderStatusUpdateTitle", "Order #{orderNum} Status Update").replace("{orderNum}", num);
+  }
+
+  const statusUpdateMsgMatch = message.match(/^Status of your order\s*#?([A-Za-z0-9-]+)?\s+changed to:\s*(.+?)\.?$/i);
+  if (statusUpdateMsgMatch) {
+    const num = statusUpdateMsgMatch[1] || effectiveOrderNum;
+    const rawStatus = statusUpdateMsgMatch[2].trim();
+    const statusLower = rawStatus.toLowerCase();
+    let localizedStatus = rawStatus;
+
+    if (statusLower.includes("accept") || statusLower.includes("confirm")) {
+      localizedStatus = tr("notifications.statusConfirmed", "Confirmed");
+    } else if (statusLower.includes("prepar") || statusLower.includes("progress")) {
+      localizedStatus = tr("notifications.statusInProgress", "In progress");
+    } else if (statusLower.includes("ship")) {
+      localizedStatus = tr("notifications.statusShipped", "Shipped");
+    } else if (statusLower.includes("deliver")) {
+      localizedStatus = tr("notifications.statusDelivered", "Delivered");
+    } else if (statusLower.includes("reject")) {
+      localizedStatus = tr("notifications.statusRejected", "Rejected");
+    } else if (statusLower.includes("cancel")) {
+      localizedStatus = tr("notifications.statusCancelled", "Cancelled");
+    } else if (statusLower.includes("waiting") || statusLower.includes("offer")) {
+      localizedStatus = tr("notifications.priceOfferTitle", "Price offer");
+    }
+
+    message = tr("notifications.orderStatusUpdateDesc", "Status of your order #{orderNum} changed to: {status}.")
+      .replace("{orderNum}", num)
+      .replace("{status}", localizedStatus);
+  }
+
+  // 10. Fallback titles
+  if (/^Order confirmed by supplier$/i.test(title.trim())) {
+    title = tr("notifications.orderConfirmedTitle", "Order confirmed by supplier");
+  } else if (/^Order is being prepared$/i.test(title.trim())) {
+    title = tr("notifications.orderPreparingTitle", "Order is being prepared");
+  } else if (/^Order is on the way$/i.test(title.trim())) {
+    title = tr("notifications.orderShippedTitle", "Order is on the way");
+  } else if (/^Order delivered$/i.test(title.trim())) {
+    title = tr("notifications.orderDeliveredTitle", "Order delivered");
+  } else if (/^Order rejected$/i.test(title.trim())) {
+    title = tr("notifications.orderRejectedTitle", "Order rejected");
+  }
+
+  return { title, message };
+}
+
 export function normalizeNotification(raw: any): NotificationItemDto {
   if (!raw || typeof raw !== "object") {
     const nowIso = new Date().toISOString();

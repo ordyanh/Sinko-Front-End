@@ -253,13 +253,13 @@ export default function DashboardLayout({
         void notifCenter.markAllRead();
       }}
       className="relative inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:-translate-y-0.5 hover:border-primary/30 hover:bg-primary/5 hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-      aria-label={`Open notifications${effectiveUnreadCount > 0 ? `, ${effectiveUnreadCount} unread` : ""}`}
+      aria-label={`${t("notifications.title", "Notifications")}${effectiveUnreadCount > 0 ? `, ${effectiveUnreadCount}` : ""}`}
     >
       <Bell className="h-5 w-5" aria-hidden="true" />
       {notifCenter.isConnected ? (
         <span
           className="absolute bottom-1 right-1 h-2 w-2 rounded-full bg-emerald-500 ring-2 ring-white"
-          title="Live WebSocket Connected"
+          title={t("notifications.liveConnected", "Live WebSocket Connected")}
         />
       ) : null}
       {effectiveUnreadCount > 0 ? (

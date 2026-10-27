@@ -17,6 +17,7 @@ import {
   getDailySummary,
   getNotifications,
   formatNotificationTime,
+  localizeNotification,
   type NotificationItemDto,
   type SupplierDashboardDto,
 } from "~/shared/api";
@@ -292,6 +293,7 @@ export default function SupplierPage() {
             <ul className="divide-y divide-slate-100">
               {notifications.map((notification) => {
                 const Icon = notification.icon;
+                const loc = localizeNotification(notification.title, notification.detail, undefined, undefined, t);
                 return (
                   <li key={notification.title}>
                     <Link
@@ -305,10 +307,10 @@ export default function SupplierPage() {
                       </span>
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-semibold text-slate-800 group-hover:text-primary">
-                          {notification.title}
+                          {loc.title}
                         </p>
                         <p className="mt-1 text-sm text-slate-500">
-                          {notification.detail}
+                          {loc.message}
                         </p>
                       </div>
                       {notification.time && notification.time !== "Invalid Date" ? (

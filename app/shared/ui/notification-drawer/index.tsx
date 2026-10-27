@@ -5,6 +5,7 @@ import {
   getNotificationTheme,
   isGuid,
   sanitizeOrderText,
+  localizeNotification,
   type NotificationStatusKind,
 } from "~/shared/api/notifications";
 
@@ -66,7 +67,7 @@ export default function NotificationDrawer({
                 {isConnected ? (
                   <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-600/20">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                    Live
+                    {t("notifications.live", "Live")}
                   </span>
                 ) : null}
               </div>
@@ -106,13 +107,20 @@ export default function NotificationDrawer({
 
           {notifications.length > 0 ? (
             <div className="flex-1 overflow-y-auto p-3 sm:p-4">
-              <ul className="space-y-3" aria-label="Notifications">
+              <ul className="space-y-3" aria-label={t("notifications.title", "Notifications")}>
                 {notifications.map((notification) => {
+                  const localized = localizeNotification(
+                    notification.title,
+                    notification.detail,
+                    notification.orderNum,
+                    notification.orderId,
+                    t,
+                  );
                   const theme = getNotificationTheme({
                     status: notification.status,
                     notificationType: notification.statusKind === "promotion" ? 50 : undefined,
-                    title: notification.title,
-                    message: notification.detail,
+                    title: localized.title,
+                    message: localized.message,
                     relatedId: notification.deepLink?.includes("/promotions/") ? "promo-item" : undefined,
                   }, t);
                   const isPromo = theme.kind === "promotion";
@@ -174,10 +182,10 @@ export default function NotificationDrawer({
                           </div>
 
                           <p className="mt-1 text-sm font-semibold leading-5 text-slate-900">
-                            {sanitizeOrderText(notification.title, notification.orderNum, notification.orderId)}
+                            {localized.title}
                           </p>
                           <p className="mt-0.5 text-xs leading-5 text-slate-600">
-                            {sanitizeOrderText(notification.detail, notification.orderNum, notification.orderId)}
+                            {localized.message}
                           </p>
 
                           {hasOrderLink ? (

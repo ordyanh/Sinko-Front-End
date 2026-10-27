@@ -17,6 +17,7 @@ import {
   formatNotificationTime,
   isGuid,
   sanitizeOrderText,
+  localizeNotification,
 } from "~/shared/api/notifications";
 import type { ToastNotification } from "~/shared/lib/use-notification-center";
 import { useTranslation } from "~/shared/lib/i18n";
@@ -33,7 +34,18 @@ export function NotificationToastCard({ toast, onClose, onOpenOrder }: Notificat
   const [isPaused, setIsPaused] = useState(false);
 
   const durationMs = toast.autoCloseMs || 9000;
-  const theme = getNotificationTheme(toast, t);
+  const localized = localizeNotification(
+    toast.title,
+    toast.message,
+    toast.orderNum,
+    toast.orderId,
+    t,
+  );
+  const theme = getNotificationTheme({
+    ...toast,
+    title: localized.title,
+    message: localized.message,
+  }, t);
 
   useEffect(() => {
     if (isPaused) return;
@@ -141,12 +153,12 @@ export function NotificationToastCard({ toast, onClose, onOpenOrder }: Notificat
 
           {/* Title */}
           <h4 className="mt-1 text-sm font-bold text-slate-900 leading-snug">
-            {sanitizeOrderText(toast.title, toast.orderNum, toast.orderId)}
+            {localized.title}
           </h4>
 
           {/* Message Description */}
           <p className="mt-0.5 text-xs text-slate-600 leading-relaxed line-clamp-3">
-            {sanitizeOrderText(toast.message, toast.orderNum, toast.orderId)}
+            {localized.message}
           </p>
 
           {/* Action Row */}
@@ -212,11 +224,12 @@ export default function NotificationToastContainer({
   onClose,
   onOpenOrder,
 }: NotificationToastContainerProps) {
+  const { t } = useTranslation();
   if (!toasts || toasts.length === 0) return null;
 
   return (
     <div
-      aria-label="Notifications"
+      aria-label={t("notifications.title", "Notifications")}
       className="fixed top-4 right-4 z-[9999] flex w-full max-w-sm flex-col gap-3 pointer-events-none sm:max-w-md sm:right-6 sm:top-6"
     >
       {toasts.map((toast) => (
