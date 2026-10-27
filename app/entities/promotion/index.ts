@@ -22,4 +22,4 @@ export {
   type PromotionCartValidationInput,
   type PromotionType,
 } from "./model/promotion";
-export { PromotionBanner, PromotionCard } from "./ui/promotion-card";
+export { PromotionBanner, PromotionCard, getBannerStyles, parseHexColor, type BannerStyles } from "./ui/promotion-card";

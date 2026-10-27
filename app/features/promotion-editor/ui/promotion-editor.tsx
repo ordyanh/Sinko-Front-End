@@ -381,6 +381,7 @@ export default function PromotionEditor({
     buyQuantity: previewPromotionType === "BuyXGetY" ? Number(triggerQuantity) || undefined : undefined,
     giftQuantity: previewPromotionType === "BuyXGetY" ? Number(targetQuantity) || undefined : undefined,
     giftChoices: previewPromotionType === "BuyXGetY" ? giftChoices : undefined,
+    brandColorFallback,
     tone: getPromotionTone(brandColorFallback),
   };
   const normalizedCustomerSearch = customerSearch.trim().toLowerCase();
@@ -1560,6 +1561,18 @@ export default function PromotionEditor({
                       <input id="brand-colour-fallback" type="color" value={brandColorFallback} onChange={(event) => setBrandColorFallback(event.target.value)} className="h-11 w-12 cursor-pointer rounded-lg border border-slate-200 bg-white p-1" aria-label={t("promotions.brandColorFallback")} />
                       <span className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold uppercase text-slate-700">{brandColorFallback}</span>
                       {!visualUrl ? <span className="h-11 flex-1 rounded-lg" style={{ backgroundColor: brandColorFallback }} aria-label={t("promotions.brandColorFallback")} /> : null}
+                    </div>
+                  </div>
+
+                  <div className="border-t border-slate-100 pt-5">
+                    <p className="text-sm font-semibold text-slate-900 mb-1">
+                      {t("promotions.bannerPreview")}
+                    </p>
+                    <p className="text-xs leading-5 text-slate-500 mb-3">
+                      {t("promotions.previewModalDesc")}
+                    </p>
+                    <div className="max-w-md">
+                      <PromotionBanner promotion={previewPromotion} />
                     </div>
                   </div>
                 </div>

@@ -1,7 +1,7 @@
 import { ArrowLeft, ArrowRight, CalendarDays, Check, Gift, PackageCheck, Tag } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useOutletContext, useParams } from "react-router";
-import { getPromotionGiftChoices, isPromotionActive, type MarketplacePromotion } from "~/entities/promotion";
+import { getBannerStyles, getPromotionGiftChoices, isPromotionActive, type MarketplacePromotion } from "~/entities/promotion";
 import { getHorecaMarketplaceProducts, getMarketplaceOptionLabel, getMarketplaceSellingOptions, marketplaceProducts, type MarketplaceProduct } from "~/entities/product";
 import { DashboardPageContent } from "~/shared/ui";
 import { useTranslation } from "~/shared/lib/i18n";
@@ -97,6 +97,8 @@ export default function HorecaPromotionDetailPage() {
       ? t("promotions.fixedPrice")
       : t("promotions.percentageDiscount");
 
+  const bannerStyles = getBannerStyles(promotion.brandColorFallback, promotion.tone);
+
   return (
     <DashboardPageContent className="max-w-5xl">
       <Link
@@ -109,8 +111,9 @@ export default function HorecaPromotionDetailPage() {
 
       <section className="mt-5 overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white shadow-sm">
         <header
+          style={!promotion.visualUrl && bannerStyles.containerStyle ? bannerStyles.containerStyle : undefined}
           className={`relative overflow-hidden bg-gradient-to-br px-6 py-8 text-white sm:px-9 sm:py-10 ${
-            toneClasses[promotion.tone]
+            bannerStyles.containerClass || toneClasses[promotion.tone] || "from-[#194d37] to-[#2f7751]"
           }`}
         >
           {promotion.visualUrl ? (

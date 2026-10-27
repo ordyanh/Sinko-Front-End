@@ -41,6 +41,7 @@ export type MarketplacePromotion = {
   /** Omit for an offer available to every HoReCa company. */
   eligibleHorecaAccountIds?: string[];
   tone: "green" | "gold" | "violet" | "coral";
+  brandColorFallback?: string;
 };
 
 export type PromotionReward = {
@@ -70,10 +71,41 @@ export function getMarketplacePromotions() {
   return currentMarketplacePromotions;
 }
 
-export function getPromotionTone(color: string): MarketplacePromotion["tone"] {
-  if (/8e57|c185|b774/i.test(color)) return "gold";
-  if (/4f3a|765b|6550/i.test(color)) return "violet";
-  if (/923d|c85d/i.test(color)) return "coral";
+export function getPromotionTone(color?: string | null): MarketplacePromotion["tone"] {
+  if (!color) return "green";
+  const normalized = color.toLowerCase().trim();
+  if (/8e57|c185|b774/i.test(normalized)) return "gold";
+  if (/4f3a|765b|6550/i.test(normalized)) return "violet";
+  if (/923d|c85d/i.test(normalized)) return "coral";
+
+  if (normalized.startsWith("#")) {
+    let hex = normalized.slice(1);
+    if (hex.length === 3) {
+      hex = hex.split("").map((c) => c + c).join("");
+    }
+    if (hex.length === 6) {
+      const r = parseInt(hex.slice(0, 2), 16) / 255;
+      const g = parseInt(hex.slice(2, 4), 16) / 255;
+      const b = parseInt(hex.slice(4, 6), 16) / 255;
+      if (!isNaN(r) && !isNaN(g) && !isNaN(b)) {
+        const max = Math.max(r, g, b);
+        const min = Math.min(r, g, b);
+        const delta = max - min;
+        let h = 0;
+        if (delta !== 0) {
+          if (max === r) h = ((g - b) / delta) % 6;
+          else if (max === g) h = (b - r) / delta + 2;
+          else h = (r - g) / delta + 4;
+          h = Math.round(h * 60);
+          if (h < 0) h += 360;
+        }
+        if (h >= 35 && h < 75) return "gold";
+        if (h >= 240 && h < 320) return "violet";
+        if (h >= 320 || h < 35) return "coral";
+        return "green";
+      }
+    }
+  }
   return "green";
 }
 
@@ -133,6 +165,7 @@ function marketplacePromotionFromStored(
     giftChoices: promotion.type === "BuyXGetY" ? giftChoices : undefined,
     eligibleHorecaAccountIds: promotion.eligibility === "specific-customers" ? promotion.eligibleCustomerIds : undefined,
     tone: getPromotionTone(promotion.brandColorFallback),
+    brandColorFallback: promotion.brandColorFallback,
   };
 }
 
