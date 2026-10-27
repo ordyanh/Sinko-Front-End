@@ -87,7 +87,7 @@ export default function ThemeToggle({
         id="theme-dropdown-button"
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
-        className="inline-flex h-9 items-center gap-2 rounded-xl border border-slate-200 bg-white/90 px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-xs backdrop-blur-xs transition hover:bg-slate-50 hover:text-slate-950 focus:outline-hidden focus:ring-2 focus:ring-primary/20 dark:border-slate-800 dark:bg-slate-900/90 dark:text-slate-200 dark:hover:bg-slate-800"
+        className="inline-flex h-9 items-center gap-2 rounded-xl border border-slate-200 bg-white/90 px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-xs backdrop-blur-xs transition hover:bg-slate-50 hover:text-slate-950 focus:outline-hidden focus:ring-2 focus:ring-primary/20 dark:border-slate-800 dark:bg-slate-900/90 dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:text-white"
         aria-haspopup="listbox"
         aria-expanded={isOpen}
         aria-label={t("common.theme", "Theme")}
@@ -124,7 +124,7 @@ export default function ThemeToggle({
                 className={`flex w-full items-center justify-between gap-2.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition ${
                   isSelected
                     ? "bg-primary/10 font-bold text-primary dark:bg-primary/20"
-                    : "text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+                    : "text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
                 }`}
               >
                 <span className="flex items-center gap-2">

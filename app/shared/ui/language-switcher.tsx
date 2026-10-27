@@ -83,7 +83,7 @@ export default function LanguageSwitcher({
       <button
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
-        className="inline-flex h-9 items-center gap-2 rounded-xl border border-slate-200 bg-white/90 px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-xs backdrop-blur-xs transition hover:bg-slate-50 hover:text-slate-950 focus:outline-hidden focus:ring-2 focus:ring-primary/20"
+        className="inline-flex h-9 items-center gap-2 rounded-xl border border-slate-200 bg-white/90 px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-xs backdrop-blur-xs transition hover:bg-slate-50 hover:text-slate-950 focus:outline-hidden focus:ring-2 focus:ring-primary/20 dark:border-slate-800 dark:bg-slate-900/90 dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:text-white"
         aria-haspopup="listbox"
         aria-expanded={isOpen}
       >
@@ -100,7 +100,7 @@ export default function LanguageSwitcher({
         <div
           role="listbox"
           aria-label="Select language"
-          className="absolute right-0 z-50 mt-1.5 w-44 rounded-2xl border border-slate-200/90 bg-white p-1.5 shadow-xl shadow-slate-900/10 focus:outline-hidden animate-in fade-in-50 zoom-in-95 duration-100"
+          className="absolute right-0 z-50 mt-1.5 w-44 rounded-2xl border border-slate-200/90 bg-white p-1.5 shadow-xl shadow-slate-900/10 focus:outline-hidden animate-in fade-in-50 zoom-in-95 duration-100 dark:border-slate-800 dark:bg-slate-900"
         >
           {languages.map((item) => {
             const isSelected = item.code === language;
@@ -116,8 +116,8 @@ export default function LanguageSwitcher({
                 }}
                 className={`flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2 text-left text-xs font-medium transition ${
                   isSelected
-                    ? "bg-slate-100 font-semibold text-primary"
-                    : "text-slate-700 hover:bg-slate-50 hover:text-slate-950"
+                    ? "bg-slate-100 font-semibold text-primary dark:bg-slate-800"
+                    : "text-slate-700 hover:bg-slate-50 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
                 }`}
               >
                 <div className="flex items-center gap-2.5">

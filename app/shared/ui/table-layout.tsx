@@ -267,7 +267,7 @@ export default function TableLayout<Row>({
                     <tr
                       key={rowKey}
                       className={joinClassNames(
-                        "group transition-colors hover:bg-slate-50/80",
+                        "group transition-colors hover:bg-slate-50/80 dark:hover:bg-slate-800/60",
                         rowDestination ? "cursor-pointer" : undefined,
                       )}
                       onClick={
@@ -294,7 +294,7 @@ export default function TableLayout<Row>({
                           className={joinClassNames(
                             "px-5 py-4 sm:px-6",
                             columnIndex === 0
-                              ? "sticky left-0 z-10 border-r border-slate-200 bg-white transition-colors group-hover:bg-slate-50"
+                              ? "sticky left-0 z-10 border-r border-slate-200 bg-white transition-colors group-hover:bg-slate-50 dark:border-slate-800 dark:bg-[#131b2a] dark:group-hover:bg-slate-800/80"
                               : undefined,
                             column.className,
                           )}

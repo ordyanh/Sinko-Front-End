@@ -14,7 +14,7 @@ const variantClasses: Record<
   NonNullable<IconButtonProps["variant"]>,
   string
 > = {
-  default: "text-slate-400 hover:bg-slate-100 hover:text-slate-700",
+  default: "text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white",
   primary: "text-primary hover:bg-primary/10",
   danger: "text-error hover:bg-error/10",
 };
