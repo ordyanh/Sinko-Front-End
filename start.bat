@@ -37,12 +37,12 @@ if exist "scripts\switch-backend.js" (
 
 echo.
 echo Select an option:
-echo   1 - Start with Remote Azure Backend  [npm run dev:remote] (Recommended)
-echo   2 - Start with Local Backend         [npm run dev:local]
+echo   1 - Start with Local Backend         [npm run dev:local] (Recommended)
+echo   2 - Start with Remote Cloud Backend  [npm run dev:remote]
 echo   3 - Start dev server in current mode [npm run dev]
 echo   4 - Build and start production       [npm run build + npm run start]
-echo   5 - Switch backend to Remote (Azure) [npm run use:remote]
-echo   6 - Switch backend to Local          [npm run use:local]
+echo   5 - Switch backend to Local          [npm run use:local]
+echo   6 - Switch backend to Remote         [npm run use:remote]
 echo   7 - Exit
 echo.
 
@@ -52,27 +52,27 @@ if not defined CHOICE set "CHOICE=1"
 
 set "KEY=%CHOICE:~0,1%"
 
-if "%KEY%"=="1" goto run_remote
-if "%KEY%"=="2" goto run_local
+if "%KEY%"=="1" goto run_local
+if "%KEY%"=="2" goto run_remote
 if "%KEY%"=="3" goto run_dev
 if "%KEY%"=="4" goto run_build
-if "%KEY%"=="5" goto switch_remote
-if "%KEY%"=="6" goto switch_local
+if "%KEY%"=="5" goto switch_local
+if "%KEY%"=="6" goto switch_remote
 if "%KEY%"=="7" exit /b 0
 
-echo Invalid choice. Starting with Remote Azure...
-goto run_remote
-
-:run_remote
-echo.
-echo [Starting] Remote Azure Backend mode...
-call npm.cmd run dev:remote
-goto end
+echo Invalid choice. Starting with Local Backend...
+goto run_local
 
 :run_local
 echo.
 echo [Starting] Local Backend mode...
 call npm.cmd run dev:local
+goto end
+
+:run_remote
+echo.
+echo [Starting] Remote Cloud Backend mode...
+call npm.cmd run dev:remote
 goto end
 
 :run_dev

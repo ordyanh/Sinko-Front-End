@@ -7,10 +7,12 @@ const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, "..");
 const envPath = path.join(rootDir, ".env");
 
-const LOCAL_AUTH = "http://localhost:5273";
-const LOCAL_CORE = "http://localhost:5206";
+const LOCAL_AUTH = "http://127.0.0.1:5273";
+const LOCAL_CORE = "http://127.0.0.1:5206";
+const LOCAL_NOTIFICATION = "http://127.0.0.1:5147";
 const REMOTE_AUTH = "https://lobster-app-zhysf.ondigitalocean.app";
 const REMOTE_CORE = "https://octopus-app-bomx6.ondigitalocean.app";
+const REMOTE_NOTIFICATION = "https://websocket-fzc3fcb7cyh4hde9.swedencentral-01.azurewebsites.net";
 
 const targetArg = (process.argv[2] || "").toLowerCase().trim();
 
@@ -40,14 +42,17 @@ VITE_BACKEND_TARGET=${isLocal ? "local" : "remote"}
 # Active URLs (used by SSR / direct client requests)
 VITE_AUTH_API_URL=${isLocal ? LOCAL_AUTH : REMOTE_AUTH}
 VITE_CORE_API_URL=${isLocal ? LOCAL_CORE : REMOTE_CORE}
+VITE_NOTIFICATION_API_URL=${isLocal ? LOCAL_NOTIFICATION : REMOTE_NOTIFICATION}
 
-# Local C:\\Src\\synco-app\\Horeca endpoints
+# Local endpoints (127.0.0.1)
 VITE_LOCAL_AUTH_URL=${LOCAL_AUTH}
 VITE_LOCAL_CORE_URL=${LOCAL_CORE}
+VITE_LOCAL_NOTIFICATION_URL=${LOCAL_NOTIFICATION}
 
-# Remote DigitalOcean endpoints
+# Remote DigitalOcean / Azure endpoints
 VITE_REMOTE_AUTH_URL=${REMOTE_AUTH}
 VITE_REMOTE_CORE_URL=${REMOTE_CORE}
+VITE_REMOTE_NOTIFICATION_URL=${REMOTE_NOTIFICATION}
 `;
 
   fs.writeFileSync(envPath, content, "utf-8");
