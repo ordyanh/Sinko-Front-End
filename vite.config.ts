@@ -67,6 +67,24 @@ export default defineConfig(({ mode }) => {
     resolve: {
       tsconfigPaths: true,
     },
+    optimizeDeps: {
+      include: [
+        "react",
+        "react/jsx-runtime",
+        "react/jsx-dev-runtime",
+        "react-dom",
+        "react-dom/client",
+        "react-router",
+        "react-router/dom",
+        "@headlessui/react",
+        "axios",
+        "leaflet",
+        "lucide-react",
+        "react-hook-form",
+        "@hookform/resolvers/zod",
+        "zod",
+      ],
+    },
     server: {
       host: true,
       allowedHosts: true,
