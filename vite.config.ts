@@ -119,8 +119,15 @@ export default defineConfig(({ mode }) => {
           secure: false,
           followRedirects: true,
           configure: (proxy) => {
-            proxy.on("error", (err, _req, _res) => {
+            proxy.on("error", (err, _req, res: any) => {
               console.error(`[Notification API Proxy Error]: ${err.message} -> Target: ${notificationUrl}`);
+              if (res && !res.headersSent && typeof res.writeHead === "function") {
+                res.writeHead(502, { "Content-Type": "application/json" });
+                res.end(JSON.stringify({
+                  error: "Bad Gateway",
+                  message: `Notification service (${notificationUrl}) is unavailable: ${err.message}`,
+                }));
+              }
             });
           },
         },
@@ -130,12 +137,19 @@ export default defineConfig(({ mode }) => {
           secure: false,
           followRedirects: true,
           configure: (proxy) => {
-            proxy.on("error", (err, _req, _res) => {
+            proxy.on("error", (err, _req, res: any) => {
               console.error(`[Auth Proxy Error]: ${err.message} -> Target: ${authUrl}`);
+              if (res && !res.headersSent && typeof res.writeHead === "function") {
+                res.writeHead(502, { "Content-Type": "application/json" });
+                res.end(JSON.stringify({
+                  error: "Bad Gateway",
+                  message: `Auth service (${authUrl}) is unavailable: ${err.message}`,
+                }));
+              }
             });
           },
         },
-        "^/api/": {
+        "^/api(/|$)": {
           target: coreUrl,
           changeOrigin: true,
           secure: false,
@@ -154,16 +168,17 @@ export default defineConfig(({ mode }) => {
             }
           },
           configure: (proxy) => {
-            proxy.on("error", (err, _req, _res) => {
+            proxy.on("error", (err, _req, res: any) => {
               console.error(`[Core Proxy Error]: ${err.message} -> Target: ${coreUrl}`);
+              if (res && !res.headersSent && typeof res.writeHead === "function") {
+                res.writeHead(502, { "Content-Type": "application/json" });
+                res.end(JSON.stringify({
+                  error: "Bad Gateway",
+                  message: `Core API service (${coreUrl}) is unavailable: ${err.message}`,
+                }));
+              }
             });
           },
-        },
-        "/orderhub": {
-          target: "http://localhost:5147",
-          ws: true,
-          changeOrigin: true,
-          secure: false,
         },
       },
     },

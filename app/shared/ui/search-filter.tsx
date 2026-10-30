@@ -198,7 +198,7 @@ export default function SearchFilter({
   return (
     <div ref={rootRef} className={joinClassNames("relative", className)}>
       <div
-        className="flex min-h-11 flex-wrap items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50/75 px-2 py-1.5 text-slate-400 shadow-inner shadow-slate-950/[0.015] transition duration-150 focus-within:border-primary/50 focus-within:bg-white focus-within:ring-4 focus-within:ring-primary/10"
+        className="flex min-h-11 flex-wrap items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50/75 px-2 py-1.5 text-slate-400 shadow-inner shadow-slate-950/[0.015] transition duration-150 focus-within:border-primary/50 focus-within:bg-white focus-within:ring-4 focus-within:ring-primary/10 dark:border-slate-700 dark:bg-slate-800/80 dark:focus-within:bg-slate-900"
       >
         <Search className="ml-1 h-4 w-4 shrink-0" aria-hidden="true" />
 
@@ -210,7 +210,7 @@ export default function SearchFilter({
               setIsDateFilterOpen(false);
               setIsOpen((current) => !current);
             }}
-            className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-transparent text-slate-500 transition hover:border-slate-200 hover:bg-white hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-transparent text-slate-500 transition hover:border-slate-200 hover:bg-white hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary dark:hover:border-slate-600 dark:hover:bg-slate-800"
             aria-label={t("common.addFilter")}
             aria-expanded={isOpen}
           >
@@ -230,7 +230,7 @@ export default function SearchFilter({
               "inline-flex h-7 shrink-0 items-center gap-1.5 rounded-lg border px-2 text-xs font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
               selectedDateFilterValue
                 ? "border-primary/20 bg-primary/10 text-primary"
-                : "border-transparent text-slate-500 hover:border-slate-200 hover:bg-white hover:text-primary",
+                : "border-transparent text-slate-500 hover:border-slate-200 hover:bg-white hover:text-primary dark:hover:border-slate-600 dark:hover:bg-slate-800",
             )}
             aria-label={`Filter by ${dateFilterLabel.toLowerCase()}`}
             aria-expanded={isDateFilterOpen}
@@ -307,30 +307,30 @@ export default function SearchFilter({
             onChange={handleInputChange}
             onKeyDown={handleInputKeyDown}
             placeholder={appliedFilters.length || draftFilter ? t("common.search") : placeholder}
-            className="min-w-0 flex-1 bg-transparent px-1 py-1 text-sm text-slate-900 outline-none placeholder:text-slate-400"
+            className="min-w-0 flex-1 bg-transparent px-1 py-1 text-sm text-slate-900 outline-none placeholder:text-slate-400 dark:text-slate-100 dark:placeholder:text-slate-500"
           />
         </label>
 
       </div>
 
       {isOpen && filters.length > 0 ? (
-        <div className="absolute left-0 top-[calc(100%+0.5rem)] z-40 w-[min(100%,22rem)] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-950/10">
+        <div className="absolute left-0 top-[calc(100%+0.5rem)] z-40 w-[min(100%,22rem)] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-950/10 dark:border-slate-700 dark:bg-slate-900">
           {draftFilter ? (
             <>
-              <div className="flex items-center gap-2 border-b border-slate-100 px-3 py-3">
+              <div className="flex items-center gap-2 border-b border-slate-100 px-3 py-3 dark:border-slate-800">
                 <button
                   type="button"
                   onClick={() => setDraftFilterId(null)}
-                  className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                  className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white"
                   aria-label="Choose another filter"
                 >
                   <ChevronLeft className="h-4 w-4" aria-hidden="true" />
                 </button>
                 <div>
-                  <p className="text-sm font-semibold text-slate-900">
+                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
                     {draftFilter.label}
                   </p>
-                  <p className="text-xs text-slate-500">{t("common.chooseValue")}</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">{t("common.chooseValue")}</p>
                 </div>
               </div>
               <div className="max-h-56 overflow-y-auto p-1.5">
@@ -339,16 +339,16 @@ export default function SearchFilter({
                     key={option.value}
                     type="button"
                     onClick={() => selectValue(option.value)}
-                    className="flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-700 transition hover:bg-primary/5 hover:text-slate-950 focus:outline-none focus-visible:bg-primary/10"
+                    className="flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-700 transition hover:bg-primary/5 hover:text-slate-950 focus:outline-none focus-visible:bg-primary/10 dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:text-white"
                   >
                     {option.label}
                     <Check className="h-4 w-4 text-primary opacity-0" aria-hidden="true" />
                   </button>
                 ))}
               </div>
-              <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50/80 px-3 py-2.5">
-                <span className="text-xs font-medium text-slate-500">{t("common.matchItems")}</span>
-                <div className="rounded-lg border border-slate-200 bg-white p-0.5 shadow-sm">
+              <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50/80 px-3 py-2.5 dark:border-slate-800 dark:bg-slate-800/80">
+                <span className="text-xs font-medium text-slate-500 dark:text-slate-400">{t("common.matchItems")}</span>
+                <div className="rounded-lg border border-slate-200 bg-white p-0.5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
                   {(["is", "is-not"] as const).map((nextOperator) => (
                     <button
                       key={nextOperator}
@@ -358,7 +358,7 @@ export default function SearchFilter({
                         "rounded-md px-2.5 py-1 text-xs font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
                         operator === nextOperator
                           ? "bg-primary text-primary-content shadow-sm"
-                          : "text-slate-600 hover:bg-slate-100",
+                          : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700",
                       )}
                     >
                       {nextOperator === "is" ? t("common.is") : t("common.isNot")}
@@ -369,9 +369,9 @@ export default function SearchFilter({
             </>
           ) : (
             <>
-              <div className="border-b border-slate-100 px-4 py-3">
-                <p className="text-sm font-semibold text-slate-900">{t("common.addFilter")}</p>
-                <p className="mt-0.5 text-xs text-slate-500">
+              <div className="border-b border-slate-100 px-4 py-3 dark:border-slate-800">
+                <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{t("common.addFilter")}</p>
+                <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
                   {t("common.narrowListByField")}
                 </p>
               </div>
@@ -385,10 +385,10 @@ export default function SearchFilter({
                       type="button"
                       disabled={isSelected}
                       onClick={() => selectFilter(filter.id)}
-                      className="flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-700 transition hover:bg-primary/5 hover:text-slate-950 focus:outline-none focus-visible:bg-primary/10 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
+                      className="flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-700 transition hover:bg-primary/5 hover:text-slate-950 focus:outline-none focus-visible:bg-primary/10 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:text-white dark:disabled:bg-slate-800/50 dark:disabled:text-slate-500"
                     >
                       {filter.label}
-                      <span className="text-xs font-medium text-slate-400">
+                      <span className="text-xs font-medium text-slate-400 dark:text-slate-500">
                         {isSelected ? t("common.added") : `${filter.options.length} ${t("common.options")}`}
                       </span>
                     </button>
@@ -401,19 +401,19 @@ export default function SearchFilter({
       ) : null}
 
       {isDateFilterOpen && showsDateFilter ? (
-        <div className="absolute right-0 top-[calc(100%+0.5rem)] z-40 w-[min(100%,18rem)] rounded-2xl border border-slate-200 bg-white p-4 shadow-xl shadow-slate-950/10">
+        <div className="absolute right-0 top-[calc(100%+0.5rem)] z-40 w-[min(100%,18rem)] rounded-2xl border border-slate-200 bg-white p-4 shadow-xl shadow-slate-950/10 dark:border-slate-700 dark:bg-slate-900">
           <label className="block">
-            <span className="text-sm font-semibold text-slate-900">
+            <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
               {dateFilterLabel}
             </span>
-            <span className="mt-0.5 block text-xs text-slate-500">
+            <span className="mt-0.5 block text-xs text-slate-500 dark:text-slate-400">
               Show items created on this date.
             </span>
             <input
               type="date"
               value={selectedDateFilterValue}
               onChange={(event) => changeDateFilter(event.target.value)}
-              className="mt-3 block w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-primary/50 focus:bg-white focus:ring-4 focus:ring-primary/10"
+              className="mt-3 block w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-primary/50 focus:bg-white focus:ring-4 focus:ring-primary/10 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:bg-slate-900"
             />
           </label>
           <div className="mt-4 flex justify-end gap-2">
@@ -421,7 +421,7 @@ export default function SearchFilter({
               type="button"
               onClick={() => changeDateFilter("")}
               disabled={!selectedDateFilterValue}
-              className="rounded-lg px-3 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-45 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              className="rounded-lg px-3 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-45 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary dark:text-slate-300 dark:hover:bg-slate-800"
             >
               {t("common.clear")}
             </button>

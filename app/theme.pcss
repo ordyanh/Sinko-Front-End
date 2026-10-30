@@ -133,6 +133,16 @@ body {
   background-color: #131b2a;
 }
 
+.dark .bg-white\/98,
+[data-theme="dark"] .bg-white\/98 {
+  background-color: rgba(19, 27, 42, 0.98);
+}
+
+.dark .bg-white\/95,
+[data-theme="dark"] .bg-white\/95 {
+  background-color: rgba(19, 27, 42, 0.95);
+}
+
 .dark .bg-white\/90,
 [data-theme="dark"] .bg-white\/90 {
   background-color: rgba(19, 27, 42, 0.92);
@@ -323,12 +333,16 @@ body {
 
 /* Focus and Active States in Dark Mode */
 .dark .focus\:bg-white:focus,
-[data-theme="dark"] .focus\:bg-white:focus {
+[data-theme="dark"] .focus\:bg-white:focus,
+.dark .focus-within\:bg-white:focus-within,
+[data-theme="dark"] .focus-within\:bg-white:focus-within {
   background-color: #1e293b !important;
 }
 
 .dark .focus\:bg-slate-50:focus,
-[data-theme="dark"] .focus\:bg-slate-50:focus {
+[data-theme="dark"] .focus\:bg-slate-50:focus,
+.dark .focus-within\:bg-slate-50:focus-within,
+[data-theme="dark"] .focus-within\:bg-slate-50:focus-within {
   background-color: #1e293b !important;
 }
 
@@ -559,6 +573,199 @@ body {
   color-scheme: dark;
 }
 
+/* ==========================================================================
+   MANDATORY TEXT VISIBILITY: Inputs with White / Light Backgrounds
+   Wherever an input, select, textarea, or search field has a white background
+   (or is contained within a white / light element), the typed text and placeholder
+   MUST ALWAYS be dark and clearly readable in both dark and light modes.
+   ========================================================================== */
+.dark input.bg-white,
+.dark textarea.bg-white,
+.dark select.bg-white,
+.dark [data-theme="dark"] input.bg-white,
+.dark [data-theme="dark"] textarea.bg-white,
+.dark [data-theme="dark"] select.bg-white,
+[data-theme="dark"] input.bg-white,
+[data-theme="dark"] textarea.bg-white,
+[data-theme="dark"] select.bg-white,
+.dark .bg-white input:not([class*="dark:text-"]),
+.dark .bg-white textarea:not([class*="dark:text-"]),
+.dark .bg-white select:not([class*="dark:text-"]),
+[data-theme="dark"] .bg-white input:not([class*="dark:text-"]),
+[data-theme="dark"] .bg-white textarea:not([class*="dark:text-"]),
+[data-theme="dark"] .bg-white select:not([class*="dark:text-"]),
+.dark .bg-white\/95 input:not([class*="dark:text-"]),
+.dark .bg-white\/98 input:not([class*="dark:text-"]),
+[data-theme="dark"] .bg-white\/95 input:not([class*="dark:text-"]),
+[data-theme="dark"] .bg-white\/98 input:not([class*="dark:text-"]),
+.dark [style*="background: white"] input,
+.dark [style*="background-color: white"] input,
+.dark [style*="background: #fff"] input,
+.dark [style*="background-color: #fff"] input,
+.dark [style*="background:#fff"] input,
+.dark [style*="background-color:#fff"] input,
+[data-theme="dark"] [style*="background: white"] input,
+[data-theme="dark"] [style*="background-color: white"] input,
+[data-theme="dark"] [style*="background: #fff"] input,
+[data-theme="dark"] [style*="background-color: #fff"] input,
+.dark input[style*="background: white"],
+.dark input[style*="background-color: white"],
+.dark input[style*="background: #fff"],
+.dark input[style*="background-color: #fff"],
+[data-theme="dark"] input[style*="background: white"],
+[data-theme="dark"] input[style*="background-color: white"],
+[data-theme="dark"] input[style*="background: #fff"],
+[data-theme="dark"] input[style*="background-color: #fff"] {
+  color: #0f172a !important;
+  caret-color: #0f172a !important;
+  color-scheme: light !important;
+  -webkit-text-fill-color: #0f172a !important;
+}
+
+.dark input.bg-white::placeholder,
+.dark textarea.bg-white::placeholder,
+[data-theme="dark"] input.bg-white::placeholder,
+[data-theme="dark"] textarea.bg-white::placeholder,
+.dark .bg-white input:not([class*="dark:text-"])::placeholder,
+.dark .bg-white textarea:not([class*="dark:text-"])::placeholder,
+[data-theme="dark"] .bg-white input:not([class*="dark:text-"])::placeholder,
+[data-theme="dark"] .bg-white textarea:not([class*="dark:text-"])::placeholder,
+.dark .bg-white\/95 input:not([class*="dark:text-"])::placeholder,
+[data-theme="dark"] .bg-white\/95 input:not([class*="dark:text-"])::placeholder,
+.dark .bg-white\/98 input:not([class*="dark:text-"])::placeholder,
+[data-theme="dark"] .bg-white\/98 input:not([class*="dark:text-"])::placeholder {
+  color: #64748b !important;
+  -webkit-text-fill-color: #64748b !important;
+}
+
+/* ==========================================================================
+   Google Maps, Places Autocomplete & Leaflet Text Visibility in Both Modes
+   ========================================================================== */
+
+/* Google Maps Places Autocomplete Container (.pac-container) */
+.pac-container {
+  font-family: inherit !important;
+  border-radius: 0.75rem !important;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 8px 10px -6px rgba(0, 0, 0, 0.1) !important;
+  border: 1px solid #e2e8f0 !important;
+  margin-top: 4px !important;
+  z-index: 10000 !important;
+}
+
+.pac-item {
+  padding: 8px 12px !important;
+  font-size: 13px !important;
+  color: #0f172a !important;
+  border-top: 1px solid #f1f5f9 !important;
+  cursor: pointer !important;
+}
+
+.pac-item:hover,
+.pac-item-selected {
+  background-color: #f8fafc !important;
+}
+
+.pac-item-query {
+  font-size: 13px !important;
+  color: #0f172a !important;
+  font-weight: 600 !important;
+}
+
+.pac-matched {
+  color: #0284c7 !important;
+  font-weight: 700 !important;
+}
+
+/* Google Maps Pac Container in Dark Mode */
+.dark .pac-container,
+[data-theme="dark"] .pac-container,
+.dark.pac-container,
+[data-theme="dark"].pac-container {
+  background-color: #131b2a !important;
+  border-color: #334155 !important;
+  color: #f8fafc !important;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5) !important;
+}
+
+.dark .pac-item,
+[data-theme="dark"] .pac-item,
+.dark.pac-container .pac-item,
+[data-theme="dark"].pac-container .pac-item {
+  color: #cbd5e1 !important;
+  border-top-color: #1e293b !important;
+}
+
+.dark .pac-item:hover,
+.dark .pac-item-selected,
+[data-theme="dark"] .pac-item:hover,
+[data-theme="dark"] .pac-item-selected,
+.dark.pac-container .pac-item:hover,
+.dark.pac-container .pac-item-selected,
+[data-theme="dark"].pac-container .pac-item:hover,
+[data-theme="dark"].pac-container .pac-item-selected {
+  background-color: #1e293b !important;
+}
+
+.dark .pac-item-query,
+[data-theme="dark"] .pac-item-query,
+.dark.pac-container .pac-item-query,
+[data-theme="dark"].pac-container .pac-item-query {
+  color: #f8fafc !important;
+}
+
+.dark .pac-matched,
+[data-theme="dark"] .pac-matched,
+.dark.pac-container .pac-matched,
+[data-theme="dark"].pac-container .pac-matched {
+  color: #38bdf8 !important;
+}
+
+/* Fallback: If Google Autocomplete retains white background in dark mode */
+.pac-container:not(.dark):not([data-theme="dark"]) .pac-item,
+.pac-container[style*="background-color: rgb(255, 255, 255)"] .pac-item,
+.pac-container[style*="background-color: #fff"] .pac-item {
+  color: #0f172a !important;
+}
+.pac-container:not(.dark):not([data-theme="dark"]) .pac-item-query,
+.pac-container[style*="background-color: rgb(255, 255, 255)"] .pac-item-query,
+.pac-container[style*="background-color: #fff"] .pac-item-query {
+  color: #0f172a !important;
+}
+
+/* Google Maps / Leaflet Inputs & Controls */
+.leaflet-container input,
+.gm-style input {
+  font-family: inherit;
+}
+
+/* White background search input inside maps in dark mode */
+.dark .leaflet-container [class*="bg-white"] input:not([class*="dark:text-"]),
+[data-theme="dark"] .leaflet-container [class*="bg-white"] input:not([class*="dark:text-"]) {
+  color: #0f172a !important;
+  caret-color: #0f172a !important;
+  color-scheme: light !important;
+  -webkit-text-fill-color: #0f172a !important;
+}
+
+/* Google Maps Info Windows (.gm-style-iw) */
+.dark .gm-style .gm-style-iw-c,
+[data-theme="dark"] .gm-style .gm-style-iw-c {
+  background-color: #131b2a !important;
+  color: #f8fafc !important;
+  border: 1px solid #1e293b !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5) !important;
+}
+
+.dark .gm-style .gm-style-iw-d,
+[data-theme="dark"] .gm-style .gm-style-iw-d {
+  color: #cbd5e1 !important;
+}
+
+.dark .gm-style .gm-style-iw-tc::after,
+[data-theme="dark"] .gm-style .gm-style-iw-tc::after {
+  background-color: #131b2a !important;
+}
+
 /* Leaflet in Dark Mode */
 .dark .leaflet-container,
 [data-theme="dark"] .leaflet-container {
@@ -585,4 +792,15 @@ body {
 .dark .leaflet-bar a:hover,
 [data-theme="dark"] .leaflet-bar a:hover {
   background-color: #1e293b;
+}
+
+.dark .leaflet-control-attribution,
+[data-theme="dark"] .leaflet-control-attribution {
+  background: rgba(11, 15, 23, 0.85) !important;
+  color: #94a3b8 !important;
+}
+
+.dark .leaflet-control-attribution a,
+[data-theme="dark"] .leaflet-control-attribution a {
+  color: #38bdf8 !important;
 }

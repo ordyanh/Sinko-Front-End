@@ -32,8 +32,8 @@ const sizeClasses: Record<NonNullable<SelectProps["size"]>, string> = {
 
 const variantClasses: Record<NonNullable<SelectProps["variant"]>, string> = {
   default:
-    "border-base-300/80 bg-white text-base-content shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] hover:border-base-300",
-  ghost: "bg-transparent border-transparent",
+    "border-base-300/80 bg-white text-base-content shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] hover:border-base-300 dark:border-slate-700 dark:bg-[#131b2a] dark:text-slate-100 dark:hover:border-slate-600",
+  ghost: "bg-transparent border-transparent dark:text-slate-100",
 };
 
 const parseOptions = (children: React.ReactNode): SelectOption[] => {
@@ -186,14 +186,14 @@ const Select = React.forwardRef<HTMLButtonElement, SelectProps>(
             // panel above its trigger when there is not enough viewport space.
             modal={false}
             portal
-            className="z-[60] max-h-64 w-(--button-width) overflow-y-auto rounded-2xl border border-base-300/90 bg-white p-2 shadow-xl shadow-slate-900/10"
+            className="z-[60] max-h-64 w-(--button-width) overflow-y-auto rounded-2xl border border-base-300/90 bg-white p-2 shadow-xl shadow-slate-900/10 dark:border-slate-700 dark:bg-slate-900"
           >
             {creatable ? (
-              <div className="sticky top-0 z-10 bg-white pb-2">
+              <div className="sticky top-0 z-10 bg-white pb-2 dark:bg-slate-900">
                 <input
                   aria-label={t("common.searchOrAddOption", "Search or add an option")}
                   autoFocus
-                  className="w-full rounded-xl border border-base-300 bg-base-100 px-3 py-2 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+                  className="w-full rounded-xl border border-base-300 bg-base-100 px-3 py-2 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500"
                   onChange={(event) => setQuery(event.target.value)}
                   onKeyDown={(event) => {
                     event.stopPropagation();

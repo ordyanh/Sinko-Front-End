@@ -156,7 +156,7 @@ export default function AddressAutocomplete({
       {label && (
         <label
           htmlFor={id}
-          className="text-xs font-semibold tracking-wide uppercase text-slate-500"
+          className="text-xs font-semibold tracking-wide uppercase text-slate-500 dark:text-slate-400"
         >
           {label}
         </label>
@@ -176,10 +176,10 @@ export default function AddressAutocomplete({
           disabled={disabled}
           placeholder={placeholder || t("settings.fullAddressPlaceholder")}
           autoComplete="off"
-          className={`h-11 w-full rounded-xl border bg-white px-3.5 pr-10 text-sm font-medium text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:outline-none focus:ring-2 disabled:bg-slate-50 disabled:text-slate-400 ${
+          className={`h-11 w-full rounded-xl border bg-white px-3.5 pr-10 text-sm font-medium text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:outline-none focus:ring-2 disabled:bg-slate-50 disabled:text-slate-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500 dark:disabled:bg-slate-800 dark:disabled:text-slate-500 ${
             isInvalid
-              ? "border-red-400 bg-red-50/40 text-red-950 focus:border-red-500 focus:ring-red-200"
-              : "border-slate-200 hover:border-slate-300 focus:border-primary focus:ring-primary/20"
+              ? "border-red-400 bg-red-50/40 text-red-950 focus:border-red-500 focus:ring-red-200 dark:border-red-500/50 dark:bg-red-950/20 dark:text-red-200"
+              : "border-slate-200 hover:border-slate-300 focus:border-primary focus:ring-primary/20 dark:hover:border-slate-600"
           }`}
         />
 
@@ -195,7 +195,7 @@ export default function AddressAutocomplete({
                 setSuggestions([]);
                 setIsOpen(false);
               }}
-              className="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100"
+              className="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800"
               aria-label="Clear"
             >
               <X className="h-3.5 w-3.5" />
@@ -205,16 +205,16 @@ export default function AddressAutocomplete({
       </div>
 
       {hint && !errorMessage && (
-        <p className="text-[11px] text-slate-500 leading-relaxed">{hint}</p>
+        <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">{hint}</p>
       )}
 
       {errorMessage && (
-        <p className="text-xs font-medium text-red-600 mt-0.5">{errorMessage}</p>
+        <p className="text-xs font-medium text-red-600 dark:text-red-400 mt-0.5">{errorMessage}</p>
       )}
 
       {/* Floating Suggestions Dropdown */}
       {isOpen && (
-        <div className="absolute top-[calc(100%+4px)] left-0 right-0 z-[1100] max-h-60 overflow-y-auto rounded-xl border border-slate-200 bg-white/98 backdrop-blur-md p-1.5 shadow-2xl animate-in fade-in slide-in-from-top-1 duration-150">
+        <div className="absolute top-[calc(100%+4px)] left-0 right-0 z-[1100] max-h-60 overflow-y-auto rounded-xl border border-slate-200 bg-white/98 backdrop-blur-md p-1.5 shadow-2xl animate-in fade-in slide-in-from-top-1 duration-150 dark:border-slate-700 dark:bg-slate-900/98">
           {suggestions.length > 0 ? (
             suggestions.map((item, idx) => {
               const mainTitle = item.road
@@ -227,16 +227,16 @@ export default function AddressAutocomplete({
                   key={`${item.lat}-${item.lon}-${idx}`}
                   type="button"
                   onClick={() => handleSelect(item)}
-                  className="w-full flex items-start gap-3 rounded-lg px-3 py-2 text-left text-xs sm:text-sm text-slate-700 hover:bg-slate-50 hover:text-primary transition group"
+                  className="w-full flex items-start gap-3 rounded-lg px-3 py-2 text-left text-xs sm:text-sm text-slate-700 hover:bg-slate-50 hover:text-primary transition group dark:text-slate-200 dark:hover:bg-slate-800"
                 >
-                  <div className="h-7 w-7 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center shrink-0 mt-0.5 group-hover:bg-primary/10 group-hover:text-primary transition">
+                  <div className="h-7 w-7 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center shrink-0 mt-0.5 group-hover:bg-primary/10 group-hover:text-primary transition dark:bg-rose-950/40 dark:text-rose-400">
                     <MapPin className="h-3.5 w-3.5" />
                   </div>
                   <div className="flex flex-col min-w-0">
-                    <span className="font-semibold text-slate-900 group-hover:text-primary truncate">
+                    <span className="font-semibold text-slate-900 group-hover:text-primary truncate dark:text-slate-100">
                       {mainTitle}
                     </span>
-                    <span className="text-[11px] text-slate-500 truncate">
+                    <span className="text-[11px] text-slate-500 truncate dark:text-slate-400">
                       {subTitle}
                     </span>
                   </div>
@@ -244,7 +244,7 @@ export default function AddressAutocomplete({
               );
             })
           ) : (
-            <div className="px-3 py-3 text-center text-xs text-slate-400">
+            <div className="px-3 py-3 text-center text-xs text-slate-400 dark:text-slate-400">
               {isLoading ? t("settings.searchingAddresses") : t("settings.noAddressesFound")}
             </div>
           )}

@@ -1840,13 +1840,13 @@ export default function PromotionEditor({
                 value={productSearch}
                 onChange={(event) => setProductSearch(event.target.value)}
                 placeholder={t("products.searchPlaceholder")}
-                className="w-full rounded-xl border border-slate-200 bg-white py-3 pl-10 pr-4 text-sm text-slate-900 placeholder:text-slate-400 transition hover:border-slate-300 focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/15"
+                className="w-full rounded-xl border border-slate-200 bg-white py-3 pl-10 pr-4 text-sm text-slate-900 placeholder:text-slate-400 transition hover:border-slate-300 focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/15 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:hover:border-slate-600 dark:placeholder:text-slate-500"
               />
             </div>
           </div>
 
           {filteredProducts.length > 0 ? (
-            <ul className="max-h-80 divide-y divide-slate-100 overflow-y-auto rounded-xl border border-slate-200 bg-white">
+            <ul className="max-h-80 divide-y divide-slate-100 overflow-y-auto rounded-xl border border-slate-200 bg-white dark:divide-slate-800 dark:border-slate-700 dark:bg-slate-900">
               {filteredProducts.map((product) => {
                 const isSelected = selectedProductIds.includes(product.id);
 
@@ -1951,13 +1951,13 @@ export default function PromotionEditor({
                 value={customerSearch}
                 onChange={(event) => setCustomerSearch(event.target.value)}
                 placeholder={t("customers.searchPlaceholder")}
-                className="w-full rounded-xl border border-slate-200 bg-white py-3 pl-10 pr-4 text-sm text-slate-900 placeholder:text-slate-400 transition hover:border-slate-300 focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/15"
+                className="w-full rounded-xl border border-slate-200 bg-white py-3 pl-10 pr-4 text-sm text-slate-900 placeholder:text-slate-400 transition hover:border-slate-300 focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/15 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:hover:border-slate-600 dark:placeholder:text-slate-500"
               />
             </div>
           </div>
 
           {filteredCustomers.length > 0 ? (
-            <ul className="max-h-80 divide-y divide-slate-100 overflow-y-auto rounded-xl border border-slate-200 bg-white">
+            <ul className="max-h-80 divide-y divide-slate-100 overflow-y-auto rounded-xl border border-slate-200 bg-white dark:divide-slate-800 dark:border-slate-700 dark:bg-slate-900">
               {filteredCustomers.map((customer) => {
                 const isSelected = selectedCustomerIds.includes(customer.id);
 

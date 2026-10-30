@@ -1,0 +1,30 @@
+
+> dev
+> react-router dev
+
+️⚠️ Oops, Node v22.20.0 detected. react-router requires a Node version greater than 22.22.0.
+[restart] Relaunching with NODE_OPTIONS: --conditions=development
+️⚠️ Oops, Node v22.20.0 detected. react-router requires a Node version greater than 22.22.0.
+
+======================================================
+🚀 [Synco Dev Proxy] Active Target: LOCAL
+   Auth Service:         http://127.0.0.1:5273
+   Core Service:         http://127.0.0.1:5206
+   Notification Service: http://127.0.0.1:5147
+======================================================
+
+
+======================================================
+🚀 [Synco Dev Proxy] Active Target: LOCAL
+   Auth Service:         http://127.0.0.1:5273
+   Core Service:         http://127.0.0.1:5206
+   Notification Service: http://127.0.0.1:5147
+======================================================
+
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://localhost:[1m5173[22m/[39m
+  [32m➜[39m  [1mNetwork[22m: [36mhttp://100.110.222.17:[1m5173[22m/[39m  [2mTailscale[22m
+  [32m➜[39m  [1mNetwork[22m: [36mhttp://192.168.5.51:[1m5173[22m/[39m    [2mEthernet[22m
+  [32m➜[39m  [1mNetwork[22m: [36mhttp://172.28.16.1:[1m5173[22m/[39m     [2mvEthernet (Default …[22m
+[2m[32m  ➜[39m[22m[2m  press [22m[1mh + enter[22m[2m to show help[22m
+[2m3:42:01 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [optimizer] bundling dependencies...
+[2m3:46:26 PM[22m [36m[1m[vite][22m[39m [34m[2m(ssr)[22m[39m connected.
