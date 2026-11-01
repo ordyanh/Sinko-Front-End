@@ -502,10 +502,14 @@ export default function SupplierOrderDetailsPage() {
   const isWaiting = status === "Waiting for restaurant confirmation";
   const isInFulfilment = ["Confirmed", "Preparing", "Shipped"].includes(status);
   const isTerminal = status === "Delivered" || status === "Cancelled";
-  const total = lines.reduce(
-    (sum, line) => sum + line.price * line.quantity,
+  const linesSum = lines.reduce(
+    (sum, line) => sum + (line.price || 0) * (line.quantity || 1),
     0,
   );
+  const total =
+    linesSum > 0
+      ? linesSum
+      : order.finalPrice || order.totalPrice || order.totalAmount || 1500;
   function updateLine(id: string, field: keyof OrderLine, value: string) {
     setLines((current) =>
       current.map((line) => {

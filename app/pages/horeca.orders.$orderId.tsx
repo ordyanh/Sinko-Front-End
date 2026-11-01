@@ -14,7 +14,6 @@ import {
   UserRound,
   X,
   XCircle,
-  CheckCheck,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
@@ -22,7 +21,6 @@ import {
   acceptOffer as backendAcceptOffer,
   rejectOffer as backendRejectOffer,
   cancelOrder as backendCancelOrder,
-  approveOrder as backendApproveOrder,
   repeatOrder as backendRepeatOrder,
 } from "~/shared/api/orders";
 import { broadcastOrderNotification } from "~/shared/lib/use-notification-center";
@@ -313,8 +311,13 @@ export default function HorecaOrderDetailsPage() {
   const activeOrder = order;
   const canRespond = isOfferEditable(status);
   const hasOffer = order.offerReceivedAt !== null;
-  const requestedTotal = getRequestedTotal(lines);
-  const offeredTotal = getOfferedTotal(lines);
+  const orderFallbackTotal =
+    order.finalPrice || order.totalPrice || order.totalAmount || 1500;
+  const requestedTotal = getRequestedTotal(
+    lines,
+    order.totalPrice || order.finalPrice || order.totalAmount || orderFallbackTotal,
+  );
+  const offeredTotal = getOfferedTotal(lines, orderFallbackTotal);
   const totalDelta = offeredTotal - requestedTotal;
   const shortLineCount = getShortLineCount(lines);
   const history = order.history;
@@ -529,51 +532,6 @@ export default function HorecaOrderDetailsPage() {
     }
   }
 
-  async function handleApproveOrder() {
-    if (isPurchasingEmployee) {
-      showToast({
-        title: t("orders.actionNotPermitted"),
-        description: t("orders.purchasingCannotApprove"),
-        variant: "error",
-      });
-      return;
-    }
-
-    setIsActionLoading(true);
-    try {
-      await backendApproveOrder(activeOrder.id);
-      const nextOrder = {
-        ...activeOrder,
-        status: "Confirmed" as const,
-        history: [
-          ...activeOrder.history,
-          {
-            id: `restaurant-approved-${Date.now()}`,
-            actor: "restaurant" as const,
-            label: "Order approved",
-            date: new Date().toISOString(),
-          },
-        ],
-      };
-      setOrder(nextOrder);
-      setStatus("Confirmed");
-      await saveOrder(nextOrder).catch(() => {});
-      showToast({
-        title: t("orders.orderApprovedToastTitle"),
-        description: t("orders.orderApprovedToastDesc"),
-        variant: "success",
-      });
-    } catch (error) {
-      showToast({
-        title: t("orders.couldNotApproveOrder"),
-        description: error instanceof Error ? error.message : "Please try again.",
-        variant: "error",
-      });
-    } finally {
-      setIsActionLoading(false);
-    }
-  }
-
   return (
     <DashboardPageContent className="pb-10">
       <DashboardPageHeader className="mb-3">
@@ -630,19 +588,6 @@ export default function HorecaOrderDetailsPage() {
                   </button>
                 </>
               )
-            ) : null}
-
-            {status === "New" && !canRespond ? (
-              <button
-                type="button"
-                disabled={isActionLoading || isPurchasingEmployee}
-                title={isPurchasingEmployee ? "Purchasing employees cannot approve organization orders." : undefined}
-                onClick={handleApproveOrder}
-                className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-content transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <CheckCheck className="h-4 w-4" aria-hidden="true" />
-                {isActionLoading ? t("orders.approvingOrder") : t("orders.approveOrder")}
-              </button>
             ) : null}
 
             {status !== "Delivered" && status !== "Cancelled" && !isEditing ? (

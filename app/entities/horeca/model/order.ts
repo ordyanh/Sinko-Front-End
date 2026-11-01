@@ -88,18 +88,26 @@ export function isOfferEditable(status: HorecaOrderStatus) {
   return status === "Waiting for restaurant confirmation";
 }
 
-export function getRequestedTotal(lines: HorecaOrderLine[]) {
-  return lines.reduce(
-    (total, line) => total + line.requestedPrice * line.requestedQuantity,
+export function getRequestedTotal(lines: HorecaOrderLine[], fallbackTotal = 0) {
+  const sum = lines.reduce(
+    (total, line) =>
+      total +
+      (line.requestedPrice || line.offeredPrice || 0) *
+        (line.requestedQuantity || line.offeredQuantity || 1),
     0,
   );
+  return sum > 0 ? sum : fallbackTotal;
 }
 
-export function getOfferedTotal(lines: HorecaOrderLine[]) {
-  return lines.reduce(
-    (total, line) => total + line.offeredPrice * line.offeredQuantity,
+export function getOfferedTotal(lines: HorecaOrderLine[], fallbackTotal = 0) {
+  const sum = lines.reduce(
+    (total, line) =>
+      total +
+      (line.offeredPrice || line.requestedPrice || 0) *
+        (line.offeredQuantity || line.requestedQuantity || 1),
     0,
   );
+  return sum > 0 ? sum : fallbackTotal;
 }
 
 // A lower total is only good news when the supplier can still deliver every

@@ -351,6 +351,8 @@ export default function HorecaPage() {
           products: o.lines.map((l) => ({
             productId: parseInt(String(l.productId).replace(/\D/g, ""), 10) || 1,
             count: l.requestedQuantity,
+            unitPrice: l.requestedPrice,
+            price: l.requestedPrice,
           })),
         });
         if (res?.orderId || res?.id) {
@@ -370,6 +372,8 @@ export default function HorecaPage() {
             products: o.lines.map((l) => ({
               productId: parseInt(String(l.productId).replace(/\D/g, ""), 10) || 1,
               count: l.requestedQuantity,
+              unitPrice: l.requestedPrice,
+              price: l.requestedPrice,
             })),
           })),
         });

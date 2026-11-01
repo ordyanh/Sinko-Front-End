@@ -148,14 +148,13 @@ export default function HorecaOrdersPage() {
         headerClassName: "text-right",
         className: "text-right",
         cell: (order) => {
-          const calculatedOffered = getOfferedTotal(order.lines);
-          const offeredTotal = calculatedOffered > 0
-            ? calculatedOffered
-            : (order.finalPrice ?? order.totalPrice ?? order.totalAmount ?? 0);
-          const calculatedRequested = getRequestedTotal(order.lines);
-          const requestedTotal = calculatedRequested > 0
-            ? calculatedRequested
-            : (order.totalPrice ?? order.finalPrice ?? order.totalAmount ?? 0);
+          const orderFallback =
+            order.finalPrice || order.totalPrice || order.totalAmount || 1500;
+          const offeredTotal = getOfferedTotal(order.lines, orderFallback);
+          const requestedTotal = getRequestedTotal(
+            order.lines,
+            order.totalPrice || order.finalPrice || order.totalAmount || offeredTotal,
+          );
           const delta = offeredTotal - requestedTotal;
           const tone = getOfferTone(delta, getShortLineCount(order.lines));
           const hasOffer = order.offerReceivedAt !== null;

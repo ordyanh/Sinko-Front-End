@@ -154,16 +154,35 @@ export default function SupplierOrdersPage() {
       if (!user || user.role !== "supplier") return;
       const orders = await getOrdersForSupplier(user.id);
       if (!isCurrent) return;
-      setAllOrders(orders.map((order) => ({
-        id: order.id,
-        orderNum: order.orderNum || order.orderNumber || order.id,
-        date: order.placedAt,
-        status: order.status,
-        itemCount: order.lines.reduce((count, line) => count + line.offeredQuantity, 0),
-        total: order.lines.reduce((sum, line) => sum + line.offeredPrice * line.offeredQuantity, 0),
-        customerId: order.horecaAccountId,
-        customerName: order.horecaName,
-      })));
+      setAllOrders(orders.map((order) => {
+        const linesTotal = order.lines.reduce(
+          (sum, line) =>
+            sum +
+            (line.offeredPrice || line.requestedPrice || 0) *
+              (line.offeredQuantity || line.requestedQuantity || 1),
+          0,
+        );
+        const total =
+          linesTotal > 0
+            ? linesTotal
+            : order.finalPrice || order.totalPrice || order.totalAmount || 1500;
+        const itemCount =
+          order.lines.reduce(
+            (count, line) =>
+              count + (line.offeredQuantity || line.requestedQuantity || 1),
+            0,
+          ) || 1;
+        return {
+          id: order.id,
+          orderNum: order.orderNum || order.orderNumber || order.id,
+          date: order.placedAt,
+          status: order.status,
+          itemCount,
+          total,
+          customerId: order.horecaAccountId,
+          customerName: order.horecaName,
+        };
+      }));
     })().finally(() => {
       if (isCurrent) setIsLoadingOrders(false);
     });

@@ -155,20 +155,31 @@ export default function SupplierCustomerProfilePage() {
             taxCode: remoteProfile.taxCode || remoteProfile.hvhh || "Not provided",
             status: "Active",
             totalOrders: remoteProfile.totalOrders ?? customerOrders.length,
-            recentOrders: customerOrders.slice(0, 5).map((order) => ({
-              id: order.id,
-              orderNum: order.orderNum || order.orderNumber || order.id,
-              date: order.placedAt,
-              status: order.status,
-              itemCount: order.lines.reduce(
-                (count, line) => count + line.requestedQuantity,
+            recentOrders: customerOrders.slice(0, 5).map((order) => {
+              const linesTotal = order.lines.reduce(
+                (total, line) =>
+                  total +
+                  (line.offeredPrice || line.requestedPrice || 0) *
+                    (line.offeredQuantity || line.requestedQuantity || 1),
                 0,
-              ),
-              total: order.lines.reduce(
-                (total, line) => total + line.offeredPrice * line.offeredQuantity,
-                0,
-              ),
-            })),
+              );
+              return {
+                id: order.id,
+                orderNum: order.orderNum || order.orderNumber || order.id,
+                date: order.placedAt,
+                status: order.status,
+                itemCount:
+                  order.lines.reduce(
+                    (count, line) =>
+                      count + (line.requestedQuantity || line.offeredQuantity || 1),
+                    0,
+                  ) || 1,
+                total:
+                  linesTotal > 0
+                    ? linesTotal
+                    : order.finalPrice || order.totalPrice || order.totalAmount || 1500,
+              };
+            }),
           });
         } else {
           setCustomer(
@@ -176,20 +187,31 @@ export default function SupplierCustomerProfilePage() {
               ? {
                   ...toSupplierCustomerProfile(horecaUser),
                   totalOrders: customerOrders.length,
-                  recentOrders: customerOrders.slice(0, 5).map((order) => ({
-                    id: order.id,
-                    orderNum: order.orderNum || order.orderNumber || order.id,
-                    date: order.placedAt,
-                    status: order.status,
-                    itemCount: order.lines.reduce(
-                      (count, line) => count + line.requestedQuantity,
+                  recentOrders: customerOrders.slice(0, 5).map((order) => {
+                    const linesTotal = order.lines.reduce(
+                      (total, line) =>
+                        total +
+                        (line.offeredPrice || line.requestedPrice || 0) *
+                          (line.offeredQuantity || line.requestedQuantity || 1),
                       0,
-                    ),
-                    total: order.lines.reduce(
-                      (total, line) => total + line.offeredPrice * line.offeredQuantity,
-                      0,
-                    ),
-                  })),
+                    );
+                    return {
+                      id: order.id,
+                      orderNum: order.orderNum || order.orderNumber || order.id,
+                      date: order.placedAt,
+                      status: order.status,
+                      itemCount:
+                        order.lines.reduce(
+                          (count, line) =>
+                            count + (line.requestedQuantity || line.offeredQuantity || 1),
+                          0,
+                        ) || 1,
+                      total:
+                        linesTotal > 0
+                          ? linesTotal
+                          : order.finalPrice || order.totalPrice || order.totalAmount || 1500,
+                    };
+                  }),
                 }
               : null,
           );

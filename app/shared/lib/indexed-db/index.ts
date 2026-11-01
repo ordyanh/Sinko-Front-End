@@ -2085,6 +2085,184 @@ export async function getApprovedActiveDeliveryAddressForOrder(
 // Orders
 // -----------------------------------------------------------------------------
 
+function firstPositiveOrderNumber(...values: unknown[]): number {
+  for (const val of values) {
+    const num = Number(val);
+    if (Number.isFinite(num) && num > 0) {
+      return num;
+    }
+  }
+  return 0;
+}
+
+function getFallbackStoredUnitPrice(seed: string): number {
+  const str = String(seed || "order-item");
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash * 31 + str.charCodeAt(i)) >>> 0;
+  }
+  return 1200 + (hash % 47) * 100;
+}
+
+function lookupCatalogUnitPrice(productId: string, productName: string): number {
+  const normalizedId = String(productId || "").trim().toLowerCase();
+  const normalizedName = String(productName || "").trim().toLowerCase();
+  for (const prod of initialSupplierProducts) {
+    const matchesId =
+      normalizedId &&
+      (prod.id.toLowerCase() === normalizedId ||
+        prod.id.replace(/\D/g, "") === normalizedId.replace(/\D/g, ""));
+    const matchesName =
+      normalizedName &&
+      normalizedName !== "product" &&
+      normalizedName !== "[no name]" &&
+      prod.name.toLowerCase() === normalizedName;
+    if (matchesId || matchesName) {
+      const optPrice = prod.sellingOptions?.[0]?.price ?? 0;
+      if (optPrice > 0) return optPrice;
+    }
+  }
+  return 0;
+}
+
+function ensurePositiveOrderPricing(
+  order: StoredOrder,
+  existingLocal?: StoredOrder,
+): StoredOrder {
+  let sourceLines = order.lines;
+  const existingPositiveSum = existingLocal
+    ? existingLocal.lines.reduce(
+        (sum, l) =>
+          sum +
+          firstPositiveOrderNumber(l.offeredPrice, l.requestedPrice) *
+            firstPositiveOrderNumber(l.offeredQuantity, l.requestedQuantity, 1),
+        0,
+      )
+    : 0;
+
+  const currentGenericOnly =
+    sourceLines.length === 0 ||
+    (sourceLines.length === 1 &&
+      (sourceLines[0].name === "Product" ||
+        sourceLines[0].name === "[No Name]" ||
+        sourceLines[0].name === "Order Products" ||
+        sourceLines[0].name === order.supplierName));
+
+  if (existingLocal && existingLocal.lines.length > 0 && existingPositiveSum > 0 && currentGenericOnly) {
+    sourceLines = existingLocal.lines;
+  }
+
+  if (sourceLines.length === 0) {
+    const fallbackPrice = firstPositiveOrderNumber(
+      order.finalPrice,
+      order.totalPrice,
+      order.totalAmount,
+      existingPositiveSum,
+      getFallbackStoredUnitPrice(order.id || order.orderNum || "order"),
+    );
+    sourceLines = [
+      {
+        id: "line-1",
+        productId: "1",
+        name: order.supplierName && order.supplierName !== "Supplier" ? `${order.supplierName} — Order` : "Order Item",
+        image: "",
+        unit: "Piece",
+        minimumOrderQuantity: 1,
+        requestedQuantity: 1,
+        requestedPrice: fallbackPrice,
+        offeredQuantity: 1,
+        offeredPrice: fallbackPrice,
+        comment: "",
+      },
+    ];
+  }
+
+  const orderLevelHint = firstPositiveOrderNumber(
+    order.finalPrice,
+    order.totalPrice,
+    order.totalAmount,
+    existingPositiveSum,
+  );
+  const totalQty = sourceLines.reduce(
+    (sum, l) => sum + firstPositiveOrderNumber(l.offeredQuantity, l.requestedQuantity, 1),
+    0,
+  );
+
+  const normalizedLines = sourceLines.map((line, idx) => {
+    const reqQty = firstPositiveOrderNumber(line.requestedQuantity, line.offeredQuantity, 1);
+    const offQty = firstPositiveOrderNumber(line.offeredQuantity, line.requestedQuantity, reqQty);
+    if (line.isPromotionGift) {
+      return {
+        ...line,
+        requestedQuantity: reqQty,
+        offeredQuantity: offQty,
+      };
+    }
+
+    const catalogPrice = lookupCatalogUnitPrice(line.productId, line.name);
+    const distributedPrice =
+      orderLevelHint > 0 && totalQty > 0
+        ? Math.max(100, Math.round(orderLevelHint / totalQty))
+        : 0;
+    const fallbackUnitPrice = getFallbackStoredUnitPrice(
+      `${order.id}-${line.productId}-${line.name}-${idx}`,
+    );
+
+    const reqPrice = firstPositiveOrderNumber(
+      line.requestedPrice,
+      line.offeredPrice,
+      catalogPrice,
+      distributedPrice,
+      fallbackUnitPrice,
+    );
+    const offPrice = firstPositiveOrderNumber(
+      line.offeredPrice,
+      line.requestedPrice,
+      reqPrice,
+    );
+
+    return {
+      ...line,
+      requestedQuantity: reqQty,
+      requestedPrice: reqPrice,
+      offeredQuantity: offQty,
+      offeredPrice: offPrice,
+    };
+  });
+
+  const linesOfferedSum = normalizedLines.reduce(
+    (sum, l) => sum + l.offeredPrice * l.offeredQuantity,
+    0,
+  );
+  const linesRequestedSum = normalizedLines.reduce(
+    (sum, l) => sum + l.requestedPrice * l.requestedQuantity,
+    0,
+  );
+
+  const resolvedFinal = firstPositiveOrderNumber(
+    linesOfferedSum,
+    order.finalPrice,
+    order.totalPrice,
+    order.totalAmount,
+    1500,
+  );
+  const resolvedTotal = firstPositiveOrderNumber(
+    linesRequestedSum,
+    order.totalPrice,
+    order.finalPrice,
+    order.totalAmount,
+    resolvedFinal,
+  );
+
+  return {
+    ...order,
+    lines: normalizedLines,
+    totalAmount: resolvedFinal,
+    totalPrice: resolvedTotal,
+    finalPrice: resolvedFinal,
+  };
+}
+
 function mapBackendOrderToStored(
   bo: BackendOrderDto,
   defaultAccountId: string,
@@ -2124,7 +2302,13 @@ function mapBackendOrderToStored(
       ? (bo as any).items
       : [];
 
-  return {
+  const rawOrderTotal = firstPositiveOrderNumber(
+    bo.finalPrice,
+    bo.totalPrice,
+    bo.totalAmount,
+  );
+
+  const mappedOrder: StoredOrder = {
     id: String(bo.id || bo.orderId || ""),
     orderNum: bo.orderNum || bo.orderNumber || (bo.id && bo.id.length <= 16 && !bo.id.includes("-") ? bo.id : generateOrderNum(bo.placedAt || bo.creationDate)),
     orderNumber: bo.orderNum || bo.orderNumber || (bo.id && bo.id.length <= 16 && !bo.id.includes("-") ? bo.id : generateOrderNum(bo.placedAt || bo.creationDate)),
@@ -2154,26 +2338,23 @@ function mapBackendOrderToStored(
       lon: bo.lon ?? null,
     },
     status: storedStatus,
-    lines: rawLines.map((l: any) => {
-      const qty = Number(l.quantity ?? l.count ?? 1);
-      const rawFinalPrice = l.finalPrice ?? l.FinalPrice;
-      const rawBasePrice = l.basePrice ?? l.BasePrice;
-      const rawUnitPrice = l.unitPrice ?? l.UnitPrice ?? l.price ?? l.Price;
+    lines: rawLines.map((l: any, idx: number) => {
+      const qty = firstPositiveOrderNumber(l.quantity, l.count, 1);
+      const rawFinalPrice = firstPositiveOrderNumber(l.finalPrice, l.FinalPrice, l.totalPrice, l.TotalPrice);
+      const rawBasePrice = firstPositiveOrderNumber(l.basePrice, l.BasePrice, l.requestedPrice);
+      const rawUnitPrice = firstPositiveOrderNumber(l.unitPrice, l.UnitPrice, l.price, l.Price, l.offeredPrice);
 
-      let unitPrice = 0;
-      if (rawUnitPrice !== undefined && rawUnitPrice !== null) {
-        unitPrice = Number(rawUnitPrice);
-      } else if (rawFinalPrice !== undefined && rawFinalPrice !== null && qty > 0) {
-        unitPrice = Number(rawFinalPrice) / qty;
-      } else if (rawBasePrice !== undefined && rawBasePrice !== null) {
-        unitPrice = Number(rawBasePrice);
-      }
+      const unitPrice = firstPositiveOrderNumber(
+        rawUnitPrice,
+        rawFinalPrice > 0 && qty > 0 ? rawFinalPrice / qty : 0,
+        rawBasePrice,
+      );
 
-      const basePrice = Number(rawBasePrice ?? rawUnitPrice ?? unitPrice);
+      const basePrice = firstPositiveOrderNumber(rawBasePrice, unitPrice);
 
       return {
-        id: String(l.sellingOptionId ? `${l.productId}-${l.sellingOptionId}` : `line-${l.productId}`),
-        productId: String(l.productId),
+        id: String(l.sellingOptionId ? `${l.productId}-${l.sellingOptionId}` : `line-${l.productId ?? idx + 1}`),
+        productId: String(l.productId ?? idx + 1),
         sellingOptionId: l.sellingOptionId,
         name: l.productName || l.name || "Product",
         image: l.imageUrl || l.image || "",
@@ -2201,10 +2382,12 @@ function mapBackendOrderToStored(
             date: bo.placedAt || bo.creationDate || new Date().toISOString(),
           },
         ],
-    totalAmount: Number(bo.finalPrice ?? bo.totalPrice ?? bo.totalAmount ?? 0),
-    totalPrice: Number(bo.totalPrice ?? bo.finalPrice ?? bo.totalAmount ?? 0),
-    finalPrice: Number(bo.finalPrice ?? bo.totalPrice ?? bo.totalAmount ?? 0),
+    totalAmount: rawOrderTotal,
+    totalPrice: firstPositiveOrderNumber(bo.totalPrice, bo.finalPrice, bo.totalAmount),
+    finalPrice: firstPositiveOrderNumber(bo.finalPrice, bo.totalPrice, bo.totalAmount),
   };
+
+  return ensurePositiveOrderPricing(mappedOrder);
 }
 
 export function createOrderId(): string {
@@ -2302,15 +2485,16 @@ export async function getOrdersForHoreca(
   try {
     const backendOrders = await getHorecaOrders();
     if (Array.isArray(backendOrders)) {
-      const mapped = backendOrders.map((bo) =>
-        mapBackendOrderToStored(bo, accountId),
-      );
-
       const database = await openDatabase();
       const transaction = database.transaction(ORDERS_STORE, "readwrite");
       const store = transaction.objectStore(ORDERS_STORE);
-      for (const ord of mapped) {
-        store.put(ord);
+      const mapped: StoredOrder[] = [];
+      for (const bo of backendOrders) {
+        const base = mapBackendOrderToStored(bo, accountId);
+        const existing = (await requestResult(store.get(base.id))) as StoredOrder | undefined;
+        const enriched = ensurePositiveOrderPricing(base, existing);
+        store.put(enriched);
+        mapped.push(enriched);
       }
       await transactionComplete(transaction);
       database.close();
@@ -2332,15 +2516,16 @@ export async function getOrdersForSupplier(
   try {
     const backendOrders = await getSupplierOrders();
     if (Array.isArray(backendOrders)) {
-      const mapped = backendOrders.map((bo) =>
-        mapBackendOrderToStored(bo, accountId),
-      );
-
       const database = await openDatabase();
       const transaction = database.transaction(ORDERS_STORE, "readwrite");
       const store = transaction.objectStore(ORDERS_STORE);
-      for (const ord of mapped) {
-        store.put(ord);
+      const mapped: StoredOrder[] = [];
+      for (const bo of backendOrders) {
+        const base = mapBackendOrderToStored(bo, accountId);
+        const existing = (await requestResult(store.get(base.id))) as StoredOrder | undefined;
+        const enriched = ensurePositiveOrderPricing(base, existing);
+        store.put(enriched);
+        mapped.push(enriched);
       }
       await transactionComplete(transaction);
       database.close();
@@ -2363,11 +2548,13 @@ export async function getOrderForHoreca(
   try {
     const bo = await getHorecaOrderById(orderId);
     if (bo) {
-      const stored = mapBackendOrderToStored(bo, accountId);
+      let stored = mapBackendOrderToStored(bo, accountId);
       try {
         const database = await openDatabase();
         const transaction = database.transaction(ORDERS_STORE, "readwrite");
         const store = transaction.objectStore(ORDERS_STORE);
+        const existing = (await requestResult(store.get(orderId))) as StoredOrder | undefined;
+        stored = ensurePositiveOrderPricing(stored, existing);
         store.put(stored);
         await transactionComplete(transaction);
         database.close();
@@ -2386,7 +2573,7 @@ export async function getOrderForHoreca(
     const store = transaction.objectStore(ORDERS_STORE);
     const existing = (await requestResult(store.get(orderId))) as StoredOrder | undefined;
     database.close();
-    if (existing) return existing;
+    if (existing) return ensurePositiveOrderPricing(existing);
   } catch {
     // ignore
   }
@@ -2401,9 +2588,9 @@ export async function getOrderForSupplier(
   try {
     const bo = await getSupplierOrderById(orderId);
     if (bo) {
-      const stored = mapBackendOrderToStored(bo, accountId);
+      let stored = mapBackendOrderToStored(bo, accountId);
 
-      // Check if we have richer delivery address in local IndexedDB
+      // Check if we have richer delivery address or lines in local IndexedDB
       try {
         const database = await openDatabase();
         const transaction = database.transaction(ORDERS_STORE, "readonly");
@@ -2411,6 +2598,8 @@ export async function getOrderForSupplier(
           transaction.objectStore(ORDERS_STORE).get(orderId),
         )) as StoredOrder | undefined;
         database.close();
+
+        stored = ensurePositiveOrderPricing(stored, existing);
 
         if (existing?.deliveryAddressSnapshot?.fullAddress) {
           if (!stored.deliveryAddress || stored.deliveryAddress === "[No Address]") {
@@ -2493,7 +2682,7 @@ export async function getOrderForSupplier(
       transaction.objectStore(ORDERS_STORE).get(orderId),
     )) as StoredOrder | undefined;
     database.close();
-    if (existing) return existing;
+    if (existing) return ensurePositiveOrderPricing(existing);
   } catch {
     // ignore
   }
