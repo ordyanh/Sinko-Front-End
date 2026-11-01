@@ -75,6 +75,7 @@ export default function SupplierPage() {
     inProgress: 0,
     closed: 0,
   });
+  const [recentOrders, setRecentOrders] = useState<StoredOrder[]>([]);
   const [isLoadingOrders, setIsLoadingOrders] = useState(true);
   const [notifications, setNotifications] = useState<DashboardNotificationView[]>(defaultNotifications);
   const [companyName, setCompanyName] = useState<string>("");
@@ -90,7 +91,10 @@ export default function SupplierPage() {
 
       // Load orders (fetches backend orders via getSupplierOrders())
       const orders = await getOrdersForSupplier(user.id);
-      if (isCurrent) setOrderCounts(countOrdersByStatus(orders));
+      if (isCurrent) {
+        setOrderCounts(countOrdersByStatus(orders));
+        setRecentOrders(orders.slice(0, 6));
+      }
 
       // Try loading real backend notifications
       try {
@@ -194,48 +198,61 @@ export default function SupplierPage() {
   ];
 
   return (
-    <div className="mx-auto w-full max-w-6xl">
-      <header className="flex flex-col justify-between gap-5 border-b border-slate-200/80 pb-7 sm:flex-row sm:items-end">
+    <div className="mx-auto w-full max-w-7xl space-y-6">
+      <header className="flex flex-col justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-2xs sm:flex-row sm:items-center sm:p-7">
         <div>
-          <p className="text-xs font-bold uppercase tracking-[0.18em] text-primary">
+          <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.14em] text-primary">
+            <span className="h-2 w-2 rounded-full bg-primary" />
             {t("dashboard.supplierWorkspace")}
-          </p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl">
+          </div>
+          <h1 className="mt-2.5 text-2xl font-extrabold tracking-tight text-slate-950 sm:text-3xl">
             {t("dashboard.goodMorning")}{companyName ? `, ${companyName}` : ""}
           </h1>
-          <p className="mt-2 text-sm text-slate-600">
+          <p className="mt-1.5 text-sm text-slate-600">
             {t("dashboard.businessPulse")}
           </p>
         </div>
+
+        <div className="flex flex-wrap items-center gap-2.5">
+          <Link
+            to="/supplier/orders"
+            className="inline-flex h-10 items-center gap-2 rounded-xl bg-primary px-4 text-xs font-bold text-primary-content shadow-xs transition hover:brightness-95"
+          >
+            <ShoppingBag className="h-4 w-4" aria-hidden="true" />
+            <span>{t("nav.orders", "Orders")}</span>
+          </Link>
+          <Link
+            to="/supplier/products/new"
+            className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-xs font-bold text-slate-700 shadow-2xs transition hover:bg-slate-50"
+          >
+            <PackagePlus className="h-4 w-4 text-primary" aria-hidden="true" />
+            <span>{t("dashboard.addProduct")}</span>
+          </Link>
+        </div>
       </header>
 
-      <section className="py-7" aria-labelledby="order-overview-heading">
-        <div className="mb-4 flex items-center justify-between gap-4">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">
-              {t("dashboard.fulfilmentQueue")}
-            </p>
-            <h2
-              id="order-overview-heading"
-              className="mt-1 text-lg font-semibold text-slate-900"
-            >
-              {t("dashboard.orderOverview")}
-            </h2>
-          </div>
-          <span className="hidden text-sm text-slate-500 sm:block">
+      <section aria-labelledby="order-overview-heading">
+        <div className="mb-3 flex items-center justify-between gap-4">
+          <h2
+            id="order-overview-heading"
+            className="text-base font-bold text-slate-900"
+          >
+            {t("dashboard.orderOverview")}
+          </h2>
+          <span className="text-xs font-medium text-slate-500">
             {isLoadingOrders ? t("dashboard.syncingOrders") : t("dashboard.updatedJustNow")}
           </span>
         </div>
 
-        <div className="grid overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm md:grid-cols-3">
-          {orderStates.map((state, index) => {
+        <div className="grid gap-4 md:grid-cols-3">
+          {orderStates.map((state) => {
             const Icon = state.icon;
 
             return (
               <Link
                 key={state.label}
                 to={state.href}
-                className={`group relative min-h-44 p-5 transition hover:bg-slate-50 focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary ${index > 0 ? "border-t border-slate-200 md:border-l md:border-t-0" : ""}`}
+                className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs transition hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md"
               >
                 <span
                   className={`absolute inset-x-0 top-0 h-1 ${state.barClass}`}
@@ -247,24 +264,107 @@ export default function SupplierPage() {
                     <Icon className="h-5 w-5" aria-hidden="true" />
                   </span>
                   <ArrowRight
-                    className="mt-2 h-4 w-4 text-slate-300 transition group-hover:translate-x-1 group-hover:text-slate-600"
+                    className="mt-2 h-4 w-4 text-slate-300 transition group-hover:translate-x-1 group-hover:text-primary"
                     aria-hidden="true"
                   />
                 </div>
-                <p className="mt-5 text-4xl font-semibold tracking-tight text-slate-950">
-                  {isLoadingOrders ? "—" : state.value}
-                </p>
-                <p className="mt-1 font-semibold text-slate-800">
-                  {state.label}
-                </p>
-                <p className="mt-1 text-sm text-slate-500">
-                  {state.description}
-                </p>
+                <div className="mt-4">
+                  <p className="text-3xl font-extrabold tracking-tight text-slate-950 tabular-nums">
+                    {isLoadingOrders ? "—" : state.value}
+                  </p>
+                  <p className="mt-1 text-sm font-bold text-slate-800">
+                    {state.label}
+                  </p>
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    {state.description}
+                  </p>
+                </div>
               </Link>
             );
           })}
         </div>
       </section>
+
+      {/* Actionable Recent Orders Table */}
+      {recentOrders.length > 0 ? (
+        <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xs">
+          <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-primary">
+                {t("dashboard.fulfilmentQueue")}
+              </p>
+              <h2 className="mt-0.5 text-base font-bold text-slate-900">
+                {t("nav.orders", "Recent Orders")}
+              </h2>
+            </div>
+            <Link
+              to="/supplier/orders"
+              className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline"
+            >
+              <span>{t("common.viewAll", "View all")}</span>
+              <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+            </Link>
+          </div>
+          <div className="divide-y divide-slate-100">
+            {recentOrders.map((order) => {
+              const total = order.lines.reduce(
+                (sum, l) => sum + l.offeredPrice * l.offeredQuantity,
+                0,
+              );
+              const isActionNeeded = order.status === "New" || order.status === "Rejected";
+              return (
+                <Link
+                  key={order.id}
+                  to={`/supplier/orders/${order.id}`}
+                  className="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5 transition hover:bg-slate-50"
+                >
+                  <div className="flex min-w-0 items-center gap-3">
+                    <span
+                      className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-xs font-bold ${
+                        isActionNeeded
+                          ? "bg-amber-100 text-amber-800"
+                          : "bg-slate-100 text-slate-700"
+                      }`}
+                    >
+                      <ShoppingBag className="h-4 w-4" aria-hidden="true" />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-bold text-slate-900">
+                        {order.orderNum || order.orderNumber || order.id}{" "}
+                        <span className="font-normal text-slate-500">
+                          · {order.horecaName}
+                        </span>
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        {order.lines.length} {t("orders.items", "items")}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span
+                      className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                        isActionNeeded
+                          ? "bg-amber-100 text-amber-800"
+                          : "bg-slate-100 text-slate-700"
+                      }`}
+                    >
+                      {order.status}
+                    </span>
+                    <span className="min-w-20 text-right text-sm font-bold text-slate-900 tabular-nums">
+                      {new Intl.NumberFormat("hy-AM", {
+                        style: "currency",
+                        currency: "AMD",
+                        maximumFractionDigits: 0,
+                      }).format(total)}
+                    </span>
+                    <ArrowRight className="h-4 w-4 text-slate-400" aria-hidden="true" />
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
 
       <div className="grid gap-7 pb-4 xl:grid-cols-[minmax(0,1.25fr)_minmax(340px,0.75fr)]">
         <section

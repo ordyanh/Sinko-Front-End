@@ -31,21 +31,29 @@
 @utility btn-primary {
   background-color: var(--color-primary);
   color: var(--color-primary-content);
+  box-shadow: 0 1px 2px 0 rgba(15, 23, 42, 0.08), inset 0 1px 0 0 rgba(255, 255, 255, 0.16);
 
   &:hover {
-    filter: brightness(0.95);
+    filter: brightness(0.96);
+    transform: translateY(-0.5px);
+  }
+
+  &:active {
+    transform: translateY(0);
   }
 }
 
 @utility btn-secondary {
-  background-color: transparent;
+  background-color: #ffffff;
   border-width: 1px;
   border-style: solid;
-  border-color: var(--color-base-300);
-  color: var(--color-base-content);
+  border-color: #e2e8f0;
+  color: #0f172a;
+  box-shadow: 0 1px 2px 0 rgba(15, 23, 42, 0.04);
 
   &:hover {
-    background-color: var(--color-base-100);
+    background-color: #f8fafc;
+    border-color: #cbd5e1;
   }
 }
 
@@ -53,17 +61,17 @@
   background-color: transparent;
   border-width: 1px;
   border-style: solid;
-  border-color: var(--color-base-300);
+  border-color: transparent;
   color: var(--color-base-content);
 
   &:hover {
-    background-color: var(--color-base-100);
+    background-color: rgba(148, 163, 184, 0.12);
   }
 }
 
 :root {
   color-scheme: light;
-  font-family: Manrope, ui-sans-serif, system-ui, sans-serif;
+  font-family: Manrope, "Noto Sans Armenian", ui-sans-serif, system-ui, sans-serif;
 }
 
 .dark, [data-theme="dark"] {
@@ -75,7 +83,7 @@
 }
 
 [data-account-type="horeca"] {
-  --color-primary: #ea580c;
+  --color-primary: #059669;
   --color-primary-content: #ffffff;
 }
 
@@ -86,7 +94,7 @@
 
 .dark [data-account-type="horeca"],
 [data-theme="dark"] [data-account-type="horeca"] {
-  --color-primary: #f97316;
+  --color-primary: #10b981;
   --color-primary-content: #ffffff;
 }
 
@@ -97,8 +105,8 @@
 }
 
 body {
-  background-color: oklch(95% 0.03 240);
-  color: oklch(20% 0.05 240);
+  background-color: #f8fafc;
+  color: #0f172a;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -107,6 +115,25 @@ body {
 [data-theme="dark"] body {
   background-color: #0b0f17;
   color: #f1f5f9;
+}
+
+/* Clean neutral surface overrides for legacy warm/sage backgrounds in light mode */
+:root:not(.dark):not([data-theme="dark"]) .bg-\[\#f3f6f4\] {
+  background-color: #f8fafc;
+}
+
+:root:not(.dark):not([data-theme="dark"]) .bg-\[\#f3f6f4\]\/95 {
+  background-color: rgba(248, 250, 252, 0.95);
+}
+
+:root:not(.dark):not([data-theme="dark"]) .bg-\[\#fffefa\],
+:root:not(.dark):not([data-theme="dark"]) .bg-\[\#fcfaf5\] {
+  background-color: #ffffff;
+}
+
+:root:not(.dark):not([data-theme="dark"]) .bg-\[\#f5f8f2\],
+:root:not(.dark):not([data-theme="dark"]) .bg-\[\#fbfcfa\] {
+  background-color: #f8fafc;
 }
 
 /* ==========================================================================
@@ -332,17 +359,17 @@ body {
 }
 
 /* Focus and Active States in Dark Mode */
-.dark .focus\:bg-white:focus,
-[data-theme="dark"] .focus\:bg-white:focus,
-.dark .focus-within\:bg-white:focus-within,
-[data-theme="dark"] .focus-within\:bg-white:focus-within {
+.dark .focus\:bg-white:focus:not(input):not(textarea):not(select),
+[data-theme="dark"] .focus\:bg-white:focus:not(input):not(textarea):not(select),
+.dark .focus-within\:bg-white:focus-within:not(.synko-search-filter-bar):not(.synko-map-search-bar),
+[data-theme="dark"] .focus-within\:bg-white:focus-within:not(.synko-search-filter-bar):not(.synko-map-search-bar) {
   background-color: #1e293b !important;
 }
 
-.dark .focus\:bg-slate-50:focus,
-[data-theme="dark"] .focus\:bg-slate-50:focus,
-.dark .focus-within\:bg-slate-50:focus-within,
-[data-theme="dark"] .focus-within\:bg-slate-50:focus-within {
+.dark .focus\:bg-slate-50:focus:not(input):not(textarea):not(select),
+[data-theme="dark"] .focus\:bg-slate-50:focus:not(input):not(textarea):not(select),
+.dark .focus-within\:bg-slate-50:focus-within:not(.synko-search-filter-bar):not(.synko-map-search-bar),
+[data-theme="dark"] .focus-within\:bg-slate-50:focus-within:not(.synko-search-filter-bar):not(.synko-map-search-bar) {
   background-color: #1e293b !important;
 }
 
@@ -553,89 +580,201 @@ body {
   border-color: rgba(6, 182, 212, 0.3);
 }
 
-/* Form Controls in Dark Mode */
-.dark input[type="text"],
-.dark input[type="search"],
-.dark input[type="password"],
-.dark input[type="email"],
-.dark input[type="number"],
-.dark input[type="tel"],
-.dark select,
+/* ==========================================================================
+   Form Controls & Input Fields in Dark Mode
+   In dark mode, all input fields, textareas, and selects (including inside
+   modals/popups) use a light slightly-grayish white background (#f1f5f9)
+   with dark text (#0f172a), as well as when selecting text with the mouse.
+   ========================================================================== */
+.dark input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]):not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="reset"]):not([type="image"]):not(.bg-transparent),
 .dark textarea,
-[data-theme="dark"] input[type="text"],
-[data-theme="dark"] input[type="search"],
-[data-theme="dark"] input[type="password"],
-[data-theme="dark"] input[type="email"],
-[data-theme="dark"] input[type="number"],
-[data-theme="dark"] input[type="tel"],
+.dark select,
+.dark .synko-select-trigger,
+[data-theme="dark"] input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]):not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="reset"]):not([type="image"]):not(.bg-transparent),
+[data-theme="dark"] textarea,
 [data-theme="dark"] select,
-[data-theme="dark"] textarea {
-  color-scheme: dark;
+[data-theme="dark"] .synko-select-trigger {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+  caret-color: #0f172a !important;
+  border-color: #cbd5e1 !important;
+  color-scheme: light !important;
+  -webkit-text-fill-color: #0f172a !important;
 }
 
-/* ==========================================================================
-   MANDATORY TEXT VISIBILITY: Inputs with White / Light Backgrounds
-   Wherever an input, select, textarea, or search field has a white background
-   (or is contained within a white / light element), the typed text and placeholder
-   MUST ALWAYS be dark and clearly readable in both dark and light modes.
-   ========================================================================== */
-.dark input.bg-white,
-.dark textarea.bg-white,
-.dark select.bg-white,
-.dark [data-theme="dark"] input.bg-white,
-.dark [data-theme="dark"] textarea.bg-white,
-.dark [data-theme="dark"] select.bg-white,
-[data-theme="dark"] input.bg-white,
-[data-theme="dark"] textarea.bg-white,
-[data-theme="dark"] select.bg-white,
-.dark .bg-white input:not([class*="dark:text-"]),
-.dark .bg-white textarea:not([class*="dark:text-"]),
-.dark .bg-white select:not([class*="dark:text-"]),
-[data-theme="dark"] .bg-white input:not([class*="dark:text-"]),
-[data-theme="dark"] .bg-white textarea:not([class*="dark:text-"]),
-[data-theme="dark"] .bg-white select:not([class*="dark:text-"]),
-.dark .bg-white\/95 input:not([class*="dark:text-"]),
-.dark .bg-white\/98 input:not([class*="dark:text-"]),
-[data-theme="dark"] .bg-white\/95 input:not([class*="dark:text-"]),
-[data-theme="dark"] .bg-white\/98 input:not([class*="dark:text-"]),
-.dark [style*="background: white"] input,
-.dark [style*="background-color: white"] input,
-.dark [style*="background: #fff"] input,
-.dark [style*="background-color: #fff"] input,
-.dark [style*="background:#fff"] input,
-.dark [style*="background-color:#fff"] input,
-[data-theme="dark"] [style*="background: white"] input,
-[data-theme="dark"] [style*="background-color: white"] input,
-[data-theme="dark"] [style*="background: #fff"] input,
-[data-theme="dark"] [style*="background-color: #fff"] input,
-.dark input[style*="background: white"],
-.dark input[style*="background-color: white"],
-.dark input[style*="background: #fff"],
-.dark input[style*="background-color: #fff"],
-[data-theme="dark"] input[style*="background: white"],
-[data-theme="dark"] input[style*="background-color: white"],
-[data-theme="dark"] input[style*="background: #fff"],
-[data-theme="dark"] input[style*="background-color: #fff"] {
+.dark input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]):not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="reset"]):not([type="image"]):not(.bg-transparent):hover:not(:disabled),
+.dark textarea:hover:not(:disabled),
+.dark select:hover:not(:disabled),
+.dark .synko-select-trigger:hover:not(:disabled),
+[data-theme="dark"] input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]):not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="reset"]):not([type="image"]):not(.bg-transparent):hover:not(:disabled),
+[data-theme="dark"] textarea:hover:not(:disabled),
+[data-theme="dark"] select:hover:not(:disabled),
+[data-theme="dark"] .synko-select-trigger:hover:not(:disabled) {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+  border-color: #94a3b8 !important;
+  -webkit-text-fill-color: #0f172a !important;
+}
+
+.dark input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]):not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="reset"]):not([type="image"]):not(.bg-transparent):focus,
+.dark textarea:focus,
+.dark select:focus,
+.dark .synko-select-trigger:focus,
+.dark .synko-select-trigger[data-headlessui-state*="open"],
+[data-theme="dark"] input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]):not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="reset"]):not([type="image"]):not(.bg-transparent):focus,
+[data-theme="dark"] textarea:focus,
+[data-theme="dark"] select:focus,
+[data-theme="dark"] .synko-select-trigger:focus,
+[data-theme="dark"] .synko-select-trigger[data-headlessui-state*="open"] {
+  background-color: #f8fafc !important;
+  color: #0f172a !important;
+  border-color: var(--color-primary) !important;
+  -webkit-text-fill-color: #0f172a !important;
+}
+
+.dark input[aria-invalid="true"]:not(.bg-transparent),
+.dark textarea[aria-invalid="true"],
+.dark select[aria-invalid="true"],
+.dark .synko-select-trigger[aria-invalid="true"],
+[data-theme="dark"] input[aria-invalid="true"]:not(.bg-transparent),
+[data-theme="dark"] textarea[aria-invalid="true"],
+[data-theme="dark"] select[aria-invalid="true"],
+[data-theme="dark"] .synko-select-trigger[aria-invalid="true"] {
+  border-color: #ef4444 !important;
+}
+
+.dark input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]):not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="reset"]):not([type="image"]):disabled,
+.dark textarea:disabled,
+.dark select:disabled,
+.dark .synko-select-trigger:disabled,
+[data-theme="dark"] input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]):not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="reset"]):not([type="image"]):disabled,
+[data-theme="dark"] textarea:disabled,
+[data-theme="dark"] select:disabled,
+[data-theme="dark"] .synko-select-trigger:disabled {
+  background-color: #e2e8f0 !important;
+  color: #64748b !important;
+  border-color: #cbd5e1 !important;
+  -webkit-text-fill-color: #64748b !important;
+}
+
+.dark select option,
+[data-theme="dark"] select option {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+
+.dark .synko-select-trigger span,
+[data-theme="dark"] .synko-select-trigger span {
+  color: #0f172a !important;
+}
+
+.dark .synko-select-trigger .synko-select-placeholder,
+[data-theme="dark"] .synko-select-trigger .synko-select-placeholder {
+  color: #64748b !important;
+}
+
+.dark .synko-select-trigger .synko-select-chip,
+[data-theme="dark"] .synko-select-trigger .synko-select-chip {
+  background-color: #e2e8f0 !important;
+  border-color: #cbd5e1 !important;
+  color: #0f172a !important;
+}
+
+.dark .synko-select-trigger svg,
+[data-theme="dark"] .synko-select-trigger svg {
+  color: #475569 !important;
+}
+
+/* Transparent inputs inside composite search bars */
+.dark .synko-search-filter-bar,
+.dark .synko-map-search-bar,
+[data-theme="dark"] .synko-search-filter-bar,
+[data-theme="dark"] .synko-map-search-bar {
+  background-color: #f1f5f9 !important;
+  border-color: #cbd5e1 !important;
+  color: #0f172a !important;
+}
+
+.dark .synko-search-filter-bar:focus-within,
+.dark .synko-map-search-bar:focus-within,
+[data-theme="dark"] .synko-search-filter-bar:focus-within,
+[data-theme="dark"] .synko-map-search-bar:focus-within {
+  background-color: #f8fafc !important;
+  border-color: var(--color-primary) !important;
+}
+
+.dark input.bg-transparent,
+[data-theme="dark"] input.bg-transparent {
+  background-color: transparent !important;
   color: #0f172a !important;
   caret-color: #0f172a !important;
   color-scheme: light !important;
   -webkit-text-fill-color: #0f172a !important;
 }
 
-.dark input.bg-white::placeholder,
-.dark textarea.bg-white::placeholder,
-[data-theme="dark"] input.bg-white::placeholder,
-[data-theme="dark"] textarea.bg-white::placeholder,
-.dark .bg-white input:not([class*="dark:text-"])::placeholder,
-.dark .bg-white textarea:not([class*="dark:text-"])::placeholder,
-[data-theme="dark"] .bg-white input:not([class*="dark:text-"])::placeholder,
-[data-theme="dark"] .bg-white textarea:not([class*="dark:text-"])::placeholder,
-.dark .bg-white\/95 input:not([class*="dark:text-"])::placeholder,
-[data-theme="dark"] .bg-white\/95 input:not([class*="dark:text-"])::placeholder,
-.dark .bg-white\/98 input:not([class*="dark:text-"])::placeholder,
-[data-theme="dark"] .bg-white\/98 input:not([class*="dark:text-"])::placeholder {
+.dark input::placeholder,
+.dark textarea::placeholder,
+[data-theme="dark"] input::placeholder,
+[data-theme="dark"] textarea::placeholder {
   color: #64748b !important;
+  opacity: 1 !important;
   -webkit-text-fill-color: #64748b !important;
+}
+
+/* Browser Autofill in Dark Mode */
+.dark input:-webkit-autofill,
+.dark input:-webkit-autofill:hover,
+.dark input:-webkit-autofill:focus,
+.dark input:-webkit-autofill:active,
+.dark textarea:-webkit-autofill,
+[data-theme="dark"] input:-webkit-autofill,
+[data-theme="dark"] input:-webkit-autofill:hover,
+[data-theme="dark"] input:-webkit-autofill:focus,
+[data-theme="dark"] input:-webkit-autofill:active,
+[data-theme="dark"] textarea:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0 1000px #f1f5f9 inset !important;
+  -webkit-text-fill-color: #0f172a !important;
+  caret-color: #0f172a !important;
+  color: #0f172a !important;
+}
+
+/* Mouse Text Selection (::selection) in Dark Mode */
+.dark ::selection,
+.dark input::selection,
+.dark textarea::selection,
+[data-theme="dark"] ::selection,
+[data-theme="dark"] input::selection,
+[data-theme="dark"] textarea::selection {
+  background-color: #cbd5e1 !important;
+  color: #0f172a !important;
+  -webkit-text-fill-color: #0f172a !important;
+}
+
+.dark ::-moz-selection,
+.dark input::-moz-selection,
+.dark textarea::-moz-selection,
+[data-theme="dark"] ::-moz-selection,
+[data-theme="dark"] input::-moz-selection,
+[data-theme="dark"] textarea::-moz-selection {
+  background-color: #cbd5e1 !important;
+  color: #0f172a !important;
+}
+
+/* Icons & Adornment Buttons Inside Input Fields in Dark Mode */
+.dark .synko-input-icon-btn,
+[data-theme="dark"] .synko-input-icon-btn {
+  color: #64748b !important;
+}
+
+.dark .synko-input-icon-btn:hover,
+[data-theme="dark"] .synko-input-icon-btn:hover {
+  color: #0f172a !important;
+  background-color: rgba(15, 23, 42, 0.08) !important;
+}
+
+.dark .relative > svg.pointer-events-none,
+[data-theme="dark"] .relative > svg.pointer-events-none {
+  color: #64748b !important;
 }
 
 /* ==========================================================================

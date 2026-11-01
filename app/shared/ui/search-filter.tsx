@@ -198,7 +198,7 @@ export default function SearchFilter({
   return (
     <div ref={rootRef} className={joinClassNames("relative", className)}>
       <div
-        className="flex min-h-11 flex-wrap items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50/75 px-2 py-1.5 text-slate-400 shadow-inner shadow-slate-950/[0.015] transition duration-150 focus-within:border-primary/50 focus-within:bg-white focus-within:ring-4 focus-within:ring-primary/10 dark:border-slate-700 dark:bg-slate-800/80 dark:focus-within:bg-slate-900"
+        className="synko-search-filter-bar flex min-h-11 flex-wrap items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50/75 px-2 py-1.5 text-slate-500 shadow-inner shadow-slate-950/[0.015] transition duration-150 focus-within:border-primary/50 focus-within:bg-white focus-within:ring-4 focus-within:ring-primary/10 dark:border-slate-300 dark:bg-[#f1f5f9] dark:text-slate-600 dark:focus-within:bg-[#f8fafc]"
       >
         <Search className="ml-1 h-4 w-4 shrink-0" aria-hidden="true" />
 
@@ -307,7 +307,7 @@ export default function SearchFilter({
             onChange={handleInputChange}
             onKeyDown={handleInputKeyDown}
             placeholder={appliedFilters.length || draftFilter ? t("common.search") : placeholder}
-            className="min-w-0 flex-1 bg-transparent px-1 py-1 text-sm text-slate-900 outline-none placeholder:text-slate-400 dark:text-slate-100 dark:placeholder:text-slate-500"
+            className="min-w-0 flex-1 bg-transparent px-1 py-1 text-sm text-slate-900 outline-none placeholder:text-slate-400 dark:text-slate-900 dark:placeholder:text-slate-500"
           />
         </label>
 
@@ -413,7 +413,7 @@ export default function SearchFilter({
               type="date"
               value={selectedDateFilterValue}
               onChange={(event) => changeDateFilter(event.target.value)}
-              className="mt-3 block w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-primary/50 focus:bg-white focus:ring-4 focus:ring-primary/10 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:bg-slate-900"
+              className="mt-3 block w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-primary/50 focus:bg-white focus:ring-4 focus:ring-primary/10 dark:border-slate-300 dark:bg-[#f1f5f9] dark:text-slate-900 dark:focus:bg-[#f8fafc]"
             />
           </label>
           <div className="mt-4 flex justify-end gap-2">

@@ -79,6 +79,8 @@ import {
 import {
   clearAuthTokenCookie,
   getClientAuthToken,
+  handleUnauthorizedSession,
+  isAuthTokenExpired,
   serializeAuthTokenCookie,
   setClientAuthToken,
   normalizeEmployeeRole,
@@ -2755,6 +2757,14 @@ export async function getLoggedInUser(): Promise<LoggedInUser | null> {
   database.close();
 
   if (!activeSession) return null;
+
+  if (isBrowser()) {
+    const token = getClientAuthToken();
+    if (!token || isAuthTokenExpired(token)) {
+      handleUnauthorizedSession();
+      return null;
+    }
+  }
 
   const user = await getUserById(activeSession.userId);
   if (!user) return null;

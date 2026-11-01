@@ -1,4 +1,4 @@
-import { ArrowLeft, Gift, MapPin, PackageOpen, ShoppingCart, Trash2, UserRound, Phone } from "lucide-react";
+import { ArrowLeft, Gift, MapPin, Minus, PackageOpen, Plus, ShoppingCart, Trash2, UserRound, Phone } from "lucide-react";
 import { Link, useNavigate, useOutletContext } from "react-router";
 import { useEffect, useState } from "react";
 import {
@@ -27,7 +27,7 @@ export default function HorecaCartPage() {
   const [selectedDeliveryAddressId, setSelectedDeliveryAddressId] = useState("");
   const [isLoadingDeliveryAddresses, setIsLoadingDeliveryAddresses] = useState(true);
   const [deliveryAddressError, setDeliveryAddressError] = useState<string>();
-  const { cartLines, catalogProducts, promotionRewards, removePromotionGift, completeOrder } = useOutletContext<{
+  const { cartLines, catalogProducts, promotionRewards, removePromotionGift, completeOrder, setCartLineQuantity } = useOutletContext<{
     cartLines: MarketplaceCartLine[];
     catalogProducts: MarketplaceProduct[];
     promotionRewards: PromotionReward[];
@@ -137,23 +137,61 @@ export default function HorecaCartPage() {
                     <ul className="divide-y divide-slate-100">
                       {lines.map(({ product, option, quantity }) => {
                         const { price: unitPrice, promotion: pricePromotion } = getPromotionalPrice(product, option);
-                        return <li key={`${product.id}-${option.id}`} className="flex items-center gap-4 p-4">
-                    {product.image ? (
-                      <img src={product.image} alt="" className="h-16 w-16 rounded-xl object-cover ring-1 ring-slate-200" />
-                    ) : (
-                      <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-400 ring-1 ring-slate-200">
-                        <PackageOpen className="h-6 w-6 text-slate-400" aria-hidden="true" />
+                        return <li key={`${product.id}-${option.id}`} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex min-w-0 items-center gap-3.5">
+                      {product.image ? (
+                        <img src={product.image} alt="" className="h-16 w-16 shrink-0 rounded-xl object-cover ring-1 ring-slate-200" />
+                      ) : (
+                        <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-400 ring-1 ring-slate-200">
+                          <PackageOpen className="h-6 w-6 text-slate-400" aria-hidden="true" />
+                        </div>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <Link to={`/horeca/products/${product.id}`} className="truncate font-semibold text-slate-900 hover:text-primary">{product.title}</Link>
+                        <p className="mt-0.5 text-xs text-slate-500">{getMarketplaceOptionLabel(option)} · {formatMarketplacePrice(unitPrice)} · {getMarketplaceMinimumOrderLabel(option)}</p>
+                        {pricePromotion ? <p className="mt-1 text-xs font-bold text-rose-700">{t("cart.appliedEach", undefined, { type: promotionTypeLabels[pricePromotion.type], price: formatMarketplacePrice(option.price) })}</p> : null}
                       </div>
-                    )}
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate font-semibold text-slate-900">{product.title}</p>
-                      <p className="mt-0.5 text-sm text-slate-500">{getMarketplaceOptionLabel(option)} · {getMarketplaceMinimumOrderLabel(option)}</p>
-                      {pricePromotion ? <p className="mt-1 text-xs font-bold text-rose-700">{t("cart.appliedEach", undefined, { type: promotionTypeLabels[pricePromotion.type], price: formatMarketplacePrice(option.price) })}</p> : null}
                     </div>
-                    <div className="text-right">
-                      <p className="text-sm font-bold text-slate-900 tabular-nums">{formatMarketplacePrice(unitPrice * quantity)}</p>
-                      {pricePromotion ? <p className="mt-0.5 text-xs text-slate-400 line-through tabular-nums">{formatMarketplacePrice(option.price * quantity)}</p> : null}
-                      <p className="mt-0.5 text-sm text-slate-500 tabular-nums">{t("cart.paidQuantity", undefined, { quantity, price: formatMarketplacePrice(unitPrice) })}</p>
+                    <div className="flex items-center justify-between gap-4 sm:justify-end">
+                      <div className="inline-flex h-9 items-center rounded-xl border border-slate-200 bg-slate-50 p-0.5">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setCartLineQuantity(
+                              product,
+                              option,
+                              quantity <= option.minimumOrderQuantity ? 0 : quantity - 1,
+                            )
+                          }
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-700 transition hover:bg-white hover:text-primary"
+                          aria-label={`Decrease ${product.title} quantity`}
+                        >
+                          <Minus className="h-3.5 w-3.5" aria-hidden="true" />
+                        </button>
+                        <span className="min-w-8 px-1 text-center text-sm font-bold text-slate-900 tabular-nums">
+                          {quantity}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setCartLineQuantity(product, option, quantity + 1)}
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-700 transition hover:bg-white hover:text-primary"
+                          aria-label={`Increase ${product.title} quantity`}
+                        >
+                          <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+                        </button>
+                      </div>
+                      <div className="min-w-24 text-right">
+                        <p className="text-sm font-bold text-slate-900 tabular-nums">{formatMarketplacePrice(unitPrice * quantity)}</p>
+                        {pricePromotion ? <p className="mt-0.5 text-xs text-slate-400 line-through tabular-nums">{formatMarketplacePrice(option.price * quantity)}</p> : null}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setCartLineQuantity(product, option, 0)}
+                        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
+                        aria-label={`Remove ${product.title} from cart`}
+                      >
+                        <Trash2 className="h-4 w-4" aria-hidden="true" />
+                      </button>
                     </div>
                   </li>;
                       })}

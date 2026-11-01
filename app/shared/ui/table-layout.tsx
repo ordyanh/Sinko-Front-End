@@ -337,15 +337,15 @@ export default function TableLayout<Row>({
           </table>
         </div>
 
-        <footer className="flex flex-col gap-3 border-t border-slate-200 px-5 py-4 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-6">
+        <footer className="flex flex-col gap-3 border-t border-slate-200 bg-slate-50/40 px-5 py-3.5 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <div className="flex flex-wrap items-center gap-3 text-slate-500">
-            <p>
+            <p className="text-xs sm:text-sm">
               {t("common.showing")}{" "}
-              <span className="font-semibold text-slate-700 tabular-nums">
-                {currentPageStart}-{currentPageEnd}
+              <span className="font-semibold text-slate-800 tabular-nums">
+                {currentPageStart}–{currentPageEnd}
               </span>{" "}
               {t("common.of")}{" "}
-              <span className="font-semibold text-slate-700 tabular-nums">{totalCount}</span>
+              <span className="font-semibold text-slate-800 tabular-nums">{totalCount}</span>
             </p>
 
             {showPageSizeSelector && pageSizeOptions.length > 0 ? (
@@ -358,7 +358,7 @@ export default function TableLayout<Row>({
                   aria-label="Select number of items per page"
                   value={currentPageSize}
                   onChange={(e) => handlePageSizeChange(Number(e.target.value))}
-                  className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 focus:border-primary focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 shadow-2xs transition hover:border-slate-300 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
                 >
                   {pageSizeOptions.map((opt) => (
                     <option key={opt} value={opt}>
@@ -369,21 +369,41 @@ export default function TableLayout<Row>({
               </div>
             ) : null}
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1.5">
             <IconButton
               icon={<ChevronLeft aria-hidden="true" />}
               label={t("common.previousPage")}
-              className="rounded-full border border-slate-200 hover:border-slate-300"
+              className="rounded-xl border border-slate-200 bg-white hover:border-slate-300"
               onClick={() => changePage(currentPage - 1)}
               disabled={currentPage <= 1}
             />
-            <span className="min-w-20 text-center text-xs font-semibold uppercase tracking-widest text-slate-500">
-              {currentPage} / {totalPages}
-            </span>
+            <div className="flex items-center gap-1 px-1">
+              {Array.from({ length: Math.min(totalPages, 5) }, (_, idx) => {
+                let pageNum = idx + 1;
+                if (totalPages > 5 && currentPage > 3) {
+                  pageNum = Math.min(currentPage - 2 + idx, totalPages - 4 + idx);
+                }
+                const isCurrent = pageNum === currentPage;
+                return (
+                  <button
+                    key={pageNum}
+                    type="button"
+                    onClick={() => changePage(pageNum)}
+                    className={`inline-flex h-8 min-w-8 items-center justify-center rounded-lg px-2 text-xs font-bold tabular-nums transition ${
+                      isCurrent
+                        ? "bg-primary text-primary-content shadow-2xs"
+                        : "text-slate-600 hover:bg-slate-200/60 hover:text-slate-900"
+                    }`}
+                  >
+                    {pageNum}
+                  </button>
+                );
+              })}
+            </div>
             <IconButton
               icon={<ChevronRight aria-hidden="true" />}
               label={t("common.nextPage")}
-              className="rounded-full border border-slate-200 hover:border-slate-300"
+              className="rounded-xl border border-slate-200 bg-white hover:border-slate-300"
               onClick={() => changePage(currentPage + 1)}
               disabled={currentPage >= totalPages}
             />

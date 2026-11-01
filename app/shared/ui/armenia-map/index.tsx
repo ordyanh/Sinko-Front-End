@@ -540,7 +540,7 @@ export default function ArmeniaMapPicker({
     >
       {/* Map Search Bar Floating on top */}
       <div className="absolute top-3 left-3 right-3 z-[1000] flex flex-col gap-1.5 pointer-events-auto">
-        <div className="relative flex items-center shadow-lg rounded-xl bg-white/95 backdrop-blur-md border border-slate-200/90 text-slate-900 transition-all focus-within:ring-2 focus-within:ring-primary/30 focus-within:border-primary dark:border-slate-700/80 dark:bg-slate-900/95 dark:text-slate-100">
+        <div className="synko-map-search-bar relative flex items-center shadow-lg rounded-xl bg-white/95 backdrop-blur-md border border-slate-200/90 text-slate-900 transition-all focus-within:ring-2 focus-within:ring-primary/30 focus-within:border-primary dark:border-slate-300 dark:bg-[#f1f5f9]/95 dark:text-slate-900">
           <div className="pl-3 text-slate-400 dark:text-slate-400">
             {isSearching ? (
               <Loader2 className="h-4 w-4 animate-spin text-primary" />
@@ -566,7 +566,7 @@ export default function ArmeniaMapPicker({
               }
             }}
             placeholder={t("settings.searchAddressPlaceholder")}
-            className="w-full bg-transparent px-3 py-2.5 text-xs sm:text-sm font-medium text-slate-900 placeholder-slate-400 focus:outline-none dark:text-slate-100 dark:placeholder-slate-400"
+            className="w-full bg-transparent px-3 py-2.5 text-xs sm:text-sm font-medium text-slate-900 placeholder-slate-400 focus:outline-none dark:text-slate-900 dark:placeholder-slate-500"
           />
           {searchQuery && (
             <button
@@ -575,7 +575,7 @@ export default function ArmeniaMapPicker({
                 setSearchQuery("");
                 setShowResultsDropdown(false);
               }}
-              className="mr-1.5 p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800"
+              className="synko-input-icon-btn mr-1.5 p-1 text-slate-500 hover:text-slate-800 rounded-lg hover:bg-slate-200/60"
               aria-label={t("settings.clearSearch")}
               title={t("settings.clearSearch")}
             >

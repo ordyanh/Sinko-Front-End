@@ -174,7 +174,7 @@ export default function LoginPage() {
             </Button>
 
             <div className="mt-3 text-center">
-              <a className="text-sm text-primary hover:underline" href="#">
+              <a className="text-sm font-medium text-primary hover:underline" href="/forgot-password">
                 {t("auth.forgotPassword")}
               </a>
             </div>

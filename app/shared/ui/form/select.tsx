@@ -32,7 +32,7 @@ const sizeClasses: Record<NonNullable<SelectProps["size"]>, string> = {
 
 const variantClasses: Record<NonNullable<SelectProps["variant"]>, string> = {
   default:
-    "border-base-300/80 bg-white text-base-content shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] hover:border-base-300 dark:border-slate-700 dark:bg-[#131b2a] dark:text-slate-100 dark:hover:border-slate-600",
+    "synko-select-trigger border-base-300/80 bg-white text-base-content shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] hover:border-base-300 dark:border-slate-300 dark:bg-[#f1f5f9] dark:text-slate-900 dark:hover:border-slate-400",
   ghost: "bg-transparent border-transparent dark:text-slate-100",
 };
 
@@ -136,7 +136,7 @@ const Select = React.forwardRef<HTMLButtonElement, SelectProps>(
               return (
                 <span
                   key={item}
-                  className="rounded-full border border-base-300 bg-base-100 px-2.5 py-1 text-sm font-medium text-base-content"
+                  className="synko-select-chip rounded-full border border-base-300 bg-base-100 px-2.5 py-1 text-sm font-medium text-base-content"
                 >
                   {option?.label ?? item}
                 </span>
@@ -153,7 +153,7 @@ const Select = React.forwardRef<HTMLButtonElement, SelectProps>(
         return <span>{option?.label ?? selectedValue}</span>;
       }
 
-      return <span className="text-base-content/45">{t("common.selectOption")}</span>;
+      return <span className="synko-select-placeholder text-base-content/45">{t("common.selectOption")}</span>;
     };
 
     return (
@@ -193,7 +193,7 @@ const Select = React.forwardRef<HTMLButtonElement, SelectProps>(
                 <input
                   aria-label={t("common.searchOrAddOption", "Search or add an option")}
                   autoFocus
-                  className="w-full rounded-xl border border-base-300 bg-base-100 px-3 py-2 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500"
+                  className="w-full rounded-xl border border-base-300 bg-base-100 px-3 py-2 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 dark:border-slate-300 dark:bg-[#f1f5f9] dark:text-slate-900 dark:placeholder:text-slate-500"
                   onChange={(event) => setQuery(event.target.value)}
                   onKeyDown={(event) => {
                     event.stopPropagation();

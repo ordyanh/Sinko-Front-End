@@ -275,33 +275,134 @@ export default function SupplierOrdersPage() {
     setPage(1);
   }
 
+  const activeStatusFilter =
+    selectedFilters.find((f) => f.filterId === "status" && f.operator === "is")?.value ??
+    (selectedOverview ? `group:${selectedOverview}` : "All");
+
+  const quickStatusTabs = useMemo(() => {
+    const countBy = (statuses: CustomerOrderStatus[]) =>
+      customerFilteredOrders.filter((o) => statuses.includes(o.status)).length;
+    return [
+      { id: "All", label: t("common.all", "All"), count: customerFilteredOrders.length },
+      {
+        id: "New",
+        label: getLocalizedOrderStatus("New", t),
+        count: countBy(["New"]),
+        highlight: true,
+      },
+      {
+        id: "Waiting for restaurant confirmation",
+        label: getLocalizedOrderStatus("Waiting for restaurant confirmation", t),
+        count: countBy(["Waiting for restaurant confirmation"]),
+      },
+      {
+        id: "Confirmed",
+        label: getLocalizedOrderStatus("Confirmed", t),
+        count: countBy(["Confirmed"]),
+      },
+      {
+        id: "Preparing",
+        label: getLocalizedOrderStatus("Preparing", t),
+        count: countBy(["Preparing"]),
+      },
+      {
+        id: "Shipped",
+        label: getLocalizedOrderStatus("Shipped", t),
+        count: countBy(["Shipped"]),
+      },
+      {
+        id: "Delivered",
+        label: getLocalizedOrderStatus("Delivered", t),
+        count: countBy(["Delivered"]),
+      },
+    ];
+  }, [customerFilteredOrders, t]);
+
+  function selectQuickStatusTab(tabId: string) {
+    setSearchParams((params) => {
+      params.delete("overview");
+      return params;
+    });
+    setSelectedFilters((current) => {
+      const cleaned = current.filter(
+        (f) => f.filterId !== "status" && f.filterId !== "overview",
+      );
+      if (tabId === "All") return cleaned;
+      return [
+        ...cleaned,
+        {
+          id: `supplier-quick-status-${tabId}`,
+          filterId: "status",
+          operator: "is",
+          value: tabId,
+        },
+      ];
+    });
+    setPage(1);
+  }
+
   return (
     <DashboardTableContent>
       <TableLayout
         title={t("orders.title")}
         icon={<ClipboardList className="h-5 w-5" aria-hidden="true" />}
         additionalContent={
-          customerId ? (
-            <div
-              role="status"
-              className="flex items-center justify-between gap-3 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm text-slate-700"
-            >
-              <span>
-                {t("orders.filteredByCustomer", "Filtered by customer:")}{" "}
-                <span className="font-semibold text-slate-900">
-                  {customerName ?? customerId}
-                </span>
-              </span>
-              <button
-                type="button"
-                onClick={clearCustomerFilter}
-                className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-200/60"
-                aria-label={t("orders.clearCustomerFilter", "Clear customer filter")}
+          <div className="space-y-3">
+            {customerId ? (
+              <div
+                role="status"
+                className="flex items-center justify-between gap-3 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm text-slate-700"
               >
-                <X className="h-4 w-4" aria-hidden="true" />
-              </button>
+                <span>
+                  {t("orders.filteredByCustomer", "Filtered by customer:")}{" "}
+                  <span className="font-semibold text-slate-900">
+                    {customerName ?? customerId}
+                  </span>
+                </span>
+                <button
+                  type="button"
+                  onClick={clearCustomerFilter}
+                  className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-200/60"
+                  aria-label={t("orders.clearCustomerFilter", "Clear customer filter")}
+                >
+                  <X className="h-4 w-4" aria-hidden="true" />
+                </button>
+              </div>
+            ) : null}
+
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+              {quickStatusTabs.map((tab) => {
+                const isActive = activeStatusFilter === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => selectQuickStatusTab(tab.id)}
+                    className={`inline-flex shrink-0 items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition ${
+                      isActive
+                        ? "border-primary bg-primary text-primary-content shadow-2xs"
+                        : tab.highlight && tab.count > 0
+                          ? "border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100"
+                          : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900"
+                    }`}
+                  >
+                    <span>{tab.label}</span>
+                    <span
+                      className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold tabular-nums ${
+                        isActive
+                          ? "bg-white/20 text-primary-content"
+                          : tab.highlight && tab.count > 0
+                            ? "bg-amber-200 text-amber-950"
+                            : "bg-slate-100 text-slate-600"
+                      }`}
+                    >
+                      {tab.count}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
-          ) : null
+          </div>
         }
         searchValue={searchValue}
         onSearchChange={handleSearchChange}

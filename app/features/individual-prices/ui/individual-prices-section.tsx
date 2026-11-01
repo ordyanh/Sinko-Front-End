@@ -219,7 +219,7 @@ export default function IndividualPricesSection({
                           min="0"
                           step="0.01"
                           inputMode="decimal"
-                          className="w-36 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-900 transition hover:border-slate-300 focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/15 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:hover:border-slate-600 dark:placeholder:text-slate-500"
+                          className="w-36 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-900 transition hover:border-slate-300 focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/15 dark:border-slate-300 dark:bg-[#f1f5f9] dark:text-slate-900 dark:hover:border-slate-400 dark:placeholder:text-slate-500"
                           {...register(`prices.${index}.individualPrice`, {
                             valueAsNumber: true,
                             min: 0,
@@ -275,7 +275,7 @@ export default function IndividualPricesSection({
                 value={resourceSearch}
                 onChange={(event) => setResourceSearch(event.target.value)}
                 placeholder={t("common.search")}
-                className="w-full rounded-xl border border-slate-200 bg-white py-3 pl-10 pr-4 text-sm text-slate-900 placeholder:text-slate-400 transition hover:border-slate-300 focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/15 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:hover:border-slate-600 dark:placeholder:text-slate-500"
+                className="w-full rounded-xl border border-slate-200 bg-white py-3 pl-10 pr-4 text-sm text-slate-900 placeholder:text-slate-400 transition hover:border-slate-300 focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/15 dark:border-slate-300 dark:bg-[#f1f5f9] dark:text-slate-900 dark:hover:border-slate-400 dark:placeholder:text-slate-500"
               />
             </div>
           </div>

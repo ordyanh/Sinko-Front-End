@@ -47,11 +47,31 @@ import { broadcastOrderNotification } from "~/shared/lib/use-notification-center
 
 const horecaNotifications: DashboardNotification[] = [];
 
-function CartButton({ itemCount, onClick }: { itemCount: number; onClick: () => void }) {
+function CartButton({
+  itemCount,
+  totalAmount,
+  onClick,
+}: {
+  itemCount: number;
+  totalAmount: number;
+  onClick: () => void;
+}) {
   return (
-    <button type="button" onClick={onClick} className="relative inline-flex h-10 w-10 items-center justify-center rounded-xl border border-primary/20 bg-white text-primary shadow-sm transition hover:-translate-y-0.5 hover:bg-primary hover:text-primary-content focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary" aria-label={`Open cart${itemCount > 0 ? `, ${itemCount} items` : ""}`}>
-      <ShoppingCart className="h-5 w-5" aria-hidden="true" />
-      {itemCount > 0 ? <span className="absolute -right-1.5 -top-1.5 grid h-5 min-w-5 place-items-center rounded-full bg-primary px-1 text-[11px] font-bold leading-none text-primary-content ring-2 ring-white tabular-nums">{itemCount > 99 ? "99+" : itemCount}</span> : null}
+    <button
+      type="button"
+      onClick={onClick}
+      className="relative inline-flex h-10 items-center gap-2.5 rounded-xl border border-primary/25 bg-primary/5 px-3 text-primary shadow-2xs transition hover:-translate-y-0.5 hover:bg-primary hover:text-primary-content focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+      aria-label={`Open cart${itemCount > 0 ? `, ${itemCount} items` : ""}`}
+    >
+      <ShoppingCart className="h-4.5 w-4.5 shrink-0" aria-hidden="true" />
+      {itemCount > 0 ? (
+        <span className="hidden text-xs font-bold tabular-nums sm:inline">
+          {formatMarketplacePrice(totalAmount)}
+        </span>
+      ) : null}
+      <span className="grid h-5 min-w-5 place-items-center rounded-full bg-primary px-1.5 text-[11px] font-bold leading-none text-primary-content tabular-nums">
+        {itemCount > 99 ? "99+" : itemCount}
+      </span>
     </button>
   );
 }
@@ -425,7 +445,13 @@ export default function HorecaPage() {
     setIsCartOpen(false);
   }
 
-  const cartButton = <CartButton itemCount={itemCount} onClick={() => setIsCartOpen(true)} />;
+  const cartButton = (
+    <CartButton
+      itemCount={itemCount}
+      totalAmount={cartTotal}
+      onClick={() => setIsCartOpen(true)}
+    />
+  );
 
   if (isPreparingDashboard) {
     return null;
@@ -437,11 +463,52 @@ export default function HorecaPage() {
         <Outlet context={{ cartLines, setCartLineQuantity, promotions, catalogProducts, promotionRewards, promotionGiftProductIds, setPromotionGiftProductId, removePromotionGift, completeOrder }} />
       </DashboardLayout>
 
+      {itemCount > 0 && location.pathname !== "/horeca/cart" && !isCartOpen ? (
+        <div className="pointer-events-none fixed inset-x-0 bottom-16 z-30 flex justify-center px-4 lg:bottom-6 lg:pl-64">
+          <div className="pointer-events-auto flex w-full max-w-xl items-center justify-between gap-4 rounded-2xl border border-slate-800 bg-slate-900/95 px-4 py-3 text-white shadow-2xl backdrop-blur-md">
+            <button
+              type="button"
+              onClick={() => setIsCartOpen(true)}
+              className="flex min-w-0 items-center gap-3 text-left"
+            >
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary text-sm font-extrabold text-primary-content">
+                {itemCount}
+              </span>
+              <span className="min-w-0">
+                <span className="block text-xs font-medium text-slate-300">
+                  {cartSupplierGroups.length}{" "}
+                  {cartSupplierGroups.length === 1 ? "supplier" : "suppliers"} ·{" "}
+                  {itemCount} {t("cart.items", "items")}
+                </span>
+                <span className="block truncate text-base font-bold tabular-nums text-white">
+                  {formatMarketplacePrice(cartTotal)}
+                </span>
+              </span>
+            </button>
+            <div className="flex shrink-0 items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setIsCartOpen(true)}
+                className="hidden rounded-xl border border-slate-700 bg-slate-800 px-3.5 py-2 text-xs font-semibold text-slate-200 transition hover:bg-slate-700 sm:inline-flex"
+              >
+                {t("cart.yourOrder", "Preview")}
+              </button>
+              <Link
+                to="/horeca/cart"
+                className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2.5 text-xs font-bold text-primary-content shadow-xs transition hover:brightness-105"
+              >
+                <span>{t("cart.checkout", "Checkout")}</span>
+              </Link>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       <Dialog open={isCartOpen} onClose={setIsCartOpen} className="relative z-50">
-        <DialogBackdrop className="fixed inset-0 bg-slate-950/35 backdrop-blur-[2px] transition duration-200 data-closed:opacity-0" />
+        <DialogBackdrop className="fixed inset-0 bg-slate-950/40 backdrop-blur-[2px] transition duration-200 data-closed:opacity-0" />
         <div className="fixed inset-0 flex justify-end">
-          <DialogPanel className="flex h-full w-full max-w-md flex-col bg-[#fcfaf5] shadow-2xl transition duration-300 data-closed:translate-x-full sm:w-[28rem]">
-            <div className="flex items-center justify-between border-b border-[#e5dfd0] px-5 py-5 sm:px-6">
+          <DialogPanel className="flex h-full w-full max-w-md flex-col bg-white shadow-2xl transition duration-300 data-closed:translate-x-full sm:w-[28rem]">
+            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4 sm:px-6">
               <div>
                 <DialogTitle className="text-lg font-bold tracking-tight text-slate-950">{t("cart.yourOrder", "Your order")}</DialogTitle>
                 <p className="mt-0.5 text-sm text-slate-500">{itemCount === 0 ? t("cart.cartWaitingIngredients", "Your cart is waiting for ingredients.") : `${itemCount} ${t("cart.items", "items")} ${t("cart.readyToReview", "ready to review")}`}</p>

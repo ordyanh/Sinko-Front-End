@@ -1,4 +1,4 @@
-import { getClientAuthToken } from "../lib/auth-token";
+import { getClientAuthToken, handleUnauthorizedSession } from "../lib/auth-token";
 
 export type ApiErrorPayload = {
   title?: string;
@@ -325,6 +325,27 @@ export const resolveRequestUrl = (path: string) => {
   return withBaseUrl(getCoreBaseUrl(), path, fallbackCore);
 };
 
+const isPublicAuthEndpoint = (path: string): boolean => {
+  const cleanPath = path.toLowerCase().split("?")[0];
+  return (
+    cleanPath.endsWith("/api/auth/login") ||
+    cleanPath.endsWith("/api/auth/register") ||
+    cleanPath.endsWith("/api/auth/logout") ||
+    cleanPath.endsWith("/api/auth/forgot-password") ||
+    cleanPath.endsWith("/api/auth/reset-password") ||
+    cleanPath.endsWith("/api/auth/confirm-email") ||
+    cleanPath.endsWith("/api/auth/resend-code") ||
+    cleanPath.endsWith("/api/auth/supplier/register") ||
+    cleanPath.endsWith("/api/auth/supplier/verify") ||
+    cleanPath.endsWith("/api/auth/supplier/resend-code") ||
+    cleanPath.endsWith("/api/supplier/register") ||
+    cleanPath.endsWith("/api/supplier/verify") ||
+    cleanPath.endsWith("/api/supplier/resend-code") ||
+    cleanPath.endsWith("/api/auth/verification-request") ||
+    cleanPath.endsWith("/api/verification-request")
+  );
+};
+
 export async function apiRequest<TResponse>(
   path: string,
   init?: RequestInit,
@@ -368,6 +389,10 @@ export async function apiRequest<TResponse>(
   }
 
   if (!response.ok) {
+    if (response.status === 401 && !isPublicAuthEndpoint(path)) {
+      handleUnauthorizedSession();
+    }
+
     let payload: any = null;
 
     try {

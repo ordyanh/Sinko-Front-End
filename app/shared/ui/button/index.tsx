@@ -16,9 +16,9 @@ const variantClasses: Record<NonNullable<ButtonProps["variant"]>, string> = {
 };
 
 const sizeClasses: Record<NonNullable<ButtonProps["size"]>, string> = {
-  sm: "px-3 py-1.5 text-sm",
-  md: "px-6 py-3 text-base",
-  lg: "px-8 py-4 text-lg",
+  sm: "h-9 px-3.5 text-xs font-semibold rounded-xl",
+  md: "h-11 px-5 text-sm font-semibold rounded-xl",
+  lg: "h-12 px-7 text-base font-semibold rounded-xl",
 };
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
@@ -41,7 +41,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         ref={ref as React.Ref<HTMLButtonElement>}
         disabled={isDisabled}
         aria-busy={loading}
-        className={`inline-flex w-full items-center justify-center rounded-md font-medium ${variantClasses[variant]} ${sizeClasses[size]} ${className} ${isDisabled ? "cursor-not-allowed opacity-70" : ""}`}
+        className={`inline-flex w-full items-center justify-center gap-2 transition-all duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${variantClasses[variant]} ${sizeClasses[size]} ${className} ${isDisabled ? "cursor-not-allowed opacity-65" : ""}`}
         {...props}
       >
         {loading ? (

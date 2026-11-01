@@ -1,5 +1,5 @@
 import { Dialog, DialogBackdrop, DialogPanel, DialogTitle } from "@headlessui/react";
-import { Gift, Minus, Package, Plus, Search, ShoppingBasket, X } from "lucide-react";
+import { Gift, LayoutGrid, List, Minus, Package, Plus, Search, ShoppingBasket, Store, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useOutletContext, useSearchParams } from "react-router";
 import {
@@ -34,12 +34,16 @@ function getDiscountDetails(originalPrice: number, discountedPrice: number) {
 
 function ProductCard({
   product,
-  selectedPackageCount,
-  onOpen,
+  cartQuantity,
+  onQuickAdd,
+  onChangeQuantity,
+  onOpenOptions,
 }: {
   product: MarketplaceProduct;
-  selectedPackageCount: number;
-  onOpen: () => void;
+  cartQuantity: number;
+  onQuickAdd: () => void;
+  onChangeQuantity: (nextQty: number) => void;
+  onOpenOptions: () => void;
 }) {
   const { t } = useTranslation();
   const availableOptions = getMarketplaceSellingOptions(product);
@@ -51,10 +55,11 @@ function ProductCard({
   ) ?? getPromotionsForProduct(product.id).find(
     (promotion) => promotion.type === "BuyXGetY" && promotion.productIds[0] === product.id,
   );
+  const hasMultipleOptions = availableOptions.length > 1;
 
   return (
-    <article className="group flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-[0_2px_3px_rgba(15,23,42,0.02)] transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_16px_32px_rgba(15,23,42,0.09)]">
-      <div className="relative aspect-[4/3] overflow-hidden bg-[#e9efe6]">
+    <article className="group flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-2xs transition duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md">
+      <div className="relative aspect-[16/11] overflow-hidden bg-slate-100">
         <Link to={`/horeca/products/${product.id}`} className="block h-full focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-primary" aria-label={`View ${product.title}`}>
           {product.image ? (
             <img
@@ -67,20 +72,26 @@ function ProductCard({
             />
           ) : (
             <div className="flex h-full w-full items-center justify-center text-slate-300">
-              <Package className="h-12 w-12" aria-hidden="true" />
+              <Package className="h-11 w-11" aria-hidden="true" />
             </div>
           )}
         </Link>
+        <span className="absolute right-2.5 top-2.5 rounded-lg bg-white/90 px-2 py-0.5 text-[11px] font-semibold text-slate-700 shadow-2xs backdrop-blur-xs">
+          {product.category.split(",")[0]}
+        </span>
         {pricePromotion ? (
-          <span className="absolute left-3 top-3 rounded-full bg-rose-600 px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.1em] text-white shadow-sm">
+          <span className="absolute left-2.5 top-2.5 rounded-full bg-rose-600 px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.08em] text-white shadow-xs">
             {discount?.percentageLabel ?? pricePromotion.benefitLabel}
           </span>
         ) : null}
       </div>
 
       <div className="flex flex-1 flex-col p-4">
-        <p className="text-xs font-medium text-slate-500">{product.supplier}</p>
-        <h2 className="mt-1 min-h-12 text-base font-semibold leading-6 tracking-tight text-slate-900">
+        <div className="flex items-center gap-1.5 text-xs font-medium text-slate-500">
+          <Store className="h-3.5 w-3.5 shrink-0 text-slate-400" aria-hidden="true" />
+          <span className="truncate">{product.supplier}</span>
+        </div>
+        <h2 className="mt-1 line-clamp-2 min-h-11 text-[15px] font-bold leading-5 tracking-tight text-slate-900">
           <Link to={`/horeca/products/${product.id}`} className="rounded-sm transition hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
             {product.title}
           </Link>
@@ -88,11 +99,11 @@ function ProductCard({
         <p className="mt-1 truncate text-xs text-slate-500" title={availableOptions.map(getMarketplaceOptionLabel).join(", ")}>
           {availableOptions.map(getMarketplaceOptionLabel).join(" · ")}
         </p>
-        {pricePromotion ? <p className="mt-2 text-xs font-semibold text-rose-700">{discount?.savingsLabel ?? promotionTypeLabels[pricePromotion.type]} on this unit</p> : null}
+        {pricePromotion ? <p className="mt-1.5 text-xs font-semibold text-rose-700">{discount?.savingsLabel ?? promotionTypeLabels[pricePromotion.type]}</p> : null}
         {bxgyPromotion ? (
-          <Link to={`/horeca/products/${product.id}?promotion=${bxgyPromotion.id}`} className="mt-3 flex items-center gap-2 rounded-xl border border-violet-100 bg-violet-50 px-2.5 py-2 text-left transition hover:border-violet-200 hover:bg-violet-100/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-600">
-            <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-violet-600 text-white"><Gift className="h-3.5 w-3.5" aria-hidden="true" /></span>
-            <span className="min-w-0"><span className="block text-xs font-bold text-violet-950">{bxgyPromotion.benefitLabel}</span><span className="block truncate text-[11px] font-medium text-violet-700">{bxgyPromotion.giftChoices?.length ? "Choose your free pantry item" : "Free item is added in cart"}</span></span>
+          <Link to={`/horeca/products/${product.id}?promotion=${bxgyPromotion.id}`} className="mt-2.5 flex items-center gap-2 rounded-xl border border-violet-100 bg-violet-50 px-2.5 py-1.5 text-left transition hover:border-violet-200 hover:bg-violet-100/70">
+            <span className="grid h-6 w-6 shrink-0 place-items-center rounded-lg bg-violet-600 text-white"><Gift className="h-3.5 w-3.5" aria-hidden="true" /></span>
+            <span className="min-w-0"><span className="block truncate text-xs font-bold text-violet-950">{bxgyPromotion.benefitLabel}</span></span>
           </Link>
         ) : null}
 
@@ -100,31 +111,75 @@ function ProductCard({
           <div className="flex items-baseline justify-between gap-2">
             <div className="min-w-0">
               {pricePromotion ? (
-                <div className="mb-0.5 text-xs text-slate-400">
+                <div className="text-[11px] text-slate-400">
                   <span className="whitespace-nowrap font-medium line-through tabular-nums">
                     {formatMarketplacePrice(startingOption.price)}
                   </span>
                 </div>
               ) : null}
-              <p className="whitespace-nowrap text-lg font-bold tracking-tight text-slate-950 tabular-nums">
+              <p className="whitespace-nowrap text-lg font-extrabold tracking-tight text-slate-950 tabular-nums">
                 {formatMarketplacePrice(productPrice)}
               </p>
             </div>
-            <p className="text-right text-xs text-slate-500 truncate" title={getMarketplaceOptionLabel(startingOption)}>
-              {t("products.fromUnit", "From")} {getMarketplaceOptionLabel(startingOption)}
+            <p className="truncate text-right text-xs font-medium text-slate-500" title={getMarketplaceOptionLabel(startingOption)}>
+              / {getMarketplaceOptionLabel(startingOption)}
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={onOpen}
-            className="w-full inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-primary px-3 py-2 text-sm font-semibold text-primary-content shadow-sm transition hover:brightness-95 active:scale-[0.99] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-          >
-            <ShoppingBasket className="h-4 w-4 shrink-0" aria-hidden="true" />
-            <span className="truncate">
-              {selectedPackageCount > 0 ? `${selectedPackageCount} ${t("cart.inCart", "in cart")}` : t("products.addToCart")}
-            </span>
-          </button>
+          {cartQuantity > 0 && !hasMultipleOptions ? (
+            <div className="flex h-10 w-full items-center justify-between rounded-xl border border-primary/30 bg-primary/5 px-1.5">
+              <button
+                type="button"
+                onClick={() =>
+                  onChangeQuantity(
+                    cartQuantity <= startingOption.minimumOrderQuantity
+                      ? 0
+                      : cartQuantity - 1,
+                  )
+                }
+                className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-white text-primary shadow-2xs transition hover:bg-primary hover:text-primary-content"
+                aria-label={`Decrease ${product.title} quantity`}
+              >
+                <Minus className="h-4 w-4" aria-hidden="true" />
+              </button>
+              <span className="text-sm font-bold text-slate-900 tabular-nums">
+                {cartQuantity} {t("cart.inCart", "in cart")}
+              </span>
+              <button
+                type="button"
+                onClick={() => onChangeQuantity(cartQuantity + 1)}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-content shadow-2xs transition hover:brightness-95"
+                aria-label={`Increase ${product.title} quantity`}
+              >
+                <Plus className="h-4 w-4" aria-hidden="true" />
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={hasMultipleOptions ? onOpenOptions : onQuickAdd}
+                className="inline-flex min-h-10 flex-1 items-center justify-center gap-2 rounded-xl bg-primary px-3 py-2 text-xs font-bold text-primary-content shadow-2xs transition hover:brightness-95 active:scale-[0.99]"
+              >
+                <ShoppingBasket className="h-4 w-4 shrink-0" aria-hidden="true" />
+                <span className="truncate">
+                  {cartQuantity > 0
+                    ? `${cartQuantity} ${t("cart.inCart", "in cart")}`
+                    : t("products.addToCart")}
+                </span>
+              </button>
+              {hasMultipleOptions ? (
+                <button
+                  type="button"
+                  onClick={onOpenOptions}
+                  className="inline-flex h-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 px-2.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-100"
+                  title={t("products.packaging", "Packaging options")}
+                >
+                  {availableOptions.length} opt.
+                </button>
+              ) : null}
+            </div>
+          )}
         </div>
       </div>
     </article>
@@ -135,9 +190,11 @@ export default function HorecaProductsPage() {
   const { t } = useTranslation();
   const [searchParams] = useSearchParams();
   const [searchValue, setSearchValue] = useState("");
+  const [selectedCategoryPill, setSelectedCategoryPill] = useState<string>("All");
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [products, setProducts] = useState<MarketplaceProduct[]>([]);
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(12);
   const [isLoadingProducts, setIsLoadingProducts] = useState(true);
   const [productsError, setProductsError] = useState<string | null>(null);
   const [selectedFilters, setSelectedFilters] = useState<SearchFilterValue[]>(
@@ -199,7 +256,22 @@ export default function HorecaProductsPage() {
         : [],
     );
   }, [supplierFromUrl]);
+
   const selectedPromotion = promotions.find((promotion) => promotion.id === promotionFromUrl);
+
+  const allCategoryPills = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const product of products) {
+      for (const cat of product.category.split(", ").map((c) => c.trim()).filter(Boolean)) {
+        counts.set(cat, (counts.get(cat) ?? 0) + 1);
+      }
+    }
+    return [
+      { label: "All", count: products.length },
+      ...Array.from(counts.entries()).map(([label, count]) => ({ label, count })),
+    ];
+  }, [products]);
+
   const marketplaceSearchFilters = useMemo<SearchFilterDefinition[]>(
     () => [
       {
@@ -217,6 +289,7 @@ export default function HorecaProductsPage() {
     ],
     [products, t],
   );
+
   const normalizedSearchValue = searchValue.trim().toLowerCase();
   const visibleProducts = useMemo(
     () =>
@@ -225,6 +298,12 @@ export default function HorecaProductsPage() {
           .join(" ")
           .toLowerCase()
           .includes(normalizedSearchValue);
+        const matchesCategoryPill =
+          selectedCategoryPill === "All" ||
+          product.category
+            .split(", ")
+            .map((c) => c.trim())
+            .includes(selectedCategoryPill);
         const matchesFilters = selectedFilters.every((filter) => {
           const doesMatch = filter.filterId === "supplier"
             ? product.supplier === filter.value
@@ -233,14 +312,19 @@ export default function HorecaProductsPage() {
           return filter.operator === "is" ? doesMatch : !doesMatch;
         });
 
-        return matchesSearch && matchesFilters && (!selectedPromotion || getPromotionProductIds(selectedPromotion).includes(product.id));
+        return (
+          matchesSearch &&
+          matchesCategoryPill &&
+          matchesFilters &&
+          (!selectedPromotion || getPromotionProductIds(selectedPromotion).includes(product.id))
+        );
       }),
-    [normalizedSearchValue, products, selectedFilters, selectedPromotion],
+    [normalizedSearchValue, products, selectedCategoryPill, selectedFilters, selectedPromotion],
   );
 
   useEffect(() => {
     setPage(1);
-  }, [normalizedSearchValue, selectedFilters]);
+  }, [normalizedSearchValue, selectedCategoryPill, selectedFilters]);
 
   const pagedProducts = useMemo(() => {
     const start = (page - 1) * pageSize;
@@ -266,6 +350,20 @@ export default function HorecaProductsPage() {
     setSelectionQuantity(firstOption.minimumOrderQuantity);
   }
 
+  function handleQuickAdd(product: MarketplaceProduct) {
+    const firstOption = getMarketplaceSellingOptions(product)[0];
+    if (!firstOption) return;
+    const existingQty =
+      cartLines.find(
+        (line) => line.product.id === product.id && line.option.id === firstOption.id,
+      )?.quantity ?? 0;
+    const nextQty =
+      existingQty === 0
+        ? firstOption.minimumOrderQuantity
+        : existingQty + 1;
+    setCartLineQuantity(product, firstOption, nextQty);
+  }
+
   function selectSellingOption(option: MarketplaceSellingOption) {
     setSelectedOptionId(option.id);
     setSelectionQuantity(option.minimumOrderQuantity);
@@ -279,8 +377,6 @@ export default function HorecaProductsPage() {
         && promotion.triggerOptionId === selectedOption.id
         && promotion.giftChoices?.length,
     );
-    // Quick-add honours the same rule as the product page. The buyer can
-    // refine this default on the product page before completing the order.
     if (qualifyingGiftPromotion?.giftChoices?.[0]) {
       setPromotionGiftProductId(
         qualifyingGiftPromotion.id,
@@ -296,38 +392,100 @@ export default function HorecaProductsPage() {
 
   return (
     <DashboardPageContent>
-      <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-        <div className="border-b border-slate-200 bg-white px-5 py-7 sm:px-8 sm:py-9">
-          <div className="flex flex-col justify-between gap-6 md:flex-row md:items-end">
+      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xs">
+        <div className="border-b border-slate-200 bg-white px-5 py-6 sm:px-7">
+          <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
             <div>
               <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-primary">
                 <span className="h-2 w-2 rounded-full bg-primary" />
                 {t("products.supplierMarketplace")}
               </div>
-              <h1 className="mt-3 text-3xl font-bold tracking-[-0.045em] text-slate-950 sm:text-4xl">
+              <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">
                 {t("products.stockKitchenSimply")}
               </h1>
-              <p className="mt-2 max-w-xl text-sm leading-6 text-slate-600 sm:text-base">
+              <p className="mt-1.5 max-w-2xl text-sm text-slate-600">
                 {selectedPromotion ? `${selectedPromotion.title}: ${selectedPromotion.benefitLabel}. ${selectedPromotion.conditions}` : t("products.browseIngredients")}
               </p>
             </div>
+
+            <div className="flex items-center gap-2 self-start md:self-auto">
+              <div className="inline-flex rounded-xl border border-slate-200 bg-slate-50 p-1">
+                <button
+                  type="button"
+                  onClick={() => setViewMode("grid")}
+                  className={`inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-semibold transition ${
+                    viewMode === "grid"
+                      ? "bg-white text-slate-900 shadow-2xs"
+                      : "text-slate-500 hover:text-slate-800"
+                  }`}
+                >
+                  <LayoutGrid className="h-3.5 w-3.5" aria-hidden="true" />
+                  <span>Grid</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode("list")}
+                  className={`inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-semibold transition ${
+                    viewMode === "list"
+                      ? "bg-white text-slate-900 shadow-2xs"
+                      : "text-slate-500 hover:text-slate-800"
+                  }`}
+                >
+                  <List className="h-3.5 w-3.5" aria-hidden="true" />
+                  <span>List</span>
+                </button>
+              </div>
+            </div>
           </div>
 
-          <SearchFilter
-            className="mt-7 max-w-2xl"
-            value={searchValue}
-            onValueChange={setSearchValue}
-            placeholder={t("products.searchProductsSuppliersCategories")}
-            filters={marketplaceSearchFilters}
-            selectedFilters={selectedFilters}
-            onSelectedFiltersChange={setSelectedFilters}
-          />
+          <div className="mt-5 flex flex-col gap-3">
+            <SearchFilter
+              className="w-full"
+              value={searchValue}
+              onValueChange={setSearchValue}
+              placeholder={t("products.searchProductsSuppliersCategories")}
+              filters={marketplaceSearchFilters}
+              selectedFilters={selectedFilters}
+              onSelectedFiltersChange={setSelectedFilters}
+            />
+
+            {allCategoryPills.length > 1 ? (
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 pt-1">
+                {allCategoryPills.map((cat) => {
+                  const active = selectedCategoryPill === cat.label;
+                  return (
+                    <button
+                      key={cat.label}
+                      type="button"
+                      onClick={() => setSelectedCategoryPill(cat.label)}
+                      className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                        active
+                          ? "border-primary bg-primary text-primary-content shadow-2xs"
+                          : "border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300 hover:bg-slate-100 hover:text-slate-900"
+                      }`}
+                    >
+                      <span>{cat.label === "All" ? t("common.all", "All") : cat.label}</span>
+                      <span
+                        className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold tabular-nums ${
+                          active
+                            ? "bg-white/20 text-primary-content"
+                            : "bg-slate-200/80 text-slate-600"
+                        }`}
+                      >
+                        {cat.count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : null}
+          </div>
         </div>
 
-        <div className="p-5 sm:p-8">
-          <div className="mb-5 flex items-center justify-between gap-4">
+        <div className="p-5 sm:p-7">
+          <div className="mb-4 flex items-center justify-between gap-4">
             <p className="text-sm font-medium text-slate-600">
-              <span className="font-semibold text-slate-900 tabular-nums">
+              <span className="font-bold text-slate-900 tabular-nums">
                 {visibleProducts.length}
               </span>{" "}
               {t("nav.products")}
@@ -348,18 +506,145 @@ export default function HorecaProductsPage() {
             </div>
           ) : visibleProducts.length > 0 ? (
             <>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {pagedProducts.map((product) => (
-                  <ProductCard
-                    key={product.id}
-                    product={product}
-                    selectedPackageCount={cartLines
+              {viewMode === "grid" ? (
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {pagedProducts.map((product) => {
+                    const startingOption = getMarketplaceSellingOptions(product)[0];
+                    const cartQuantity = cartLines
                       .filter((line) => line.product.id === product.id)
-                      .reduce((total, line) => total + line.quantity, 0)}
-                    onOpen={() => openProductSelector(product)}
-                  />
-                ))}
-              </div>
+                      .reduce((total, line) => total + line.quantity, 0);
+                    return (
+                      <ProductCard
+                        key={product.id}
+                        product={product}
+                        cartQuantity={cartQuantity}
+                        onQuickAdd={() => handleQuickAdd(product)}
+                        onChangeQuantity={(nextQty) => {
+                          if (startingOption) {
+                            setCartLineQuantity(product, startingOption, nextQty);
+                          }
+                        }}
+                        onOpenOptions={() => openProductSelector(product)}
+                      />
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="divide-y divide-slate-200 overflow-hidden rounded-2xl border border-slate-200 bg-white">
+                  {pagedProducts.map((product) => {
+                    const availableOptions = getMarketplaceSellingOptions(product);
+                    const startingOption = availableOptions[0];
+                    const { price: productPrice, promotion: pricePromotion } = getPromotionalPrice(product, startingOption);
+                    const cartQuantity = cartLines
+                      .filter((line) => line.product.id === product.id)
+                      .reduce((total, line) => total + line.quantity, 0);
+                    return (
+                      <div
+                        key={product.id}
+                        className="flex flex-col gap-3 p-4 transition hover:bg-slate-50/80 sm:flex-row sm:items-center sm:justify-between"
+                      >
+                        <div className="flex min-w-0 items-center gap-3.5">
+                          <Link
+                            to={`/horeca/products/${product.id}`}
+                            className="h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-slate-100 ring-1 ring-slate-200"
+                          >
+                            {product.image ? (
+                              <img src={product.image} alt={product.title} className="h-full w-full object-cover" />
+                            ) : (
+                              <span className="flex h-full w-full items-center justify-center text-slate-400">
+                                <Package className="h-6 w-6" />
+                              </span>
+                            )}
+                          </Link>
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Link
+                                to={`/horeca/products/${product.id}`}
+                                className="truncate font-bold text-slate-900 hover:text-primary"
+                              >
+                                {product.title}
+                              </Link>
+                              <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
+                                {product.category}
+                              </span>
+                            </div>
+                            <p className="mt-0.5 text-xs text-slate-500">
+                              {product.supplier} · {availableOptions.map(getMarketplaceOptionLabel).join(" · ")}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between gap-4 sm:justify-end">
+                          <div className="text-right">
+                            <p className="text-base font-extrabold text-slate-950 tabular-nums">
+                              {formatMarketplacePrice(productPrice)}
+                            </p>
+                            {pricePromotion ? (
+                              <p className="text-xs text-slate-400 line-through tabular-nums">
+                                {formatMarketplacePrice(startingOption.price)}
+                              </p>
+                            ) : (
+                              <p className="text-xs text-slate-500">
+                                / {getMarketplaceOptionLabel(startingOption)}
+                              </p>
+                            )}
+                          </div>
+
+                          {cartQuantity > 0 && availableOptions.length === 1 ? (
+                            <div className="inline-flex h-9 items-center rounded-xl border border-primary/30 bg-primary/5 p-0.5">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setCartLineQuantity(
+                                    product,
+                                    startingOption,
+                                    cartQuantity <= startingOption.minimumOrderQuantity
+                                      ? 0
+                                      : cartQuantity - 1,
+                                  )
+                                }
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-white text-primary shadow-2xs"
+                              >
+                                <Minus className="h-3.5 w-3.5" />
+                              </button>
+                              <span className="min-w-9 px-2 text-center text-sm font-bold text-slate-900 tabular-nums">
+                                {cartQuantity}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setCartLineQuantity(product, startingOption, cartQuantity + 1)
+                                }
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-content shadow-2xs"
+                              >
+                                <Plus className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                availableOptions.length > 1
+                                  ? openProductSelector(product)
+                                  : handleQuickAdd(product)
+                              }
+                              className="inline-flex h-9 items-center gap-2 rounded-xl bg-primary px-4 text-xs font-bold text-primary-content shadow-2xs transition hover:brightness-95"
+                            >
+                              <ShoppingBasket className="h-3.5 w-3.5" />
+                              <span>
+                                {cartQuantity > 0
+                                  ? `${cartQuantity} ${t("cart.inCart", "in cart")}`
+                                  : t("products.addToCart")}
+                              </span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
               <div className="mt-6">
                 <Pagination
                   page={page}
@@ -367,7 +652,7 @@ export default function HorecaProductsPage() {
                   totalCount={visibleProducts.length}
                   onPageChange={setPage}
                   onPageSizeChange={setPageSize}
-                  pageSizeOptions={[5, 10, 25, 50, 100]}
+                  pageSizeOptions={[12, 24, 48, 96]}
                   itemName="products"
                 />
               </div>
@@ -385,7 +670,7 @@ export default function HorecaProductsPage() {
       </section>
 
       <Dialog open={Boolean(selectedProduct)} onClose={() => setSelectedProduct(null)} className="relative z-50">
-        <DialogBackdrop className="fixed inset-0 bg-slate-950/45 backdrop-blur-sm" />
+        <DialogBackdrop className="fixed inset-0 bg-slate-950/45 backdrop-blur-xs" />
         <div className="fixed inset-0 overflow-y-auto p-4 sm:p-8">
           <div className="flex min-h-full items-center justify-center">
             <DialogPanel className="w-full max-w-lg overflow-hidden rounded-3xl bg-white shadow-2xl">
@@ -406,7 +691,6 @@ export default function HorecaProductsPage() {
                     {selectedOptions.map((option) => {
                       const active = option.id === selectedOption.id;
                       const { price: optionPrice, promotion: pricePromotion } = getPromotionalPrice(selectedProduct, option);
-                      const bxgyPromotion = getPromotionsForProduct(selectedProduct.id).find((promotion) => promotion.type === "BuyXGetY" && promotion.productIds[0] === selectedProduct.id);
                       return <button key={option.id} type="button" onClick={() => selectSellingOption(option)} className={`flex w-full items-center justify-between gap-4 rounded-2xl border p-4 text-left transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${active ? "border-primary bg-primary/5 ring-1 ring-primary/20" : "border-slate-200 hover:border-primary/40"}`}>
                         <span className="flex items-center gap-3"><span className={`grid h-9 w-9 place-items-center rounded-xl ${active ? "bg-primary text-primary-content" : "bg-slate-100 text-slate-500"}`}><Package className="h-4 w-4" aria-hidden="true" /></span><span><span className="block font-semibold text-slate-900">{getMarketplaceOptionLabel(option)}</span><span className="mt-0.5 block text-xs text-slate-500">{getMarketplaceMinimumOrderLabel(option)}</span></span></span>
                         <span className="text-right"><span className="block font-bold text-slate-950 tabular-nums">{formatMarketplacePrice(optionPrice)}</span>{pricePromotion ? <span className="mt-0.5 block text-xs text-slate-400 line-through tabular-nums">{formatMarketplacePrice(option.price)}</span> : null}</span>

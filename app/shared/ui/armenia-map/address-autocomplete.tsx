@@ -176,7 +176,7 @@ export default function AddressAutocomplete({
           disabled={disabled}
           placeholder={placeholder || t("settings.fullAddressPlaceholder")}
           autoComplete="off"
-          className={`h-11 w-full rounded-xl border bg-white px-3.5 pr-10 text-sm font-medium text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:outline-none focus:ring-2 disabled:bg-slate-50 disabled:text-slate-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500 dark:disabled:bg-slate-800 dark:disabled:text-slate-500 ${
+          className={`h-11 w-full rounded-xl border bg-white px-3.5 pr-10 text-sm font-medium text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:outline-none focus:ring-2 disabled:bg-slate-50 disabled:text-slate-400 dark:border-slate-300 dark:bg-[#f1f5f9] dark:text-slate-900 dark:placeholder:text-slate-500 dark:disabled:bg-slate-200 dark:disabled:text-slate-500 ${
             isInvalid
               ? "border-red-400 bg-red-50/40 text-red-950 focus:border-red-500 focus:ring-red-200 dark:border-red-500/50 dark:bg-red-950/20 dark:text-red-200"
               : "border-slate-200 hover:border-slate-300 focus:border-primary focus:ring-primary/20 dark:hover:border-slate-600"
@@ -195,7 +195,7 @@ export default function AddressAutocomplete({
                 setSuggestions([]);
                 setIsOpen(false);
               }}
-              className="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800"
+              className="synko-input-icon-btn p-1 text-slate-500 hover:text-slate-800 rounded-lg hover:bg-slate-200/60"
               aria-label="Clear"
             >
               <X className="h-3.5 w-3.5" />

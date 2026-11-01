@@ -530,60 +530,110 @@ export default function SupplierProductsPage() {
           ) : undefined
         }
         additionalContent={
-          importMessageVisible || catalogNotice ? (
-            <div className="flex flex-col gap-3">
-              {catalogNotice ? (
-                <div
-                  role="status"
-                  className="flex items-start gap-3 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sky-950"
-                >
-                  <CheckCircle2
-                    className="mt-0.5 h-5 w-5 shrink-0 text-sky-600"
-                    aria-hidden="true"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold">{catalogNotice.title}</p>
-                    <p className="mt-0.5 text-sm text-sky-800">
-                      {catalogNotice.description}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setCatalogNotice(null)}
-                    className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-sky-700 transition hover:bg-sky-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-700"
-                    aria-label="Dismiss catalog status"
+          <div className="space-y-3">
+            {importMessageVisible || catalogNotice ? (
+              <div className="flex flex-col gap-3">
+                {catalogNotice ? (
+                  <div
+                    role="status"
+                    className="flex items-start gap-3 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sky-950"
                   >
-                    <X className="h-4 w-4" aria-hidden="true" />
-                  </button>
-                </div>
-              ) : null}
-              {importMessageVisible ? (
-                <div
-                  role="status"
-                  className="flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-900"
-                >
-                  <CheckCircle2
-                    className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600"
-                    aria-hidden="true"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold">{t("products.importStarted")}</p>
-                    <p className="mt-0.5 text-sm text-emerald-800">
-                      We&apos;ll notify you when your products are ready.
-                    </p>
+                    <CheckCircle2
+                      className="mt-0.5 h-5 w-5 shrink-0 text-sky-600"
+                      aria-hidden="true"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold">{catalogNotice.title}</p>
+                      <p className="mt-0.5 text-sm text-sky-800">
+                        {catalogNotice.description}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setCatalogNotice(null)}
+                      className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-sky-700 transition hover:bg-sky-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-700"
+                      aria-label="Dismiss catalog status"
+                    >
+                      <X className="h-4 w-4" aria-hidden="true" />
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setImportMessageVisible(false)}
-                    className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-emerald-700 transition hover:bg-emerald-100"
-                    aria-label="Dismiss import status"
+                ) : null}
+                {importMessageVisible ? (
+                  <div
+                    role="status"
+                    className="flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-900"
                   >
-                    <X className="h-4 w-4" aria-hidden="true" />
+                    <CheckCircle2
+                      className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600"
+                      aria-hidden="true"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold">{t("products.importStarted")}</p>
+                      <p className="mt-0.5 text-sm text-emerald-800">
+                        We&apos;ll notify you when your products are ready.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setImportMessageVisible(false)}
+                      className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-emerald-700 transition hover:bg-emerald-100"
+                      aria-label="Dismiss import status"
+                    >
+                      <X className="h-4 w-4" aria-hidden="true" />
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+              {(["All", "Active", "Draft", "Unlisted", "Inactive"] as const).map((statusTab) => {
+                const activeStatus =
+                  selectedFilters.find((f) => f.filterId === "status" && f.operator === "is")?.value ?? "All";
+                const isActive = activeStatus === statusTab;
+                const count =
+                  statusTab === "All"
+                    ? products.length
+                    : products.filter((p) => p.status === statusTab).length;
+                return (
+                  <button
+                    key={statusTab}
+                    type="button"
+                    onClick={() => {
+                      setSelectedFilters((current) => {
+                        const withoutStatus = current.filter((f) => f.filterId !== "status");
+                        if (statusTab === "All") return withoutStatus;
+                        return [
+                          ...withoutStatus,
+                          {
+                            id: `quick-product-status-${statusTab}`,
+                            filterId: "status",
+                            operator: "is",
+                            value: statusTab,
+                          },
+                        ];
+                      });
+                      setPage(1);
+                    }}
+                    className={`inline-flex shrink-0 items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition ${
+                      isActive
+                        ? "border-primary bg-primary text-primary-content shadow-2xs"
+                        : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900"
+                    }`}
+                  >
+                    <span>{statusTab === "All" ? t("common.all", "All") : statusTab}</span>
+                    <span
+                      className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold tabular-nums ${
+                        isActive ? "bg-white/20 text-primary-content" : "bg-slate-100 text-slate-600"
+                      }`}
+                    >
+                      {count}
+                    </span>
                   </button>
-                </div>
-              ) : null}
+                );
+              })}
             </div>
-          ) : null
+          </div>
         }
         searchValue={searchValue}
         onSearchChange={handleSearchChange}
