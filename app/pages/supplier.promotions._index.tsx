@@ -152,7 +152,20 @@ export default function SupplierPromotionsPage() {
     {
       id: "type",
       header: t("promotions.promotionType"),
-      cell: (promotion) => getPromotionTypeLabel(promotion.type),
+      cell: (promotion) => (
+        <span
+          className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${
+            promotion.type === "BuyXGetY"
+              ? "bg-violet-50 text-violet-700"
+              : promotion.type === "Percentage"
+                ? "bg-rose-50 text-rose-700"
+                : "bg-sky-50 text-sky-700"
+          }`}
+        >
+          {promotion.type === "BuyXGetY" ? "🎁 " : promotion.type === "Percentage" ? "🏷 " : "💰 "}
+          {getPromotionTypeLabel(promotion.type)}
+        </span>
+      ),
     },
     {
       id: "description",
@@ -298,6 +311,55 @@ export default function SupplierPromotionsPage() {
           </button>
         }
         searchValue={searchValue}
+        additionalContent={
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+            {(["All", "Active", "Draft"] as const).map((statusTab) => {
+              const activeStatus =
+                selectedFilters.find((f) => f.filterId === "status" && f.operator === "is")?.value ?? "All";
+              const isActive = activeStatus === statusTab;
+              const count =
+                statusTab === "All"
+                  ? promotions.length
+                  : promotions.filter((p) => p.status === statusTab).length;
+              return (
+                <button
+                  key={statusTab}
+                  type="button"
+                  onClick={() => {
+                    setSelectedFilters((current) => {
+                      const withoutStatus = current.filter((f) => f.filterId !== "status");
+                      if (statusTab === "All") return withoutStatus;
+                      return [
+                        ...withoutStatus,
+                        {
+                          id: `quick-promo-status-${statusTab}`,
+                          filterId: "status",
+                          operator: "is",
+                          value: statusTab,
+                        },
+                      ];
+                    });
+                    setPage(1);
+                  }}
+                  className={`inline-flex shrink-0 items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition ${
+                    isActive
+                      ? "border-primary bg-primary text-primary-content shadow-2xs"
+                      : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900"
+                  }`}
+                >
+                  <span>{statusTab === "All" ? t("common.all") : getPromotionStatusLabel(statusTab)}</span>
+                  <span
+                    className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold tabular-nums ${
+                      isActive ? "bg-white/20 text-primary-content" : "bg-slate-100 text-slate-600"
+                    }`}
+                  >
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        }
         onSearchChange={handleSearchChange}
         searchPlaceholder={t("common.search")}
         searchFilters={promotionSearchFilters}

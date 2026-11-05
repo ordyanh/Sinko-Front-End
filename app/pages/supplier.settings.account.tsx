@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ChangeEvent } from "react";
-import { useNavigate } from "react-router";
+import { Link, useLocation, useNavigate } from "react-router";
 import { Check, Globe, KeyRound, LogOut, X } from "lucide-react";
 import Input from "~/shared/ui/form/input";
 import Select from "~/shared/ui/form/select";
@@ -32,6 +32,8 @@ const strengthColor = [
 
 export default function SupplierAccountPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const baseSettingsPath = location.pathname.startsWith("/horeca") ? "/horeca/settings" : "/supplier/settings";
   const { showToast } = useToast();
   const { language, setLanguage, t } = useTranslation();
 
@@ -151,6 +153,17 @@ export default function SupplierAccountPage() {
   return (
     <DashboardPageContent>
       <div className="space-y-6">
+        <nav className="flex flex-wrap gap-2 border-b border-slate-200 pb-3" aria-label={t("settings.title")}>
+          <Link to={`${baseSettingsPath}/company-information`} className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 hover:text-slate-900">
+            {t("settings.companyInfoTitle")}
+          </Link>
+          <Link to={`${baseSettingsPath}/account`} className="rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-content shadow-xs">
+            {t("settings.account")}
+          </Link>
+          <Link to={`${baseSettingsPath}/notifications`} className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 hover:text-slate-900">
+            {t("settings.notifications")}
+          </Link>
+        </nav>
         <header className="space-y-1.5">
           <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary">
             {t("settings.account")}

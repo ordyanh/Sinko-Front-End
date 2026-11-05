@@ -57,7 +57,11 @@ function FulfilmentMeter({ status }: { status: HorecaOrderStatus }) {
         <span
           key={step}
           className={`h-1 flex-1 rounded-full ${
-            index <= currentStep ? "bg-slate-400" : "bg-slate-200"
+            index < currentStep || status === "Delivered"
+              ? "bg-emerald-500"
+              : index === currentStep
+                ? "bg-primary"
+                : "bg-slate-200"
           }`}
         />
       ))}

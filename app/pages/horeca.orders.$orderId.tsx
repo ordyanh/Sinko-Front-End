@@ -821,9 +821,22 @@ export default function HorecaOrderDetailsPage() {
                               </div>
                             ) : (
                               <div>
-                                <p className="font-medium text-slate-800 tabular-nums">
+                                <p className="flex flex-wrap items-center gap-1.5 font-medium text-slate-800 tabular-nums">
+                                  {(line.offeredQuantity !== line.requestedQuantity || line.offeredPrice !== line.requestedPrice) ? (
+                                    <span className="text-xs text-slate-400 line-through">
+                                      {line.requestedQuantity} × {formatAmd(line.requestedPrice)} →
+                                    </span>
+                                  ) : null}
+                                  <span
+                                    className={
+                                      line.offeredQuantity !== line.requestedQuantity || line.offeredPrice !== line.requestedPrice
+                                        ? "rounded-md border border-amber-200 bg-amber-50 px-1.5 py-0.5 font-semibold text-amber-900"
+                                        : ""
+                                    }
+                                  >
                                   {line.offeredQuantity} ×{" "}
-                                  {formatAmd(line.offeredPrice)}
+                                    {formatAmd(line.offeredPrice)}
+                                  </span>
                                 </p>
                                 {line.offeredQuantity !==
                                 line.requestedQuantity ? (

@@ -23,6 +23,7 @@ type SupplierCustomer = {
   activityType: string;
   address: string;
   totalOrders: number;
+  totalRevenue?: number;
   status: "Active";
 };
 
@@ -55,7 +56,20 @@ export default function SupplierCustomersPage() {
       {
         id: "orders",
         header: t("nav.orders"),
-        cell: (customer) => customer.totalOrders,
+        cell: (customer) => (
+          <div>
+            <span className="font-semibold text-slate-900 tabular-nums">{customer.totalOrders}</span>
+            {customer.totalRevenue && customer.totalRevenue > 0 ? (
+              <p className="mt-0.5 text-xs font-medium text-emerald-700 tabular-nums">
+                {new Intl.NumberFormat("hy-AM", {
+                  style: "currency",
+                  currency: "AMD",
+                  maximumFractionDigits: 0,
+                }).format(customer.totalRevenue)}
+              </p>
+            ) : null}
+          </div>
+        ),
       },
       {
         id: "status",
@@ -87,18 +101,18 @@ export default function SupplierCustomersPage() {
     () => [
       {
         id: "status",
-        label: "Status",
-        options: [{ value: "Active", label: "Active" }],
+        label: t("common.status"),
+        options: [{ value: "Active", label: t("employees.active") }],
       },
       {
         id: "activityType",
-        label: "Activity type",
+        label: t("auth.activityType"),
         options: Array.from(
           new Set(customers.map((customer) => customer.activityType)),
         ).map((activityType) => ({ value: activityType, label: activityType })),
       },
     ],
-    [customers],
+    [customers, t],
   );
 
   useEffect(() => {
@@ -122,6 +136,7 @@ export default function SupplierCustomersPage() {
               activityType: "HORECA",
               address: client.address || "Yerevan",
               totalOrders: client.totalOrders ?? client.totalOrdersCount ?? 0,
+              totalRevenue: (client as any).totalSpent ?? (client as any).totalRevenue ?? 0,
               status: "Active",
             })),
           );
@@ -139,6 +154,7 @@ export default function SupplierCustomersPage() {
       const orders =
         user?.role === "supplier" ? await getOrdersForSupplier(user.id) : [];
       const orderCountByCustomerId = new Map<string, number>();
+      const revenueByCustomerId = new Map<string, number>();
 
       for (const order of orders) {
         if (!order.horecaAccountId) continue;
@@ -146,11 +162,20 @@ export default function SupplierCustomersPage() {
           order.horecaAccountId,
           (orderCountByCustomerId.get(order.horecaAccountId) ?? 0) + 1,
         );
+        if (order.status !== "Cancelled" && order.status !== "Rejected") {
+          const orderRevenue = order.lines.reduce(
+            (sum, line) => sum + line.offeredPrice * line.offeredQuantity,
+            0,
+          );
+          revenueByCustomerId.set(
+            order.horecaAccountId,
+            (revenueByCustomerId.get(order.horecaAccountId) ?? 0) + orderRevenue,
+          );
+        }
       }
 
       if (!isCurrent) return;
 
-      // Only clients who made at least one order with this supplier (regardless of order status)
       const matchedHorecaUsers = horecaUsers.filter(
         (u) => (orderCountByCustomerId.get(u.id) ?? 0) > 0,
       );
@@ -169,6 +194,7 @@ export default function SupplierCustomersPage() {
             activityType: "HORECA",
             address: sampleOrder?.horecaAddress || sampleOrder?.deliveryAddress || "Yerevan",
             totalOrders: count,
+            totalRevenue: revenueByCustomerId.get(clientId) ?? 0,
             status: "Active" as const,
           });
         }
@@ -183,6 +209,7 @@ export default function SupplierCustomersPage() {
           activityType: "HORECA",
           address: user.address,
           totalOrders: orderCountByCustomerId.get(user.id) ?? 0,
+          totalRevenue: revenueByCustomerId.get(user.id) ?? 0,
           status: "Active" as const,
         })),
         ...extraClients,
@@ -190,7 +217,7 @@ export default function SupplierCustomersPage() {
     })()
       .catch(() => {
         if (isCurrent) {
-          setLoadError("We couldn't load customers.");
+          setLoadError(t("common.noResults"));
         }
       })
       .finally(() => {
@@ -200,7 +227,7 @@ export default function SupplierCustomersPage() {
     return () => {
       isCurrent = false;
     };
-  }, []);
+  }, [t]);
 
   const normalizedSearchValue = searchValue.trim().toLowerCase();
   const filteredCustomers = customers.filter((customer) => {

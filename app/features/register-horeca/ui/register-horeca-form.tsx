@@ -59,7 +59,12 @@ export default function RegisterHorecaForm() {
   });
 
   const selectedActivityType = watch("activityType");
+  const watchedPassword = watch("password") ?? "";
   const showOtherActivityInput = selectedActivityType === "Other";
+  const hasMinLength = watchedPassword.length >= 8;
+  const hasUppercase = /[A-Z]/.test(watchedPassword);
+  const hasNumber = /\d/.test(watchedPassword);
+  const passwordScore = [hasMinLength, hasUppercase, hasNumber, watchedPassword.length >= 12].filter(Boolean).length;
 
   useEffect(() => {
     if (fetcher.state !== "idle") {
@@ -332,6 +337,35 @@ export default function RegisterHorecaForm() {
                     {...register("password")}
                     aria-invalid={errors.password ? "true" : "false"}
                   />
+                  {watchedPassword.length > 0 ? (
+                    <div className="mt-2.5 space-y-1.5">
+                      <div className="flex gap-1.5" aria-hidden="true">
+                        {[1, 2, 3, 4].map((bar) => (
+                          <span
+                            key={bar}
+                            className={`h-1.5 flex-1 rounded-full transition-colors ${
+                              bar <= passwordScore
+                                ? passwordScore >= 3
+                                  ? "bg-emerald-500"
+                                  : "bg-amber-500"
+                                : "bg-slate-200"
+                            }`}
+                          />
+                        ))}
+                      </div>
+                      <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] font-medium">
+                        <span className={hasMinLength ? "text-emerald-700" : "text-slate-400"}>
+                          ✓ {t("settings.ruleLength")}
+                        </span>
+                        <span className={hasUppercase ? "text-emerald-700" : "text-slate-400"}>
+                          ✓ {t("settings.ruleUpper")}
+                        </span>
+                        <span className={hasNumber ? "text-emerald-700" : "text-slate-400"}>
+                          ✓ {t("settings.ruleNumber")}
+                        </span>
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
 
                 <div>
@@ -357,8 +391,15 @@ export default function RegisterHorecaForm() {
             eyebrow={t("auth.verificationNoticeTitle")}
             title={t("auth.verificationNoticeTitle")}
             description={t("auth.verificationNoticeDesc")}
-            notice="Please check your inbox for the verification code and continue below."
             registeredEmail={registeredEmail}
+            verificationCode={verificationCode}
+            onVerificationCodeChange={setVerificationCode}
+            onConfirm={handleConfirm}
+            onResend={handleResend}
+            isSubmitting={isSubmitting}
+            isResending={isResending}
+            error={submitError}
+            successMessage={successMessage}
           />
         )}
 

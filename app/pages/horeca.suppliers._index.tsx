@@ -1,7 +1,6 @@
 import { ArrowRight, Layers3, MapPin, Search, Store, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
-// Removed mock IndexedDB imports
 import { getMarketplaceSuppliers } from "~/shared/api";
 import { DashboardPageContent, Pagination } from "~/shared/ui";
 import { useTranslation } from "~/shared/lib/i18n";
@@ -35,19 +34,29 @@ function SupplierCard({ supplier }: { supplier: DirectorySupplier }) {
     >
       <div className="flex items-start gap-4">
         <div
-          className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-[#dff0e3] text-sm font-extrabold tracking-tight text-[#25633e]"
+          className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-primary/10 text-sm font-extrabold tracking-tight text-primary"
           role="img"
           aria-label={`${supplier.name} logo`}
         >
           {supplier.initials}
         </div>
-        <div className="min-w-0 pt-1">
-          <h2 className="text-lg font-bold tracking-tight text-slate-950">
-            {supplier.name}
-          </h2>
-          <div className="mt-1.5 flex items-center gap-1.5 text-sm text-slate-500">
-            <MapPin className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
-            <span>{supplier.serviceArea}</span>
+        <div className="min-w-0 pt-0.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="text-lg font-bold tracking-tight text-slate-950">
+              {supplier.name}
+            </h2>
+            <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-bold text-emerald-700">
+              ✓ {t("suppliers.verified")}
+            </span>
+          </div>
+          <div className="mt-1.5 flex flex-wrap items-center gap-2 text-sm text-slate-500">
+            <span className="inline-flex items-center gap-1">
+              <MapPin className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+              <span>{supplier.serviceArea}</span>
+            </span>
+            <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-xs font-semibold text-slate-600">
+              08:00–14:00
+            </span>
           </div>
         </div>
       </div>
@@ -104,17 +113,17 @@ export default function HorecaSuppliersPage() {
               Array.isArray(s.productCategories) && s.productCategories.length > 0
                 ? s.productCategories
                 : ["Produce", "General"],
-            serviceArea: s.serviceArea || s.address || "Available through Synko",
+            serviceArea: s.serviceArea || s.address || "Yerevan",
             description:
               s.description ||
-              `${s.companyName} is available to receive orders through Synko.`,
+              `${s.companyName} — Synko.`,
           }));
           setSuppliers(mapped);
           setLoadError(null);
         }
       } catch {
         if (isCurrent) {
-          setLoadError("We couldn't load the supplier directory. Please try again.");
+          setLoadError(t("common.noResults"));
         }
       } finally {
         if (isCurrent) {
@@ -126,7 +135,7 @@ export default function HorecaSuppliersPage() {
     return () => {
       isCurrent = false;
     };
-  }, []);
+  }, [t]);
 
   const allCategories = useMemo(() => {
     const set = new Set<string>();
@@ -193,12 +202,12 @@ export default function HorecaSuppliersPage() {
               t("common.loading")
             ) : searchQuery.trim() || selectedCategory !== "All" ? (
               <>
-                Showing <span className="font-bold text-slate-950 tabular-nums">{filteredSuppliers.length}</span> of{" "}
-                <span className="font-bold text-slate-950 tabular-nums">{suppliers.length}</span> suppliers
+                <span className="font-bold text-slate-950 tabular-nums">{filteredSuppliers.length}</span> /{" "}
+                <span className="font-bold text-slate-950 tabular-nums">{suppliers.length}</span> {t("nav.suppliers")}
               </>
             ) : (
               <>
-                <span className="font-bold text-slate-950 tabular-nums">{suppliers.length}</span> suppliers
+                <span className="font-bold text-slate-950 tabular-nums">{suppliers.length}</span> {t("nav.suppliers")}
               </>
             )}
           </p>
@@ -248,7 +257,7 @@ export default function HorecaSuppliersPage() {
                           : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                       }`}
                     >
-                      {category}
+                      {category === "All" ? t("common.all") : category}
                     </button>
                   );
                 })}
@@ -262,7 +271,7 @@ export default function HorecaSuppliersPage() {
             {loadError}
           </p>
         ) : isLoading ? (
-          <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3" aria-label="Loading suppliers">
+          <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3" aria-label={t("common.loading")}>
             {Array.from({ length: 3 }, (_, index) => (
               <div key={index} className="h-64 animate-pulse rounded-2xl bg-slate-100" />
             ))}
@@ -282,7 +291,7 @@ export default function HorecaSuppliersPage() {
                 onPageChange={setPage}
                 onPageSizeChange={setPageSize}
                 pageSizeOptions={[5, 10, 25, 50, 100]}
-                itemName="suppliers"
+                itemName={t("nav.suppliers")}
               />
             </div>
           </>
@@ -290,10 +299,7 @@ export default function HorecaSuppliersPage() {
           <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-12 text-center">
             <Search className="mx-auto h-8 w-8 text-slate-400" aria-hidden="true" />
             <p className="mt-3 text-sm font-semibold text-slate-900">
-              No suppliers found matching "{searchQuery}"
-            </p>
-            <p className="mt-1 text-xs text-slate-500">
-              Try searching with different keywords or clearing your active filters.
+              {t("common.noResults")}
             </p>
             <button
               type="button"
@@ -304,12 +310,12 @@ export default function HorecaSuppliersPage() {
               className="mt-4 inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
             >
               <X className="h-3.5 w-3.5" aria-hidden="true" />
-              Reset search & filters
+              {t("common.reset")}
             </button>
           </div>
         ) : (
           <p className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-600">
-            No suppliers are available yet.
+            {t("common.noResults")}
           </p>
         )}
       </section>

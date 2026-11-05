@@ -89,7 +89,21 @@ export default function SupplierEmployeesPage() {
           </div>
         ),
       },
-      { id: "role", header: t("employees.role"), cell: (employee) => employee.role },
+      {
+        id: "role",
+        header: t("employees.role"),
+        cell: (employee) => (
+          <span
+            className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${
+              String(employee.role).toLowerCase().includes("warehouse")
+                ? "border-indigo-200 bg-indigo-50 text-indigo-700"
+                : "border-sky-200 bg-sky-50 text-sky-700"
+            }`}
+          >
+            {employee.role}
+          </span>
+        ),
+      },
       { id: "location", header: t("common.address"), cell: (employee) => employee.location },
       {
         id: "status",
@@ -102,7 +116,9 @@ export default function SupplierEmployeesPage() {
                 : "bg-amber-50 text-amber-700"
             }`}
           >
-            {employee.status === "Active" ? t("employees.active") : t("employees.onVacation")}
+            {employee.status === "Active"
+              ? t("employees.active")
+              : `🌴 ${t("employees.onVacation")}${employee.vacationEndDate ? ` (${employee.vacationEndDate})` : ""}`}
           </span>
         ),
       },
@@ -269,6 +285,28 @@ export default function SupplierEmployeesPage() {
       <TableLayout
         title={t("employees.title")}
         icon={<Users className="h-5 w-5" aria-hidden="true" />}
+        additionalContent={
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="flex items-center justify-between rounded-xl border border-sky-200/80 bg-sky-50/70 px-4 py-3">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wider text-sky-800">SalesManager</p>
+                <p className="mt-0.5 text-xs text-sky-700">{t("nav.orders")} · {t("nav.promotions")} · {t("nav.customers")}</p>
+              </div>
+              <span className="rounded-full bg-white px-2.5 py-1 text-xs font-extrabold text-sky-900 shadow-2xs tabular-nums">
+                {employees.filter((e) => !String(e.role).toLowerCase().includes("warehouse")).length}
+              </span>
+            </div>
+            <div className="flex items-center justify-between rounded-xl border border-indigo-200/80 bg-indigo-50/70 px-4 py-3">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wider text-indigo-800">WarehouseManager</p>
+                <p className="mt-0.5 text-xs text-indigo-700">Preparing → Shipped → Delivered · CSV</p>
+              </div>
+              <span className="rounded-full bg-white px-2.5 py-1 text-xs font-extrabold text-indigo-900 shadow-2xs tabular-nums">
+                {employees.filter((e) => String(e.role).toLowerCase().includes("warehouse")).length}
+              </span>
+            </div>
+          </div>
+        }
         primaryAction={
           <button
             type="button"

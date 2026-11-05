@@ -6,6 +6,7 @@ import {
   MapPin,
   Package,
   Plus,
+  RotateCcw,
   Search,
   ShoppingBag,
   Sparkles,
@@ -255,6 +256,15 @@ export default function HorecaDashboardPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5">
+            {orders.length > 0 ? (
+              <Link
+                to={`/horeca/orders/${orders[0].id}`}
+                className="inline-flex h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-2xs transition hover:border-primary/40 hover:bg-slate-50"
+              >
+                <RotateCcw className="h-4 w-4 text-primary" aria-hidden="true" />
+                <span>{t("orders.repeatOrder")}</span>
+              </Link>
+            ) : null}
             <Link
               to="/horeca/products"
               className="inline-flex h-11 items-center gap-2 rounded-xl bg-primary px-5 text-sm font-bold text-primary-content shadow-xs transition hover:brightness-95"
@@ -353,6 +363,27 @@ export default function HorecaDashboardPage() {
           </Link>
         </div>
       </section>
+
+      {/* Urgent Counter-Offers Banner */}
+      {awaitingConfirmCount > 0 ? (
+        <section className="flex flex-col justify-between gap-4 rounded-2xl border border-amber-200 border-l-4 border-l-primary bg-amber-50/70 p-5 shadow-2xs sm:flex-row sm:items-center">
+          <div>
+            <p className="text-sm font-extrabold text-slate-950">
+              🔔 {awaitingConfirmCount} · {t("orders.actionRequiredCounterOffer")}
+            </p>
+            <p className="mt-0.5 text-xs text-slate-600">
+              {t("orders.actionRequiredCounterOfferDesc")}
+            </p>
+          </div>
+          <Link
+            to="/horeca/orders"
+            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-xs font-bold text-primary-content shadow-xs transition hover:brightness-95"
+          >
+            <span>{t("orders.reviewOffers")} ({awaitingConfirmCount})</span>
+            <ArrowRight className="h-4 w-4" aria-hidden="true" />
+          </Link>
+        </section>
+      ) : null}
 
       {/* Popular Products with 1-Click Add to Cart */}
       {popularProducts.length > 0 ? (

@@ -87,7 +87,15 @@ export default function HorecaEmployeesPage() {
           </div>
         ),
       },
-      { id: "role", header: t("employees.role"), cell: (employee) => employee.role },
+      {
+        id: "role",
+        header: t("employees.role"),
+        cell: (employee) => (
+          <span className="inline-flex rounded-full border border-orange-200/80 bg-orange-50 px-2.5 py-1 text-xs font-semibold text-orange-800">
+            {employee.role}
+          </span>
+        ),
+      },
       {
         id: "status",
         header: t("employees.status"),
@@ -99,7 +107,9 @@ export default function HorecaEmployeesPage() {
                 : "bg-amber-50 text-amber-700"
             }`}
           >
-            {employee.status === "Active" ? t("employees.active") : t("employees.onVacation")}
+            {employee.status === "Active"
+              ? t("employees.active")
+              : `🌴 ${t("employees.onVacation")}${employee.vacationEndDate ? ` (${employee.vacationEndDate})` : ""}`}
           </span>
         ),
       },

@@ -40,13 +40,13 @@ export default function RegisterChoicePage() {
 
         <div className="mt-10 grid gap-6 md:grid-cols-2">
           {/* HoReCa Card */}
-          <div className="relative flex flex-col justify-between rounded-3xl border border-emerald-200/80 bg-white p-7 shadow-xl shadow-slate-900/5 transition hover:-translate-y-1 hover:border-emerald-500 hover:shadow-2xl hover:shadow-emerald-900/10 sm:p-9">
+          <div className="relative flex flex-col justify-between rounded-3xl border-2 border-orange-200/80 bg-white p-7 shadow-xl shadow-slate-900/5 transition hover:-translate-y-1 hover:border-[#ea580c] hover:shadow-2xl hover:shadow-orange-900/10 sm:p-9">
             <div>
               <div className="flex items-center justify-between">
-                <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700">
+                <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-[#ea580c] text-white shadow-sm">
                   <Store className="h-7 w-7" aria-hidden="true" />
                 </div>
-                <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+                <span className="rounded-full border border-orange-200 bg-orange-50 px-3 py-1 text-xs font-bold text-[#ea580c]">
                   {t("auth.horecaBadge")}
                 </span>
               </div>
@@ -60,15 +60,15 @@ export default function RegisterChoicePage() {
 
               <ul className="mt-6 space-y-2.5 text-sm text-slate-700">
                 <li className="flex items-start gap-2.5">
-                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#ea580c]" />
                   <span>{t("auth.horecaFeature1")}</span>
                 </li>
                 <li className="flex items-start gap-2.5">
-                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#ea580c]" />
                   <span>{t("auth.horecaFeature2")}</span>
                 </li>
                 <li className="flex items-start gap-2.5">
-                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#ea580c]" />
                   <span>{t("auth.horecaFeature3")}</span>
                 </li>
               </ul>
@@ -77,7 +77,7 @@ export default function RegisterChoicePage() {
             <div className="mt-8 pt-4">
               <a
                 href="/register-horeca"
-                className="group flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 py-3.5 text-sm font-semibold text-white shadow-md shadow-emerald-900/10 transition hover:bg-emerald-700"
+                className="group flex w-full items-center justify-center gap-2 rounded-xl bg-[#ea580c] px-5 py-3.5 text-sm font-bold text-white shadow-md shadow-orange-900/15 transition hover:bg-[#c2410c]"
               >
                 <span>{t("auth.registerAsHorecaBtn")}</span>
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
@@ -86,13 +86,13 @@ export default function RegisterChoicePage() {
           </div>
 
           {/* Supplier Card */}
-          <div className="relative flex flex-col justify-between rounded-3xl border border-sky-200/80 bg-white p-7 shadow-xl shadow-slate-900/5 transition hover:-translate-y-1 hover:border-sky-500 hover:shadow-2xl hover:shadow-sky-900/10 sm:p-9">
+          <div className="relative flex flex-col justify-between rounded-3xl border-2 border-sky-200/80 bg-white p-7 shadow-xl shadow-slate-900/5 transition hover:-translate-y-1 hover:border-sky-500 hover:shadow-2xl hover:shadow-sky-900/10 sm:p-9">
             <div>
               <div className="flex items-center justify-between">
-                <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-sky-100 text-sky-700">
+                <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-sky-600 text-white shadow-sm">
                   <Building2 className="h-7 w-7" aria-hidden="true" />
                 </div>
-                <span className="rounded-full bg-sky-50 px-3 py-1 text-xs font-semibold text-sky-700">
+                <span className="rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-bold text-sky-700">
                   {t("auth.supplierBadge")}
                 </span>
               </div>

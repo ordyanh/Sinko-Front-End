@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Controller, useForm } from "react-hook-form";
@@ -12,20 +12,24 @@ import { FieldError, Input, Select } from "~/shared/ui/form";
 import RegistrationCompleteCard from "~/shared/ui/registration-complete-card";
 import { LanguageSwitcher, ThemeToggle } from "~/shared/ui";
 import { useTranslation } from "~/shared/lib/i18n";
-import { registerSupplier } from "~/shared/api/auth";
+import { registerSupplier, resendSupplierCode, verifySupplier } from "~/shared/api/auth";
 import { ApiError } from "~/shared/api/http";
-import { useFetcher } from "react-router";
+import { useFetcher, useNavigate } from "react-router";
 
 type CategoriesLoaderResponse =
   | { ok: true; categories: Array<{ id: number; name: string }> }
   | { ok: false; error: string };
 
 export default function RegisterSupplierForm() {
+  const navigate = useNavigate();
   const categoriesFetcher = useFetcher<CategoriesLoaderResponse>();
   const [registrationComplete, setRegistrationComplete] = useState(false);
   const [registeredEmail, setRegisteredEmail] = useState("");
+  const [verificationCode, setVerificationCode] = useState("");
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isResending, setIsResending] = useState(false);
   const [categoriesError, setCategoriesError] = useState<string | null>(null);
   const [categoryOptions, setCategoryOptions] = useState<
     Array<{ id: number; name: string }>
@@ -35,6 +39,7 @@ export default function RegisterSupplierForm() {
     register,
     control,
     handleSubmit,
+    watch,
     formState: { errors },
   } = useForm<SupplierRegistrationValues>({
     mode: "onBlur",
@@ -52,6 +57,11 @@ export default function RegisterSupplierForm() {
     },
   });
   const isLoadingCategories = categoriesFetcher.state !== "idle";
+  const watchedPassword = watch("password") ?? "";
+  const hasMinLength = watchedPassword.length >= 8;
+  const hasUppercase = /[A-Z]/.test(watchedPassword);
+  const hasNumber = /\d/.test(watchedPassword);
+  const passwordScore = [hasMinLength, hasUppercase, hasNumber, watchedPassword.length >= 12].filter(Boolean).length;
 
   useEffect(() => {
     if (categoriesFetcher.data || categoriesFetcher.state !== "idle") {
@@ -105,6 +115,38 @@ export default function RegisterSupplierForm() {
     }
   };
 
+  const handleConfirmOtp = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setSubmitError(null);
+    setSuccessMessage(null);
+    setIsSubmitting(true);
+    try {
+      await verifySupplier({ email: registeredEmail, verificationCode });
+      navigate("/login");
+    } catch (err: unknown) {
+      setSubmitError(
+        err instanceof Error ? err.message : t("common.error"),
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    if (!registeredEmail) return;
+    setSubmitError(null);
+    setSuccessMessage(null);
+    setIsResending(true);
+    try {
+      await resendSupplierCode({ email: registeredEmail });
+      setSuccessMessage(t("settings.emailVerificationSent"));
+    } catch (err: unknown) {
+      setSubmitError(err instanceof Error ? err.message : t("common.error"));
+    } finally {
+      setIsResending(false);
+    }
+  };
+
   const { t } = useTranslation();
 
   return (
@@ -133,8 +175,15 @@ export default function RegisterSupplierForm() {
             eyebrow={t("auth.verificationNoticeTitle")}
             title={t("auth.verificationNoticeTitle")}
             description={t("auth.verificationNoticeDesc")}
-            notice="Your request has been received. We'll get back to you shortly."
             registeredEmail={registeredEmail}
+            verificationCode={verificationCode}
+            onVerificationCodeChange={setVerificationCode}
+            onConfirm={(event) => void handleConfirmOtp(event)}
+            onResend={() => void handleResendOtp()}
+            isSubmitting={isSubmitting}
+            isResending={isResending}
+            error={submitError}
+            successMessage={successMessage}
           />
         ) : (
           <div className="rounded-4xl border border-slate-200/80 bg-white/95 p-6 shadow-2xl shadow-slate-900/10 backdrop-blur-sm sm:p-9">
@@ -245,35 +294,70 @@ export default function RegisterSupplierForm() {
                   <Controller
                     control={control}
                     name="categoryIds"
-                    render={({ field }) => (
-                      <Select
-                        id="categoryIds"
-                        multiple
-                        value={(field.value ?? []).map((item) => String(item))}
-                        onValueChange={(nextValues) => {
-                          const values = Array.isArray(nextValues)
-                            ? nextValues
-                            : [nextValues];
-                          field.onChange(
-                            values
-                              .map((value) => Number(value))
-                              .filter(
-                                (value) => Number.isInteger(value) && value > 0,
-                              ),
-                          );
-                        }}
-                        error={Boolean(errors.categoryIds)}
-                        disabled={
-                          isLoadingCategories || categoryOptions.length === 0
+                    render={({ field }) => {
+                      const selectedIds = field.value ?? [];
+                      const toggleCategory = (catId: number) => {
+                        if (selectedIds.includes(catId)) {
+                          field.onChange(selectedIds.filter((id) => id !== catId));
+                        } else {
+                          field.onChange([...selectedIds, catId]);
                         }
-                      >
-                        {categoryOptions.map((option) => (
-                          <option key={option.id} value={option.id}>
-                            {option.name}
-                          </option>
-                        ))}
-                      </Select>
-                    )}
+                      };
+
+                      return (
+                        <div className="space-y-3">
+                          {categoryOptions.length > 0 ? (
+                            <div className="flex flex-wrap gap-2">
+                              {categoryOptions.map((option) => {
+                                const isSelected = selectedIds.includes(option.id);
+                                return (
+                                  <button
+                                    key={option.id}
+                                    type="button"
+                                    onClick={() => toggleCategory(option.id)}
+                                    className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold transition ${
+                                      isSelected
+                                        ? "border border-sky-300 bg-sky-50 text-sky-700 shadow-2xs"
+                                        : "border border-dashed border-slate-300 bg-white text-slate-600 hover:border-sky-300 hover:text-sky-700"
+                                    }`}
+                                  >
+                                    <span>{isSelected ? "✓" : "+"}</span>
+                                    <span>{option.name}</span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          ) : null}
+                          <Select
+                            id="categoryIds"
+                            multiple
+                            value={selectedIds.map((item) => String(item))}
+                            onValueChange={(nextValues) => {
+                              const values = Array.isArray(nextValues)
+                                ? nextValues
+                                : [nextValues];
+                              field.onChange(
+                                values
+                                  .map((value) => Number(value))
+                                  .filter(
+                                    (value) => Number.isInteger(value) && value > 0,
+                                  ),
+                              );
+                            }}
+                            error={Boolean(errors.categoryIds)}
+                            disabled={
+                              isLoadingCategories || categoryOptions.length === 0
+                            }
+                          >
+                            {categoryOptions.map((option) => (
+                              <option key={option.id} value={option.id}>
+                                {option.name}
+                              </option>
+                            ))}
+                          </Select>
+                        </div>
+                      );
+                    }}
                   />
                   <FieldError message={errors.categoryIds?.message} />
                   {categoriesError ? (
@@ -301,6 +385,35 @@ export default function RegisterSupplierForm() {
                     {...register("password")}
                     aria-invalid={errors.password ? "true" : "false"}
                   />
+                  {watchedPassword.length > 0 ? (
+                    <div className="mt-2.5 space-y-1.5">
+                      <div className="flex gap-1.5" aria-hidden="true">
+                        {[1, 2, 3, 4].map((bar) => (
+                          <span
+                            key={bar}
+                            className={`h-1.5 flex-1 rounded-full transition-colors ${
+                              bar <= passwordScore
+                                ? passwordScore >= 3
+                                  ? "bg-emerald-500"
+                                  : "bg-amber-500"
+                                : "bg-slate-200"
+                            }`}
+                          />
+                        ))}
+                      </div>
+                      <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] font-medium">
+                        <span className={hasMinLength ? "text-emerald-700" : "text-slate-400"}>
+                          ✓ {t("settings.ruleLength")}
+                        </span>
+                        <span className={hasUppercase ? "text-emerald-700" : "text-slate-400"}>
+                          ✓ {t("settings.ruleUpper")}
+                        </span>
+                        <span className={hasNumber ? "text-emerald-700" : "text-slate-400"}>
+                          ✓ {t("settings.ruleNumber")}
+                        </span>
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
 
                 <div>

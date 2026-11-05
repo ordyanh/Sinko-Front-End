@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link, useLocation } from "react-router";
 import { Bell } from "lucide-react";
 import { SwitchField } from "~/shared/ui/form";
 import { useToast } from "~/shared/ui/toast";
@@ -30,6 +31,8 @@ const initialNotifications: Record<NotificationKey, boolean> = {
 
 export default function SupplierNotificationsPage() {
   const { t } = useTranslation();
+  const location = useLocation();
+  const baseSettingsPath = location.pathname.startsWith("/horeca") ? "/horeca/settings" : "/supplier/settings";
   const { showToast } = useToast();
   const [notifications, setNotifications] = useState(initialNotifications);
   const [submittingKey, setSubmittingKey] = useState<NotificationKey | null>(
@@ -115,6 +118,17 @@ export default function SupplierNotificationsPage() {
   return (
     <DashboardPageContent>
       <div className="space-y-6">
+        <nav className="flex flex-wrap gap-2 border-b border-slate-200 pb-3" aria-label={t("settings.title")}>
+          <Link to={`${baseSettingsPath}/company-information`} className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 hover:text-slate-900">
+            {t("settings.companyInfoTitle")}
+          </Link>
+          <Link to={`${baseSettingsPath}/account`} className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 hover:text-slate-900">
+            {t("settings.account")}
+          </Link>
+          <Link to={`${baseSettingsPath}/notifications`} className="rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-content shadow-xs">
+            {t("settings.notifications")}
+          </Link>
+        </nav>
         <header className="space-y-1.5">
           <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary">
             {t("settings.notifications")}

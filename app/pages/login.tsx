@@ -1,7 +1,8 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { ArrowLeft, TriangleAlert } from "lucide-react";
+import { ArrowLeft, KeyRound, RotateCcw, TriangleAlert } from "lucide-react";
 import Input from "~/shared/ui/form/input";
 import Button from "~/shared/ui/button";
+import Modal from "~/shared/ui/modal";
 import { useNavigate } from "react-router";
 import {
   dashboardPathFor,
@@ -20,6 +21,9 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isResettingData, setIsResettingData] = useState(false);
+  const [isConfirmingReset, setIsConfirmingReset] = useState(false);
+  const [isForgotModalOpen, setIsForgotModalOpen] = useState(false);
+  const [recoveryEmail, setRecoveryEmail] = useState("");
 
   useEffect(() => {
     let isActive = true;
@@ -75,6 +79,7 @@ export default function LoginPage() {
 
     try {
       await resetDatabase();
+      setIsConfirmingReset(false);
       showToast({
         title: t("auth.dataResetSuccessTitle"),
         description: t("auth.dataResetSuccessDesc"),
@@ -91,12 +96,24 @@ export default function LoginPage() {
     }
   }
 
+  function handleForgotSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!recoveryEmail.trim()) return;
+    setIsForgotModalOpen(false);
+    setRecoveryEmail("");
+    showToast({
+      title: t("auth.verificationNoticeTitle"),
+      description: t("settings.emailVerificationSent"),
+      variant: "success",
+    });
+  }
+
   return (
     <main
       data-account-type="horeca"
       className="flex min-h-screen items-center justify-center bg-[#f3f6f4] px-4 py-10 text-slate-950"
     >
-      <div className="relative mx-auto w-full max-w-xl">
+      <div className="relative mx-auto w-full max-w-[460px]">
         <div className="mb-4 flex items-center justify-between">
           <a
             href="/"
@@ -112,14 +129,19 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <div className="w-full rounded-4xl border border-slate-200/80 bg-white p-8 shadow-2xl shadow-slate-900/10 sm:p-10">
-          <p className="text-xs font-semibold uppercase tracking-[0.26em] text-slate-500">
-            {t("auth.loginEyebrow")}
-          </p>
-          <h2 className="mt-3 text-2xl font-semibold tracking-tight text-slate-950">
+        <div className="w-full rounded-3xl border border-slate-200/80 bg-white p-7 shadow-2xl shadow-slate-900/10 sm:p-9">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs font-bold uppercase tracking-[0.22em] text-primary">
+              {t("auth.loginEyebrow")}
+            </p>
+            <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-[11px] font-bold text-primary">
+              Synko ID
+            </span>
+          </div>
+          <h1 className="mt-3 text-2xl font-extrabold tracking-tight text-slate-950">
             {t("auth.loginTitle")}
-          </h2>
-          <p className="mt-2 text-sm text-slate-500">
+          </h1>
+          <p className="mt-1.5 text-sm text-slate-500">
             {t("auth.loginSubtitle")}
           </p>
 
@@ -133,18 +155,33 @@ export default function LoginPage() {
               id="identifier"
               name="identifier"
               type="text"
+              autoComplete="username"
               label={t("auth.emailOrUsername")}
               labelClassName="text-slate-700"
               placeholder={t("auth.emailOrUsernamePlaceholder")}
             />
 
             <div>
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <label
+                  htmlFor="password"
+                  className="text-sm font-medium text-slate-700 dark:text-slate-200"
+                >
+                  {t("auth.password")}
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setIsForgotModalOpen(true)}
+                  className="text-xs font-semibold text-primary transition hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                >
+                  {t("auth.forgotPassword")}
+                </button>
+              </div>
               <Input
                 id="password"
                 name="password"
                 type="password"
-                label={t("auth.password")}
-                labelClassName="text-slate-700"
+                autoComplete="current-password"
                 placeholder={t("auth.passwordPlaceholder")}
                 containerClassName="relative"
               />
@@ -172,31 +209,49 @@ export default function LoginPage() {
             <Button type="submit" loading={isSubmitting} className="mt-2">
               {isSubmitting ? t("auth.loggingIn") : t("auth.logInButton")}
             </Button>
-
-            <div className="mt-3 text-center">
-              <a className="text-sm font-medium text-primary hover:underline" href="/forgot-password">
-                {t("auth.forgotPassword")}
-              </a>
-            </div>
           </form>
 
-          <div className="mt-8 border-t border-slate-200 pt-5 text-center">
-            <p className="text-xs text-slate-500">
-              {t("auth.needFreshStart")}
-            </p>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              loading={isResettingData}
-              disabled={isSubmitting}
-              onClick={() => {
-                void handleResetData();
-              }}
-              className="mt-2 text-slate-600 hover:bg-slate-100 hover:text-slate-950"
-            >
-              {t("auth.resetData")}
-            </Button>
+          {/* Protected Demo / Local DB Reset Block */}
+          <div className="mt-7 border-t border-slate-200 pt-4">
+            {!isConfirmingReset ? (
+              <div className="flex items-center justify-between gap-3 text-xs">
+                <span className="text-slate-500">{t("auth.needFreshStart")}</span>
+                <button
+                  type="button"
+                  disabled={isSubmitting || isResettingData}
+                  onClick={() => setIsConfirmingReset(true)}
+                  className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 font-semibold text-rose-600 transition hover:bg-rose-50 disabled:opacity-50"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
+                  <span>{t("auth.resetData")}</span>
+                </button>
+              </div>
+            ) : (
+              <div className="rounded-xl border border-rose-200 bg-rose-50/70 p-3">
+                <p className="text-xs font-semibold text-rose-900">
+                  {t("auth.resetData")}?
+                </p>
+                <div className="mt-2.5 flex items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsConfirmingReset(false)}
+                    disabled={isResettingData}
+                    className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                  >
+                    {t("common.cancel")}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isResettingData}
+                    onClick={() => void handleResetData()}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-bold text-white shadow-2xs transition hover:bg-rose-700 disabled:opacity-60"
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
+                    <span>{t("common.confirm")}</span>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -212,6 +267,43 @@ export default function LoginPage() {
           </p>
         </div>
       </div>
+
+      {/* Password Recovery Modal */}
+      <Modal
+        isOpen={isForgotModalOpen}
+        onClose={() => setIsForgotModalOpen(false)}
+        title={t("auth.forgotPassword")}
+        description={t("auth.verificationNoticeDesc")}
+        size="sm"
+      >
+        <form onSubmit={handleForgotSubmit} className="space-y-4">
+          <Input
+            id="recovery-email"
+            type="email"
+            autoComplete="email"
+            required
+            value={recoveryEmail}
+            onChange={(e) => setRecoveryEmail(e.target.value)}
+            label={t("auth.email")}
+            placeholder="chef@restaurant.am"
+          />
+          <div className="flex items-center justify-end gap-2 pt-2">
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              className="w-auto"
+              onClick={() => setIsForgotModalOpen(false)}
+            >
+              {t("common.cancel")}
+            </Button>
+            <Button type="submit" size="sm" className="w-auto">
+              <KeyRound className="h-4 w-4" aria-hidden="true" />
+              <span>{t("auth.resendCode")}</span>
+            </Button>
+          </div>
+        </form>
+      </Modal>
     </main>
   );
 }

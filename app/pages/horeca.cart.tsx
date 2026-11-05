@@ -126,90 +126,126 @@ export default function HorecaCartPage() {
           <div className="mt-7 grid gap-6 lg:grid-cols-[minmax(0,1fr)_19rem]">
             <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
               <div className="divide-y divide-slate-100">
-                {cartSupplierGroups.map(({ supplier, lines, itemCount }) => {
+                {cartSupplierGroups.map(({ supplier, lines, itemCount: groupItemCount }) => {
                   const supplierTotal = lines.reduce((sum, line) => sum + getPromotionalPrice(line.product, line.option).price * line.quantity, 0);
                   const supplierGiftRewards = promotionRewards.filter((reward) => (catalogProducts.find((product) => product.id === reward.productId) ?? marketplaceProducts.find((product) => product.id === reward.productId))?.supplier === supplier);
-                  return <section key={supplier} aria-label={`${supplier} products`}>
-                    <div className="flex items-center justify-between bg-slate-50 px-4 py-3">
-                      <h2 className="text-sm font-bold text-slate-800">{supplier}</h2>
-                      <span className="text-xs font-medium text-slate-500">{itemCount} {itemCount === 1 ? "item" : "items"}</span>
-                    </div>
-                    <ul className="divide-y divide-slate-100">
-                      {lines.map(({ product, option, quantity }) => {
-                        const { price: unitPrice, promotion: pricePromotion } = getPromotionalPrice(product, option);
-                        return <li key={`${product.id}-${option.id}`} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex min-w-0 items-center gap-3.5">
-                      {product.image ? (
-                        <img src={product.image} alt="" className="h-16 w-16 shrink-0 rounded-xl object-cover ring-1 ring-slate-200" />
-                      ) : (
-                        <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-400 ring-1 ring-slate-200">
-                          <PackageOpen className="h-6 w-6 text-slate-400" aria-hidden="true" />
-                        </div>
-                      )}
-                      <div className="min-w-0 flex-1">
-                        <Link to={`/horeca/products/${product.id}`} className="truncate font-semibold text-slate-900 hover:text-primary">{product.title}</Link>
-                        <p className="mt-0.5 text-xs text-slate-500">{getMarketplaceOptionLabel(option)} · {formatMarketplacePrice(unitPrice)} · {getMarketplaceMinimumOrderLabel(option)}</p>
-                        {pricePromotion ? <p className="mt-1 text-xs font-bold text-rose-700">{t("cart.appliedEach", undefined, { type: promotionTypeLabels[pricePromotion.type], price: formatMarketplacePrice(option.price) })}</p> : null}
+                  return (
+                    <section key={supplier} aria-label={`${supplier} products`}>
+                      <div className="flex items-center justify-between bg-slate-50 px-4 py-3">
+                        <h2 className="text-sm font-bold text-slate-800">{supplier}</h2>
+                        <span className="text-xs font-medium text-slate-500">{groupItemCount} {t("orders.items")}</span>
                       </div>
-                    </div>
-                    <div className="flex items-center justify-between gap-4 sm:justify-end">
-                      <div className="inline-flex h-9 items-center rounded-xl border border-slate-200 bg-slate-50 p-0.5">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setCartLineQuantity(
-                              product,
-                              option,
-                              quantity <= option.minimumOrderQuantity ? 0 : quantity - 1,
-                            )
-                          }
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-700 transition hover:bg-white hover:text-primary"
-                          aria-label={`Decrease ${product.title} quantity`}
-                        >
-                          <Minus className="h-3.5 w-3.5" aria-hidden="true" />
-                        </button>
-                        <span className="min-w-8 px-1 text-center text-sm font-bold text-slate-900 tabular-nums">
-                          {quantity}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => setCartLineQuantity(product, option, quantity + 1)}
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-700 transition hover:bg-white hover:text-primary"
-                          aria-label={`Increase ${product.title} quantity`}
-                        >
-                          <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-                        </button>
+                      <ul className="divide-y divide-slate-100">
+                        {lines.map(({ product, option, quantity }) => {
+                          const { price: unitPrice, promotion: pricePromotion } = getPromotionalPrice(product, option);
+                          return (
+                            <li key={`${product.id}-${option.id}`} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+                              <div className="flex min-w-0 items-center gap-3.5">
+                                {product.image ? (
+                                  <img src={product.image} alt="" className="h-16 w-16 shrink-0 rounded-xl object-cover ring-1 ring-slate-200" />
+                                ) : (
+                                  <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-400 ring-1 ring-slate-200">
+                                    <PackageOpen className="h-6 w-6 text-slate-400" aria-hidden="true" />
+                                  </div>
+                                )}
+                                <div className="min-w-0 flex-1">
+                                  <Link to={`/horeca/products/${product.id}`} className="truncate font-semibold text-slate-900 hover:text-primary">{product.title}</Link>
+                                  <p className="mt-0.5 text-xs text-slate-500">{getMarketplaceOptionLabel(option)} · {formatMarketplacePrice(unitPrice)} · {getMarketplaceMinimumOrderLabel(option)}</p>
+                                  {pricePromotion ? <p className="mt-1 text-xs font-bold text-rose-700">{t("cart.appliedEach", undefined, { type: promotionTypeLabels[pricePromotion.type], price: formatMarketplacePrice(option.price) })}</p> : null}
+                                </div>
+                              </div>
+                              <div className="flex items-center justify-between gap-4 sm:justify-end">
+                                <div className="inline-flex h-9 items-center rounded-xl border border-slate-200 bg-slate-50 p-0.5">
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setCartLineQuantity(
+                                        product,
+                                        option,
+                                        quantity <= option.minimumOrderQuantity ? 0 : quantity - 1,
+                                      )
+                                    }
+                                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-700 transition hover:bg-white hover:text-primary"
+                                    aria-label={`Decrease ${product.title} quantity`}
+                                  >
+                                    <Minus className="h-3.5 w-3.5" aria-hidden="true" />
+                                  </button>
+                                  <span className="min-w-8 px-1 text-center text-sm font-bold text-slate-900 tabular-nums">
+                                    {quantity}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => setCartLineQuantity(product, option, quantity + 1)}
+                                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-700 transition hover:bg-white hover:text-primary"
+                                    aria-label={`Increase ${product.title} quantity`}
+                                  >
+                                    <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+                                  </button>
+                                </div>
+                                <div className="min-w-24 text-right">
+                                  <p className="text-sm font-bold text-slate-900 tabular-nums">{formatMarketplacePrice(unitPrice * quantity)}</p>
+                                  {pricePromotion ? <p className="mt-0.5 text-xs text-slate-400 line-through tabular-nums">{formatMarketplacePrice(option.price * quantity)}</p> : null}
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => setCartLineQuantity(product, option, 0)}
+                                  className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
+                                  aria-label={`Remove ${product.title} from cart`}
+                                >
+                                  <Trash2 className="h-4 w-4" aria-hidden="true" />
+                                </button>
+                              </div>
+                            </li>
+                          );
+                        })}
+                        {supplierGiftRewards.map((reward) => {
+                          const giftProduct = catalogProducts.find((product) => product.id === reward.productId) ?? marketplaceProducts.find((product) => product.id === reward.productId);
+                          const giftOption = giftProduct ? getMarketplaceSellingOptions(giftProduct).find((option) => option.id === reward.optionId) ?? getMarketplaceSellingOptions(giftProduct)[0] : undefined;
+                          if (!giftProduct || !giftOption) return null;
+                          return (
+                            <li key={`${reward.promotion.id}-${reward.productId}`} className="flex items-center gap-4 bg-violet-50/70 p-4">
+                              {giftProduct.image ? (
+                                <img src={giftProduct.image} alt="" className="h-16 w-16 rounded-xl object-cover ring-1 ring-violet-200" />
+                              ) : (
+                                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-violet-600 ring-1 ring-violet-200">
+                                  <Gift className="h-6 w-6" aria-hidden="true" />
+                                </div>
+                              )}
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2">
+                                  <p className="truncate font-semibold text-slate-900">{giftProduct.title}</p>
+                                  <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-violet-100 px-2 py-0.5 text-xs font-bold text-violet-700">
+                                    <Gift className="h-3 w-3" aria-hidden="true" />
+                                    {t("cart.bxgyReward")}
+                                  </span>
+                                </div>
+                                <p className="mt-0.5 text-sm text-slate-500">
+                                  {getMarketplaceOptionLabel(giftOption)} · {t("cart.freeUnits", undefined, { quantity: reward.quantity, unit: reward.quantity === 1 ? t("common.unit") : t("common.units") })}
+                                </p>
+                                <p className="mt-1 text-xs font-semibold text-violet-700">{reward.promotion.title} · {t("cart.freeReward")}</p>
+                              </div>
+                              <div className="flex shrink-0 flex-col items-end gap-2">
+                                <p className="text-sm font-bold text-violet-950">{formatMarketplacePrice(0)}</p>
+                                <button
+                                  type="button"
+                                  onClick={() => removePromotionGift(reward.promotion.id, reward.quantity)}
+                                  className="inline-flex min-h-8 items-center gap-1 rounded-lg border border-rose-200 bg-white px-2 text-xs font-bold text-rose-700 transition hover:bg-rose-50"
+                                  aria-label={`Remove ${giftProduct.title} free promotion reward`}
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                                  {t("cart.removeReward")}
+                                </button>
+                              </div>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                      <div className="flex items-center justify-between bg-slate-50/70 px-4 py-3 text-sm text-slate-600">
+                        <span>{supplier} {t("common.subtotal")}</span>
+                        <span className="font-bold text-slate-900 tabular-nums">{formatMarketplacePrice(supplierTotal)}</span>
                       </div>
-                      <div className="min-w-24 text-right">
-                        <p className="text-sm font-bold text-slate-900 tabular-nums">{formatMarketplacePrice(unitPrice * quantity)}</p>
-                        {pricePromotion ? <p className="mt-0.5 text-xs text-slate-400 line-through tabular-nums">{formatMarketplacePrice(option.price * quantity)}</p> : null}
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setCartLineQuantity(product, option, 0)}
-                        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
-                        aria-label={`Remove ${product.title} from cart`}
-                      >
-                        <Trash2 className="h-4 w-4" aria-hidden="true" />
-                      </button>
-                    </div>
-                  </li>;
-                      })}
-                      {supplierGiftRewards.map((reward) => {
-                        const giftProduct = catalogProducts.find((product) => product.id === reward.productId) ?? marketplaceProducts.find((product) => product.id === reward.productId);
-                        const giftOption = giftProduct ? getMarketplaceSellingOptions(giftProduct).find((option) => option.id === reward.optionId) ?? getMarketplaceSellingOptions(giftProduct)[0] : undefined;
-                        if (!giftProduct || !giftOption) return null;
-                        return <li key={`${reward.promotion.id}-${reward.productId}`} className="flex items-center gap-4 bg-violet-50/70 p-4">{giftProduct.image ? (
-                          <img src={giftProduct.image} alt="" className="h-16 w-16 rounded-xl object-cover ring-1 ring-violet-200" />
-                        ) : (
-                          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-violet-600 ring-1 ring-violet-200">
-                            <Gift className="h-6 w-6" aria-hidden="true" />
-                          </div>
-                        )}<div className="min-w-0 flex-1"><div className="flex items-center gap-2"><p className="truncate font-semibold text-slate-900">{giftProduct.title}</p><span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-violet-100 px-2 py-0.5 text-xs font-bold text-violet-700"><Gift className="h-3 w-3" aria-hidden="true" />{t("cart.bxgyReward")}</span></div><p className="mt-0.5 text-sm text-slate-500">{getMarketplaceOptionLabel(giftOption)} · {t("cart.freeUnits", undefined, { quantity: reward.quantity, unit: reward.quantity === 1 ? t("common.unit") : t("common.units") })}</p><p className="mt-1 text-xs font-semibold text-violet-700">{reward.promotion.title} · {t("cart.freeReward")}</p></div><div className="flex shrink-0 flex-col items-end gap-2"><p className="text-sm font-bold text-violet-950">{formatMarketplacePrice(0)}</p><button type="button" onClick={() => removePromotionGift(reward.promotion.id, reward.quantity)} className="inline-flex min-h-8 items-center gap-1 rounded-lg border border-rose-200 bg-white px-2 text-xs font-bold text-rose-700 transition hover:bg-rose-50" aria-label={`Remove ${giftProduct.title} free promotion reward`}><Trash2 className="h-3.5 w-3.5" aria-hidden="true" />{t("cart.removeReward")}</button></div></li>;
-                      })}
-                    </ul>
-                    <div className="flex items-center justify-between bg-slate-50/70 px-4 py-3 text-sm text-slate-600"><span>{supplier} {t("common.subtotal")}</span><span className="font-bold text-slate-900 tabular-nums">{formatMarketplacePrice(supplierTotal)}</span></div>
-                  </section>;
+                    </section>
+                  );
                 })}
               </div>
             </div>
@@ -243,7 +279,10 @@ export default function HorecaCartPage() {
                             <span className="min-w-0">
                               <span className="block text-sm font-semibold text-slate-900">{address.label ?? t("cart.selectDeliveryAddress")}</span>
                               <span className="mt-0.5 block text-sm leading-5 text-slate-600">{address.fullAddress}</span>
-                              <span className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500"><span className="inline-flex items-center gap-1"><UserRound className="h-3.5 w-3.5" aria-hidden="true" />{address.contactPerson}</span><span className="inline-flex items-center gap-1"><Phone className="h-3.5 w-3.5" aria-hidden="true" />{address.contactPhone}</span></span>
+                              <span className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500">
+                                <span className="inline-flex items-center gap-1"><UserRound className="h-3.5 w-3.5" aria-hidden="true" />{address.contactPerson}</span>
+                                <span className="inline-flex items-center gap-1"><Phone className="h-3.5 w-3.5" aria-hidden="true" />{address.contactPhone}</span>
+                              </span>
                             </span>
                           </span>
                         </label>
@@ -251,12 +290,28 @@ export default function HorecaCartPage() {
                     })}
                   </fieldset>
                 )}
+
+                <Link
+                  to="/horeca/settings/company-information"
+                  className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-slate-300 bg-slate-50/70 px-3 py-2.5 text-xs font-bold text-primary transition hover:border-primary/40 hover:bg-primary/5"
+                >
+                  <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+                  {t("settings.addDeliveryAddress")}
+                </Link>
               </section>
+
               <section className="rounded-2xl bg-slate-950 p-5 text-white">
-              <p className="text-sm font-medium text-slate-300">{t("cart.productsTotal")} {giftItemCount > 0 ? `· ${giftItemCount} free promotional ${giftItemCount === 1 ? "unit" : "units"}` : ""}</p>
-              <p className="mt-1 text-2xl font-bold tracking-tight tabular-nums">{formatMarketplacePrice(total)}</p>
-              <button type="button" onClick={() => void handleCompleteOrder()} disabled={isSubmitting || isLoadingDeliveryAddresses || (!selectedDeliveryAddressId && deliveryAddresses.length === 0)} className="mt-5 inline-flex w-full items-center justify-center rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-content transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70">{isSubmitting ? t("cart.placingOrder") : t("cart.checkout")}</button>
-              <p className="mt-3 text-center text-xs leading-5 text-slate-400">{deliveryAddresses.length > 1 && !selectedDeliveryAddressId ? t("cart.selectDeliveryAddressDesc") : "Your selected address is saved as an order snapshot."}</p>
+                <p className="text-sm font-medium text-slate-300">{t("cart.productsTotal")} {giftItemCount > 0 ? `· +${giftItemCount} ${t("cart.bxgyReward")}` : ""}</p>
+                <p className="mt-1 text-2xl font-bold tracking-tight tabular-nums">{formatMarketplacePrice(total)}</p>
+                <button
+                  type="button"
+                  onClick={() => void handleCompleteOrder()}
+                  disabled={isSubmitting || isLoadingDeliveryAddresses || (!selectedDeliveryAddressId && deliveryAddresses.length === 0)}
+                  className="mt-5 inline-flex w-full items-center justify-center rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-content transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  {isSubmitting ? t("cart.placingOrder") : t("cart.checkout")}
+                </button>
+                <p className="mt-3 text-center text-xs leading-5 text-slate-400">{t("cart.selectDeliveryAddressDesc")}</p>
               </section>
             </aside>
           </div>

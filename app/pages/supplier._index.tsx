@@ -28,7 +28,7 @@ import {
   type StoredOrder,
 } from "~/shared/lib/indexed-db";
 import { NOTIFICATION_RECEIVED_EVENT } from "~/shared/api/notification-socket";
-import { useTranslation } from "~/shared/lib/i18n";
+import { useTranslation, getLocalizedOrderStatus } from "~/shared/lib/i18n";
 
 type DashboardNotificationView = {
   title: string;
@@ -76,6 +76,7 @@ export default function SupplierPage() {
     closed: 0,
   });
   const [recentOrders, setRecentOrders] = useState<StoredOrder[]>([]);
+  const [totalRevenue, setTotalRevenue] = useState<number>(0);
   const [isLoadingOrders, setIsLoadingOrders] = useState(true);
   const [notifications, setNotifications] = useState<DashboardNotificationView[]>(defaultNotifications);
   const [companyName, setCompanyName] = useState<string>("");
@@ -94,6 +95,15 @@ export default function SupplierPage() {
       if (isCurrent) {
         setOrderCounts(countOrdersByStatus(orders));
         setRecentOrders(orders.slice(0, 6));
+        setTotalRevenue(
+          orders
+            .filter((o) => o.status !== "Cancelled" && o.status !== "Rejected")
+            .reduce(
+              (sum, o) =>
+                sum + o.lines.reduce((lSum, l) => lSum + l.offeredPrice * l.offeredQuantity, 0),
+              0,
+            ),
+        );
       }
 
       // Try loading real backend notifications
@@ -171,6 +181,19 @@ export default function SupplierPage() {
       iconClass: "bg-emerald-100 text-emerald-700",
       barClass: "bg-emerald-500",
     },
+    {
+      label: t("orders.total"),
+      value: new Intl.NumberFormat("hy-AM", {
+        style: "currency",
+        currency: "AMD",
+        maximumFractionDigits: 0,
+      }).format(totalRevenue),
+      description: t("dashboard.orderOverview"),
+      href: "/supplier/orders",
+      icon: CheckCircle2,
+      iconClass: "bg-violet-100 text-violet-700",
+      barClass: "bg-violet-500",
+    },
   ];
 
   const quickActions = [
@@ -244,7 +267,7 @@ export default function SupplierPage() {
           </span>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {orderStates.map((state) => {
             const Icon = state.icon;
 
@@ -348,7 +371,7 @@ export default function SupplierPage() {
                           : "bg-slate-100 text-slate-700"
                       }`}
                     >
-                      {order.status}
+                      {getLocalizedOrderStatus(order.status, t)}
                     </span>
                     <span className="min-w-20 text-right text-sm font-bold text-slate-900 tabular-nums">
                       {new Intl.NumberFormat("hy-AM", {

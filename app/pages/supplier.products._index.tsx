@@ -177,8 +177,15 @@ export default function SupplierProductsPage() {
       id: "status",
       header: t("common.status"),
       cell: (product) => (
-        <span
-          className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
+        <button
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            void handleToggleProductStatus(product);
+          }}
+          title={product.status === "Active" ? "Hide from catalog (Unlist)" : "Publish to catalog (Active)"}
+          className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold transition ${
             product.status === "Active"
               ? "bg-emerald-50 text-emerald-700"
               : product.status === "Unlisted"
@@ -188,8 +195,9 @@ export default function SupplierProductsPage() {
                   : "bg-slate-200 text-slate-700"
           }`}
         >
+          <Power className="h-3 w-3" aria-hidden="true" />
           {product.status}
-        </span>
+        </button>
       ),
     },
   ];

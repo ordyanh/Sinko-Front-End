@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Link } from "react-router";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { AlertCircle, Building2, CheckCircle2, Lock, MapPin, PencilLine, Plus, RefreshCw } from "lucide-react";
 import { useForm, type SubmitHandler } from "react-hook-form";
@@ -407,6 +408,17 @@ export default function HorecaCompanyInformationPage() {
   return (
     <DashboardPageContent>
       <div className="space-y-6">
+        <nav className="flex flex-wrap gap-2 border-b border-slate-200 pb-3" aria-label={t("settings.title")}>
+          <Link to="/horeca/settings/company-information" className="rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-content shadow-xs">
+            {t("settings.companyInfoTitle")}
+          </Link>
+          <Link to="/horeca/settings/account" className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 hover:text-slate-900">
+            {t("settings.account")}
+          </Link>
+          <Link to="/horeca/settings/notifications" className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 hover:text-slate-900">
+            {t("settings.notifications")}
+          </Link>
+        </nav>
         <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-1.5">
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary">

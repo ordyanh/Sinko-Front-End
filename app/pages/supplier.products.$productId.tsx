@@ -437,7 +437,7 @@ export default function SupplierProductDetailPage() {
                     onChange={(event) => setDescription(event.target.value)}
                     placeholder={t("products.productDescriptionPlaceholder")}
                     rows={6}
-                    className="block w-full resize-y rounded-xl border border-slate-200 bg-white px-4 py-3 text-base text-slate-900 placeholder:text-slate-400 transition-[border-color,box-shadow] duration-200 hover:border-slate-300 focus:border-emerald-500 focus:outline-none focus:ring-4 focus:ring-emerald-100"
+                    className="block w-full resize-y rounded-xl border border-slate-200 bg-white px-4 py-3 text-base text-slate-900 placeholder:text-slate-400 transition-[border-color,box-shadow] duration-200 hover:border-slate-300 focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/20"
                   />
                 </div>
 
@@ -607,6 +607,33 @@ export default function SupplierProductDetailPage() {
                 <option value="Unlisted">{t("products.unlisted")}</option>
                 <option value="Inactive">{t("products.inactive")}</option>
               </Select>
+              <div className="mt-6 border-t border-slate-100 pt-5">
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-primary">
+                  {t("products.buyersSee")}
+                </p>
+                <div className="mt-3 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50/60 p-3.5">
+                  <div className="flex items-center gap-3">
+                    {imagePreviewUrl ? (
+                      <img src={imagePreviewUrl} alt="" className="h-12 w-12 shrink-0 rounded-xl object-cover ring-1 ring-slate-200" />
+                    ) : (
+                      <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-white text-slate-400 ring-1 ring-slate-200">
+                        <Package className="h-5 w-5" aria-hidden="true" />
+                      </span>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-bold text-slate-900">
+                        {title || t("products.productTitlePlaceholder")}
+                      </p>
+                      <p className="mt-0.5 text-xs font-semibold text-primary tabular-nums">
+                        {sellingOptions[0]?.price ? formatAmd(Number(sellingOptions[0].price)) : "0 ֏"}
+                        <span className="ml-1 font-normal text-slate-500">
+                          · {sellingOptions[0]?.quantity || "1"} {sellingOptions[0]?.unitType || ""}
+                        </span>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </section>
 
           </div>

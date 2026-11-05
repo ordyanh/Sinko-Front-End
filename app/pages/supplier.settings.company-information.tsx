@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Building2, PencilLine } from "lucide-react";
 import { useForm, type SubmitHandler } from "react-hook-form";
@@ -116,6 +117,17 @@ export default function SupplierCompanyInformationPage() {
   return (
     <DashboardPageContent>
       <div className="space-y-6">
+        <nav className="flex flex-wrap gap-2 border-b border-slate-200 pb-3" aria-label={t("settings.title")}>
+          <Link to="/supplier/settings/company-information" className="rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-content shadow-xs">
+            {t("settings.companyInfoTitle")}
+          </Link>
+          <Link to="/supplier/settings/account" className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 hover:text-slate-900">
+            {t("settings.account")}
+          </Link>
+          <Link to="/supplier/settings/notifications" className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 hover:text-slate-900">
+            {t("settings.notifications")}
+          </Link>
+        </nav>
         <header className="space-y-1.5">
           <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary">
             {t("settings.account")}

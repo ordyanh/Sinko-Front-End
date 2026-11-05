@@ -164,14 +164,15 @@ export default function HorecaProductDetailPage() {
           </div>
 
           <div className="p-5 sm:p-8">
-            <p className="text-xs font-bold uppercase tracking-[0.16em] text-primary">{t("products.marketplaceProduct")}</p>
+            <div className="flex flex-wrap items-center gap-2"><span className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-bold uppercase tracking-[0.14em] text-primary">{product.category}</span><span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700"><Check className="h-3.5 w-3.5" aria-hidden="true" />{t("suppliers.verified")}</span></div>
             <h1 className="mt-3 text-3xl font-bold tracking-[-0.05em] text-slate-950 sm:text-4xl">{product.title}</h1>
-            <p className="mt-3 text-sm leading-6 text-slate-600">{t("products.formatPrepSchedule")}</p>
+            <p className="mt-2 text-sm font-medium text-slate-600">{t("products.suppliedBy", { supplier: product.supplier })} · SLA 08:00–12:00</p>
+            <p className="mt-2 text-sm leading-6 text-slate-500">{t("products.formatPrepSchedule")}</p>
 
             <div className="mt-6 flex flex-col items-start gap-2 border-y border-slate-100 py-4 min-[420px]:flex-row min-[420px]:items-end min-[420px]:justify-between">
               <div>
                 <p className="whitespace-nowrap text-2xl font-bold tracking-tight text-slate-950 tabular-nums">{formatMarketplacePrice(price)}</p>
-                <p className="mt-1 text-xs text-slate-500">{t("products.perUnit", { unit: getMarketplaceOptionLabel(selectedOption) })}</p>
+                <p className="mt-1 text-xs text-slate-500">{t("products.perUnit", { unit: getMarketplaceOptionLabel(selectedOption) })} · {getMarketplaceMinimumOrderLabel(selectedOption)}</p>
               </div>
               {pricePromotion ? <span className="rounded-full bg-rose-50 px-3 py-1.5 text-xs font-bold text-rose-700">{pricePromotion.benefitLabel}</span> : null}
             </div>
@@ -212,7 +213,7 @@ export default function HorecaProductDetailPage() {
 
           <div className="mt-5 flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center justify-between gap-4 sm:justify-start"><div><p className="text-sm font-bold text-slate-900">{t("products.quantity")}</p><p className="mt-0.5 text-xs text-slate-500">{getMarketplaceMinimumOrderLabel(selectedOption)}</p></div><div className="flex h-10 items-center rounded-xl border border-primary/20 bg-white p-0.5"><button type="button" onClick={() => setQuantity((current) => Math.max(selectedOption.minimumOrderQuantity, current - 1))} className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-primary transition hover:bg-primary/10" aria-label="Decrease quantity"><Minus className="h-4 w-4" aria-hidden="true" /></button><span className="w-9 text-center text-sm font-bold tabular-nums">{quantity}</span><button type="button" onClick={() => setQuantity((current) => current + 1)} className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-primary transition hover:bg-primary/10" aria-label="Increase quantity"><Plus className="h-4 w-4" aria-hidden="true" /></button></div></div>
-            <div className="sm:text-right"><p className="text-sm text-slate-500">{t("products.subtotal")} <span className="ml-1 whitespace-nowrap font-bold text-slate-950 tabular-nums">{formatMarketplacePrice(price * quantity)}</span></p><button type="button" onClick={addToCart} className="mt-2 inline-flex min-h-11 w-full items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-content shadow-sm transition hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:w-auto"><ShoppingBasket className="h-4 w-4" aria-hidden="true" />{isAdded ? t("products.addedToCart") : t("products.addToCart")}</button></div>
+            <div className="sm:text-right"><p className="text-sm text-slate-500">{t("products.subtotal")} <span className="ml-1 whitespace-nowrap font-bold text-slate-950 tabular-nums">{formatMarketplacePrice(price * quantity)}</span></p><button type="button" onClick={addToCart} className="mt-2 inline-flex min-h-11 w-full items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-content shadow-sm transition hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:w-auto"><ShoppingBasket className="h-4 w-4" aria-hidden="true" />{isAdded ? t("products.addedToCart") : `${t("products.addToCart")} — ${formatMarketplacePrice(price * quantity)}`}</button></div>
           </div>
         </div>
       </section>

@@ -34,33 +34,60 @@ function getDiscountDetails(originalPrice: number, discountedPrice: number) {
 
 function ProductCard({
   product,
-  cartQuantity,
-  onQuickAdd,
-  onChangeQuantity,
+  cartLines,
+  onSetOptionQuantity,
   onOpenOptions,
 }: {
   product: MarketplaceProduct;
-  cartQuantity: number;
-  onQuickAdd: () => void;
-  onChangeQuantity: (nextQty: number) => void;
+  cartLines: MarketplaceCartLine[];
+  onSetOptionQuantity: (option: MarketplaceSellingOption, nextQty: number) => void;
   onOpenOptions: () => void;
 }) {
   const { t } = useTranslation();
   const availableOptions = getMarketplaceSellingOptions(product);
-  const startingOption = availableOptions[0];
-  const { price: productPrice, promotion: pricePromotion } = getPromotionalPrice(product, startingOption);
-  const discount = pricePromotion ? getDiscountDetails(startingOption.price, productPrice) : undefined;
-  const bxgyPromotion = getPromotionsForProduct(product.id).find(
-    (promotion) => promotion.type === "BuyXGetY" && promotion.productIds[0] === product.id && promotion.giftChoices?.length,
-  ) ?? getPromotionsForProduct(product.id).find(
-    (promotion) => promotion.type === "BuyXGetY" && promotion.productIds[0] === product.id,
+  const [activeOptionId, setActiveOptionId] = useState(
+    () => availableOptions[0]?.id ?? "",
   );
-  const hasMultipleOptions = availableOptions.length > 1;
+  const activeOption =
+    availableOptions.find((o) => o.id === activeOptionId) ?? availableOptions[0];
+  const { price: productPrice, promotion: pricePromotion } = getPromotionalPrice(
+    product,
+    activeOption,
+  );
+  const discount = pricePromotion
+    ? getDiscountDetails(activeOption.price, productPrice)
+    : undefined;
+  const bxgyPromotion =
+    getPromotionsForProduct(product.id).find(
+      (promotion) =>
+        promotion.type === "BuyXGetY" &&
+        promotion.productIds[0] === product.id &&
+        promotion.giftChoices?.length,
+    ) ??
+    getPromotionsForProduct(product.id).find(
+      (promotion) =>
+        promotion.type === "BuyXGetY" && promotion.productIds[0] === product.id,
+    );
+  const activeOptionCartQty =
+    cartLines.find(
+      (line) =>
+        line.product.id === product.id && line.option.id === activeOption.id,
+    )?.quantity ?? 0;
 
   return (
-    <article className="group flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-2xs transition duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md">
+    <article
+      className={`group flex h-full flex-col overflow-hidden rounded-2xl border bg-white shadow-2xs transition duration-200 hover:-translate-y-0.5 hover:shadow-md ${
+        activeOptionCartQty > 0
+          ? "border-2 border-primary"
+          : "border-slate-200/90 hover:border-primary/30"
+      }`}
+    >
       <div className="relative aspect-[16/11] overflow-hidden bg-slate-100">
-        <Link to={`/horeca/products/${product.id}`} className="block h-full focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-primary" aria-label={`View ${product.title}`}>
+        <Link
+          to={`/horeca/products/${product.id}`}
+          className="block h-full focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-primary"
+          aria-label={`View ${product.title}`}
+        >
           {product.image ? (
             <img
               src={product.image}
@@ -76,14 +103,18 @@ function ProductCard({
             </div>
           )}
         </Link>
-        <span className="absolute right-2.5 top-2.5 rounded-lg bg-white/90 px-2 py-0.5 text-[11px] font-semibold text-slate-700 shadow-2xs backdrop-blur-xs">
-          {product.category.split(",")[0]}
+        <span className="absolute right-2.5 top-2.5 rounded-lg bg-white/95 px-2 py-0.5 text-[11px] font-bold text-slate-700 shadow-2xs backdrop-blur-xs">
+          {getMarketplaceMinimumOrderLabel(activeOption)}
         </span>
         {pricePromotion ? (
           <span className="absolute left-2.5 top-2.5 rounded-full bg-rose-600 px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.08em] text-white shadow-xs">
             {discount?.percentageLabel ?? pricePromotion.benefitLabel}
           </span>
-        ) : null}
+        ) : (
+          <span className="absolute left-2.5 top-2.5 rounded-lg bg-white/90 px-2 py-0.5 text-[11px] font-semibold text-slate-700 shadow-2xs backdrop-blur-xs">
+            {product.category.split(",")[0]}
+          </span>
+        )}
       </div>
 
       <div className="flex flex-1 flex-col p-4">
@@ -91,29 +122,73 @@ function ProductCard({
           <Store className="h-3.5 w-3.5 shrink-0 text-slate-400" aria-hidden="true" />
           <span className="truncate">{product.supplier}</span>
         </div>
-        <h2 className="mt-1 line-clamp-2 min-h-11 text-[15px] font-bold leading-5 tracking-tight text-slate-900">
-          <Link to={`/horeca/products/${product.id}`} className="rounded-sm transition hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
+        <h2 className="mt-1 line-clamp-2 min-h-10 text-[15px] font-extrabold leading-5 tracking-tight text-slate-900">
+          <Link
+            to={`/horeca/products/${product.id}`}
+            className="rounded-sm transition hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          >
             {product.title}
           </Link>
         </h2>
-        <p className="mt-1 truncate text-xs text-slate-500" title={availableOptions.map(getMarketplaceOptionLabel).join(", ")}>
-          {availableOptions.map(getMarketplaceOptionLabel).join(" · ")}
-        </p>
-        {pricePromotion ? <p className="mt-1.5 text-xs font-semibold text-rose-700">{discount?.savingsLabel ?? promotionTypeLabels[pricePromotion.type]}</p> : null}
+
+        {/* Inline Packaging Selector Pills */}
+        <div className="mt-2.5 flex flex-wrap gap-1.5">
+          {availableOptions.map((option) => {
+            const isSelected = option.id === activeOption.id;
+            const optQty =
+              cartLines.find(
+                (l) => l.product.id === product.id && l.option.id === option.id,
+              )?.quantity ?? 0;
+            return (
+              <button
+                key={option.id}
+                type="button"
+                onClick={() => setActiveOptionId(option.id)}
+                className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-bold transition ${
+                  isSelected
+                    ? "border-primary/40 bg-primary/10 text-primary"
+                    : "border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300 hover:text-slate-900"
+                }`}
+              >
+                <span>{getMarketplaceOptionLabel(option)}</span>
+                {optQty > 0 ? (
+                  <span className="rounded-full bg-primary px-1.5 text-[10px] text-white tabular-nums">
+                    {optQty}
+                  </span>
+                ) : null}
+              </button>
+            );
+          })}
+        </div>
+
+        {pricePromotion ? (
+          <p className="mt-1.5 text-xs font-semibold text-rose-700">
+            {discount?.savingsLabel ?? promotionTypeLabels[pricePromotion.type]}
+          </p>
+        ) : null}
         {bxgyPromotion ? (
-          <Link to={`/horeca/products/${product.id}?promotion=${bxgyPromotion.id}`} className="mt-2.5 flex items-center gap-2 rounded-xl border border-violet-100 bg-violet-50 px-2.5 py-1.5 text-left transition hover:border-violet-200 hover:bg-violet-100/70">
-            <span className="grid h-6 w-6 shrink-0 place-items-center rounded-lg bg-violet-600 text-white"><Gift className="h-3.5 w-3.5" aria-hidden="true" /></span>
-            <span className="min-w-0"><span className="block truncate text-xs font-bold text-violet-950">{bxgyPromotion.benefitLabel}</span></span>
+          <Link
+            to={`/horeca/products/${product.id}?promotion=${bxgyPromotion.id}`}
+            className="mt-2.5 flex items-center gap-2 rounded-xl border border-violet-100 bg-violet-50 px-2.5 py-1.5 text-left transition hover:border-violet-200 hover:bg-violet-100/70"
+          >
+            <span className="grid h-6 w-6 shrink-0 place-items-center rounded-lg bg-violet-600 text-white">
+              <Gift className="h-3.5 w-3.5" aria-hidden="true" />
+            </span>
+            <span className="min-w-0">
+              <span className="block truncate text-xs font-bold text-violet-950">
+                {bxgyPromotion.benefitLabel}
+              </span>
+            </span>
           </Link>
         ) : null}
 
-        <div className="mt-auto border-t border-slate-100 pt-3 flex flex-col gap-2.5">
+        <div className="mt-auto flex flex-col gap-2.5 border-t border-slate-100 pt-3">
           <div className="flex items-baseline justify-between gap-2">
             <div className="min-w-0">
               {pricePromotion ? (
                 <div className="text-[11px] text-slate-400">
                   <span className="whitespace-nowrap font-medium line-through tabular-nums">
-                    {formatMarketplacePrice(startingOption.price)}
+                    {formatMarketplacePrice(activeOption.price)}
                   </span>
                 </div>
               ) : null}
@@ -121,34 +196,46 @@ function ProductCard({
                 {formatMarketplacePrice(productPrice)}
               </p>
             </div>
-            <p className="truncate text-right text-xs font-medium text-slate-500" title={getMarketplaceOptionLabel(startingOption)}>
-              / {getMarketplaceOptionLabel(startingOption)}
-            </p>
+            {activeOptionCartQty > 0 ? (
+              <p className="truncate text-right text-xs font-bold text-emerald-700 tabular-nums">
+                {t("common.total")}: {formatMarketplacePrice(productPrice * activeOptionCartQty)}
+              </p>
+            ) : (
+              <p
+                className="truncate text-right text-xs font-medium text-slate-500"
+                title={getMarketplaceOptionLabel(activeOption)}
+              >
+                / {getMarketplaceOptionLabel(activeOption)}
+              </p>
+            )}
           </div>
 
-          {cartQuantity > 0 && !hasMultipleOptions ? (
-            <div className="flex h-10 w-full items-center justify-between rounded-xl border border-primary/30 bg-primary/5 px-1.5">
+          {activeOptionCartQty > 0 ? (
+            <div className="flex h-10 w-full items-center justify-between rounded-xl border-2 border-primary bg-primary/5 px-1.5">
               <button
                 type="button"
                 onClick={() =>
-                  onChangeQuantity(
-                    cartQuantity <= startingOption.minimumOrderQuantity
+                  onSetOptionQuantity(
+                    activeOption,
+                    activeOptionCartQty <= activeOption.minimumOrderQuantity
                       ? 0
-                      : cartQuantity - 1,
+                      : activeOptionCartQty - 1,
                   )
                 }
-                className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-white text-primary shadow-2xs transition hover:bg-primary hover:text-primary-content"
+                className="inline-flex h-7 w-8 items-center justify-center rounded-lg bg-primary text-primary-content shadow-2xs transition hover:brightness-95"
                 aria-label={`Decrease ${product.title} quantity`}
               >
                 <Minus className="h-4 w-4" aria-hidden="true" />
               </button>
-              <span className="text-sm font-bold text-slate-900 tabular-nums">
-                {cartQuantity} {t("cart.inCart", "in cart")}
+              <span className="text-xs font-extrabold text-primary tabular-nums">
+                {activeOptionCartQty} · {getMarketplaceOptionLabel(activeOption)}
               </span>
               <button
                 type="button"
-                onClick={() => onChangeQuantity(cartQuantity + 1)}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-content shadow-2xs transition hover:brightness-95"
+                onClick={() =>
+                  onSetOptionQuantity(activeOption, activeOptionCartQty + 1)
+                }
+                className="inline-flex h-7 w-8 items-center justify-center rounded-lg bg-primary text-primary-content shadow-2xs transition hover:brightness-95"
                 aria-label={`Increase ${product.title} quantity`}
               >
                 <Plus className="h-4 w-4" aria-hidden="true" />
@@ -158,26 +245,19 @@ function ProductCard({
             <div className="flex items-center gap-1.5">
               <button
                 type="button"
-                onClick={hasMultipleOptions ? onOpenOptions : onQuickAdd}
+                onClick={() =>
+                  bxgyPromotion?.giftChoices?.length
+                    ? onOpenOptions()
+                    : onSetOptionQuantity(
+                        activeOption,
+                        activeOption.minimumOrderQuantity,
+                      )
+                }
                 className="inline-flex min-h-10 flex-1 items-center justify-center gap-2 rounded-xl bg-primary px-3 py-2 text-xs font-bold text-primary-content shadow-2xs transition hover:brightness-95 active:scale-[0.99]"
               >
                 <ShoppingBasket className="h-4 w-4 shrink-0" aria-hidden="true" />
-                <span className="truncate">
-                  {cartQuantity > 0
-                    ? `${cartQuantity} ${t("cart.inCart", "in cart")}`
-                    : t("products.addToCart")}
-                </span>
+                <span className="truncate">{t("products.addToCart")}</span>
               </button>
-              {hasMultipleOptions ? (
-                <button
-                  type="button"
-                  onClick={onOpenOptions}
-                  className="inline-flex h-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 px-2.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-100"
-                  title={t("products.packaging", "Packaging options")}
-                >
-                  {availableOptions.length} opt.
-                </button>
-              ) : null}
             </div>
           )}
         </div>
@@ -508,26 +588,17 @@ export default function HorecaProductsPage() {
             <>
               {viewMode === "grid" ? (
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                  {pagedProducts.map((product) => {
-                    const startingOption = getMarketplaceSellingOptions(product)[0];
-                    const cartQuantity = cartLines
-                      .filter((line) => line.product.id === product.id)
-                      .reduce((total, line) => total + line.quantity, 0);
-                    return (
-                      <ProductCard
-                        key={product.id}
-                        product={product}
-                        cartQuantity={cartQuantity}
-                        onQuickAdd={() => handleQuickAdd(product)}
-                        onChangeQuantity={(nextQty) => {
-                          if (startingOption) {
-                            setCartLineQuantity(product, startingOption, nextQty);
-                          }
-                        }}
-                        onOpenOptions={() => openProductSelector(product)}
-                      />
-                    );
-                  })}
+                  {pagedProducts.map((product) => (
+                    <ProductCard
+                      key={product.id}
+                      product={product}
+                      cartLines={cartLines}
+                      onSetOptionQuantity={(option, nextQty) => {
+                        setCartLineQuantity(product, option, nextQty);
+                      }}
+                      onOpenOptions={() => openProductSelector(product)}
+                    />
+                  ))}
                 </div>
               ) : (
                 <div className="divide-y divide-slate-200 overflow-hidden rounded-2xl border border-slate-200 bg-white">

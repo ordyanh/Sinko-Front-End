@@ -54,7 +54,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
 
     const stateClasses = isInvalid
       ? "border-red-400 bg-red-50/40 text-red-950 placeholder:text-red-300 focus-visible:border-red-500 focus-visible:ring-red-200 dark:border-red-500 dark:bg-[#f1f5f9] dark:text-slate-900 dark:placeholder:text-slate-500"
-      : "focus-visible:border-emerald-500 focus-visible:ring-emerald-100 dark:focus-visible:ring-emerald-950/50";
+      : "focus-visible:border-primary focus-visible:ring-primary/20 dark:focus-visible:ring-primary/30";
 
     return (
       <div className={containerClassName}>
@@ -83,7 +83,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
               onClick={() => setIsPasswordVisible((current) => !current)}
               className="synko-input-icon-btn absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-1 text-slate-500 transition hover:text-slate-800"
               aria-label={isPasswordVisible ? "Hide password" : "Show password"}
-              tabIndex={-1}
+              aria-pressed={isPasswordVisible}
             >
               {isPasswordVisible ? (
                 <EyeOff className="h-4 w-4" aria-hidden="true" />
